@@ -13,6 +13,7 @@ import videoStreamRoutes from './routes/videoStreamRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import userRoutes from './routes/userRoutes';
 import courseContentRoutes from './routes/courseContentRoutes';
+import publicCourseRoutes from './routes/publicCourseRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 config();
@@ -50,13 +51,14 @@ app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
-app.use('/api/courses', lessonRoutes);
-app.use('/api/courses', noticeRoutes);
-app.use('/api/courses', courseContentRoutes);
-app.use('/api/courses', videoStreamRoutes);
+app.use('/api/lessons', lessonRoutes);
+app.use('/api/notices', noticeRoutes);
 app.use('/api/enrollments', enrollmentRoutes);
+app.use('/api/stream', videoStreamRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/course-content', courseContentRoutes);
+app.use('/api/public/courses', publicCourseRoutes);
 
 // Basic route for testing
 app.get('/', (req: Request, res: Response) => {

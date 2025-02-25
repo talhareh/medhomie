@@ -58,7 +58,11 @@ export const enrollInCourse = async (req: AuthRequest, res: Response): Promise<v
     await enrollment.save();
     res.status(201).json(enrollment);
   } catch (error) {
-    res.status(500).json({ message: 'Error enrolling in course', error });
+    console.error('Error in enrollInCourse:', error);
+    res.status(500).json({ 
+      message: 'Error enrolling in course', 
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 };
 
@@ -132,7 +136,10 @@ export const getEnrollments = async (req: AuthRequest, res: Response): Promise<v
     res.status(200).json(enrollments);
   } catch (error) {
     console.error('Error in getEnrollments:', error);
-    res.status(500).json({ message: 'Error fetching enrollments', error });
+    res.status(500).json({ 
+      message: 'Error fetching enrollments', 
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 };
 
@@ -169,7 +176,11 @@ export const updateEnrollmentStatus = async (req: AuthRequest, res: Response): P
     await enrollment.save();
     res.status(200).json(enrollment);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating enrollment status', error });
+    console.error('Error in updateEnrollmentStatus:', error);
+    res.status(500).json({ 
+      message: 'Error updating enrollment status', 
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 };
 
@@ -182,12 +193,16 @@ export const getMyEnrollments = async (req: AuthRequest, res: Response): Promise
     }
 
     const enrollments = await Enrollment.find({ student: req.user._id })
-      .populate('course', 'title description price image content noticeBoard')
+      .populate('course', 'title description price image')  
       .populate('student', 'name email')
       .sort({ enrollmentDate: -1 });
 
     res.status(200).json(enrollments);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching your enrollments', error });
+    console.error('Error in getMyEnrollments:', error);
+    res.status(500).json({ 
+      message: 'Error fetching your enrollments', 
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 };

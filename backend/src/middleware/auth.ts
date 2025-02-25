@@ -145,3 +145,36 @@ export const authorizeRoles = (...roles: UserRole[]) => {
     next();
   };
 };
+
+// Optional authentication middleware
+export const optionalAuthToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return next();
+    }
+
+    const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret_key';
+    const payload = jwt.verify(token, jwtSecret) as TokenPayload;
+
+    const user = await User.findById(payload.userId);
+    if (!user) {
+      return next();
+    }
+
+    (req as AuthRequest).user = {
+      _id: user._id.toString(),
+      role: user.role
+    };
+    next();
+  } catch (error) {
+    // If token is invalid, continue without user
+    next();
+  }
+};

@@ -139,11 +139,30 @@ export const updateCourseState = async (req: AuthRequest, res: Response): Promis
 };
 
 // Update a course (admin or instructor)
-export const updateCourse = async (req: Request, res: Response): Promise<void> => {
+export const updateCourse = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const updateData: Partial<ICourseData> = {
+      title: req.body.title,
+      description: req.body.description,
+      price: parseFloat(req.body.price),
+      state: req.body.state,
+    };
+
+    // Handle file uploads if present
+    if (req.files) {
+      const files = req.files as MulterFiles;
+      
+      if (files.thumbnail?.[0]) {
+        updateData.thumbnail = files.thumbnail[0].path;
+      }
+      if (files.banner?.[0]) {
+        updateData.banner = files.banner[0].path;
+      }
+    }
+
     const course = await Course.findByIdAndUpdate(
       req.params.courseId,
-      { $set: req.body },
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 
@@ -154,6 +173,7 @@ export const updateCourse = async (req: Request, res: Response): Promise<void> =
 
     res.json(course);
   } catch (error) {
+    console.error('Error updating course:', error);
     res.status(500).json({ message: 'Error updating course' });
   }
 };

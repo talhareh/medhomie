@@ -111,14 +111,14 @@ const courseSchema = new Schema<ICourseDocument>({
 
 // Virtual for total lessons count
 courseSchema.virtual('totalLessons').get(function(this: ICourseDocument) {
-  return this.modules.reduce((total, module) => total + module.lessons.length, 0);
+  return this.modules?.reduce((total, module) => total + (module.lessons?.length || 0), 0) || 0;
 });
 
 // Virtual for total duration
 courseSchema.virtual('totalDuration').get(function(this: ICourseDocument) {
-  return this.modules.reduce((total, module) => {
-    return total + module.lessons.reduce((moduleTotal, lesson) => moduleTotal + (lesson.duration || 0), 0);
-  }, 0);
+  return this.modules?.reduce((total, module) => {
+    return total + (module.lessons?.reduce((moduleTotal, lesson) => moduleTotal + (lesson.duration || 0), 0) || 0);
+  }, 0) || 0;
 });
 
 export const Course = mongoose.model<ICourseDocument>('Course', courseSchema);
