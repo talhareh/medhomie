@@ -11,7 +11,7 @@ import {
   updatePaymentStatus,
   getPayments,
   getPaymentById,
-  reuploadePaymentReceipt
+  reuploadPaymentReceipt
 } from '../controllers/paymentController';
 
 const router = express.Router();
@@ -49,7 +49,7 @@ router.post(
   authenticateToken,
   uploadPaymentReceipt.single('paymentReceipt'),
   validatePaymentReupload,
-  reuploadePaymentReceipt
+  reuploadPaymentReceipt
 );
 
 export default router;

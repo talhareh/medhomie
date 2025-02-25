@@ -5,16 +5,7 @@ import { toast } from 'react-toastify';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/axios';
-
-interface Course {
-  _id: string;
-  title: string;
-  description: string;
-  price: number;
-  image?: string;
-  enrollmentCount: number;
-  createdAt: string;
-}
+import { Course, CourseState } from '../../types/course';
 
 export const CoursesListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -53,6 +44,19 @@ export const CoursesListPage: React.FC = () => {
     return null;
   }
 
+  const getStateColor = (state: CourseState) => {
+    switch (state) {
+      case CourseState.ACTIVE:
+        return 'bg-green-100 text-green-800';
+      case CourseState.DRAFT:
+        return 'bg-yellow-100 text-yellow-800';
+      case CourseState.INACTIVE:
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <MainLayout>
       <div className="p-6">
@@ -78,15 +82,25 @@ export const CoursesListPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
               <div key={course._id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                {course.image && (
+                {course.thumbnail && (
                   <img
-                    src={course.image}
+                    src={course.thumbnail.replace('uploads/', '/api/uploads/')}
                     alt={course.title}
                     className="w-full h-48 object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.onerror = null;
+                      target.src = '/placeholder-image.png';
+                    }}
                   />
                 )}
                 <div className="p-6">
-                  <h2 className="text-xl font-semibold mb-2">{course.title}</h2>
+                  <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-xl font-semibold">{course.title}</h2>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStateColor(course.state)}`}>
+                      {course.state}
+                    </span>
+                  </div>
                   <p className="text-gray-600 mb-4 line-clamp-2">{course.description}</p>
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-lg font-bold">${course.price}</span>
@@ -102,10 +116,10 @@ export const CoursesListPage: React.FC = () => {
                       Edit
                     </button>
                     <button
-                      onClick={() => navigate(`/admin/courses/${course._id}/content/new`)}
+                      onClick={() => navigate(`/admin/courses/${course._id}`)}
                       className="flex-1 bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600"
                     >
-                      Add Content
+                      Content
                     </button>
                     <button
                       onClick={() => handleDelete(course._id)}

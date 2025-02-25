@@ -1,24 +1,43 @@
 import express from 'express';
-import { authenticateToken, isAdmin } from '../middleware/auth';
-import {
-  getAllCourses,
-  getPublicCourses,
-  getCourseDetails,
+import { authenticateToken as auth } from '../middleware/auth';
+import { uploadImage } from '../utils/fileUpload';
+import { 
   createCourse,
+  getCourseDetails as getCourse,
+  getAllCourses,
   updateCourse,
-  deleteCourse
+  deleteCourse,
+  updateCourseState
 } from '../controllers/courseController';
+import {
+  addModule,
+  getModule,
+  updateModule,
+  deleteModule,
+  reorderModules
+} from '../controllers/moduleController';
 
 const router = express.Router();
 
-// Public routes
-router.get('/public', getPublicCourses);
+// Course routes
+router.post('/', auth, uploadImage.fields([
+  { name: 'thumbnail', maxCount: 1 },
+  { name: 'banner', maxCount: 1 }
+]), createCourse);
+router.get('/', getAllCourses);
+router.get('/:courseId', auth, getCourse);
+router.put('/:courseId', auth, uploadImage.fields([
+  { name: 'thumbnail', maxCount: 1 },
+  { name: 'banner', maxCount: 1 }
+]), updateCourse);
+router.delete('/:courseId', auth, deleteCourse);
+router.patch('/:courseId/state', auth, updateCourseState);
 
-// Admin routes
-router.get('/', authenticateToken, isAdmin, getAllCourses);
-router.post('/', authenticateToken, isAdmin, createCourse);
-router.get('/:courseId', authenticateToken, isAdmin, getCourseDetails);
-router.put('/:courseId', authenticateToken, isAdmin, updateCourse);
-router.delete('/:courseId', authenticateToken, isAdmin, deleteCourse);
+// Module routes
+router.post('/:courseId/modules', auth, addModule);
+router.get('/:courseId/modules/:moduleId', getModule);
+router.put('/:courseId/modules/:moduleId', auth, updateModule);
+router.delete('/:courseId/modules/:moduleId', auth, deleteModule);
+router.post('/:courseId/modules/reorder', auth, reorderModules);
 
 export default router;

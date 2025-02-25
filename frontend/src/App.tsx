@@ -22,6 +22,8 @@ import { MyCoursesPage } from './pages/student/MyCoursesPage';
 import { PaymentsPage } from './pages/student/PaymentsPage';
 import { UsersListPage } from './pages/admin/UsersListPage';
 import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
+import { CourseContentManager } from './components/layout/CourseContentManager';
+import { ModuleLessonsManager } from './components/layout/ModuleLessonsManager';
 
 // Initialize React Query client
 const queryClient = new QueryClient({
@@ -113,6 +115,18 @@ function App() {
             <Route path="/admin/courses/:courseId" element={
               <ProtectedRoute adminOnly>
                 <CourseDetailPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/courses/:courseId/content" element={
+              <ProtectedRoute adminOnly>
+                <CourseContentManager />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/courses/:courseId/modules/:moduleId/lessons" element={
+              <ProtectedRoute adminOnly>
+                <ModuleLessonsManager />
               </ProtectedRoute>
             } />
 

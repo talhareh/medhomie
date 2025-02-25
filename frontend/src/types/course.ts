@@ -1,28 +1,47 @@
+export enum CourseState {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE'
+}
+
+export interface Lesson {
+  _id?: string;
+  title: string;
+  description: string;
+  order: number;
+  duration?: number;
+  video?: string;
+  attachments: string[];
+  isPreview: boolean;
+}
+
+export interface Module {
+  _id?: string;
+  title: string;
+  description: string;
+  order: number;
+  lessons: Lesson[];
+}
+
 export interface Course {
   _id: string;
   title: string;
   description: string;
   price: number;
-  instructor: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
-  isApproved: boolean;
-  testingBody: string;
-  specialty: string;
-  courseType: string;
+  thumbnail?: string;
+  banner?: string;
+  state: CourseState;
+  modules: Module[];
+  noticeBoard: string[];
+  enrollmentCount: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Filters {
-  testingBodies: string[];
-  specialties: string[];
-  courseTypes: string[];
-}
-
-export interface ActiveFilters {
-  testingBody: string[];
-  specialty: string[];
-  courseType: string[];
+  search?: string;
+  state?: CourseState;
+  sortBy?: string;
+  order?: 'asc' | 'desc';
 }

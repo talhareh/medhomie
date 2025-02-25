@@ -11,7 +11,20 @@ interface Course {
   title: string;
   description: string;
   price: number;
-  image?: string;
+  thumbnail?: string;
+  banner?: string;
+  modules: {
+    _id: string;
+    title: string;
+    description: string;
+    lessons: {
+      _id: string;
+      title: string;
+      description: string;
+      video: string;
+      attachments: string[];
+    }[];
+  }[];
   content: {
     _id: string;
     title: string;
@@ -20,6 +33,10 @@ interface Course {
     attachments: string[];
   }[];
   noticeBoard: string[];
+  state: string;
+  enrollmentCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const CourseDetailPage: React.FC = () => {
@@ -29,11 +46,16 @@ export const CourseDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [newNotice, setNewNotice] = useState('');
 
-  const { data: course, isLoading } = useQuery({
+  const { data: course, isLoading, error } = useQuery({
     queryKey: ['course', courseId],
     queryFn: async () => {
-      const response = await api.get<Course>(`/courses/${courseId}`);
-      return response.data;
+      try {
+        const response = await api.get<Course>(`/courses/${courseId}`);
+        return response.data;
+      } catch (error: any) {
+        console.error('Error fetching course:', error.response?.data || error);
+        throw error;
+      }
     },
   });
 
@@ -80,25 +102,43 @@ export const CourseDetailPage: React.FC = () => {
     }
   };
 
-  if (!user || user.role !== 'admin') {
-    navigate('/');
-    return null;
-  }
-
-  if (isLoading || !course) {
+  if (isLoading) {
     return (
       <MainLayout>
-        <div className="flex justify-center items-center h-64">
+        <div className="flex justify-center items-center h-screen">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
       </MainLayout>
     );
   }
 
+  if (error || !course) {
+    return (
+      <MainLayout>
+        <div className="p-6">
+          <div className="text-center py-12">
+            <p className="text-red-500 text-lg">Failed to load course details.</p>
+            <button
+              onClick={() => navigate('/admin/courses')}
+              className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Back to Courses
+            </button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!user || user.role !== 'admin') {
+    navigate('/');
+    return null;
+  }
+
   return (
     <MainLayout>
       <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="mb-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold">{course.title}</h1>
           <div className="space-x-4">
             <button
@@ -108,34 +148,79 @@ export const CourseDetailPage: React.FC = () => {
               Edit Course
             </button>
             <button
-              onClick={() => navigate(`/admin/courses/${courseId}/content/new`)}
+              onClick={() => navigate(`/admin/courses/${courseId}/content`)}
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
             >
-              Add Content
+              Manage Content
+            </button>
+            <button
+              onClick={() => navigate('/admin/courses')}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+            >
+              Back to Courses
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Course Details */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4">Course Information</h2>
-              {course.image && (
-                <img
-                  src={course.image}
-                  alt={course.title}
-                  className="w-full h-64 object-cover rounded-lg mb-4"
-                />
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+            <div className="mb-6">
+              {course.banner && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Course Banner</h3>
+                  <img
+                    src={course.banner.replace('uploads/', '/api/uploads/')}
+                    alt={`${course.title} banner`}
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                </div>
               )}
+              {course.thumbnail && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Course Thumbnail</h3>
+                  <img
+                    src={course.thumbnail.replace('uploads/', '/api/uploads/')}
+                    alt={`${course.title} thumbnail`}
+                    className="w-64 h-48 object-cover rounded-lg"
+                  />
+                </div>
+              )}
+
               <p className="text-gray-600 mb-4">{course.description}</p>
               <p className="text-lg font-bold">Price: ${course.price}</p>
+              <p className="text-sm text-gray-500 mt-2">State: {course.state}</p>
+              <p className="text-sm text-gray-500">Enrollments: {course.enrollmentCount}</p>
+            </div>
+
+            {/* Course Modules */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h2 className="text-xl font-semibold mb-4">Course Modules</h2>
+              {!course.modules || course.modules.length === 0 ? (
+                <p className="text-gray-500">No modules added yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {course.modules.map((module) => (
+                    <div key={module._id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold">{module.title}</h3>
+                          <p className="text-gray-600">{module.description}</p>
+                          <p className="text-sm text-gray-500 mt-1">
+                            {module.lessons?.length || 0} Lessons
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Course Content */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold mb-4">Course Content</h2>
-              {course.content.length === 0 ? (
+              {!course.content || course.content.length === 0 ? (
                 <p className="text-gray-500">No content added yet.</p>
               ) : (
                 <div className="space-y-4">
@@ -159,7 +244,11 @@ export const CourseDetailPage: React.FC = () => {
                           <ul className="list-disc list-inside text-sm text-blue-500">
                             {item.attachments.map((attachment, index) => (
                               <li key={index}>
-                                <a href={attachment} target="_blank" rel="noopener noreferrer">
+                                <a 
+                                  href={`/api/${attachment}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
                                   {attachment.split('/').pop()}
                                 </a>
                               </li>
@@ -175,37 +264,38 @@ export const CourseDetailPage: React.FC = () => {
           </div>
 
           {/* Notice Board */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4">Notice Board</h2>
-            
-            <form onSubmit={handleAddNotice} className="mb-6">
-              <textarea
-                value={newNotice}
-                onChange={(e) => setNewNotice(e.target.value)}
-                placeholder="Add a new notice..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                rows={3}
-              />
-              <button
-                type="submit"
-                disabled={addNoticeMutation.isLoading}
-                className="mt-2 w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-              >
-                {addNoticeMutation.isLoading ? 'Adding...' : 'Add Notice'}
-              </button>
-            </form>
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold mb-4">Notice Board</h2>
+              
+              <form onSubmit={handleAddNotice} className="mb-6">
+                <textarea
+                  value={newNotice}
+                  onChange={(e) => setNewNotice(e.target.value)}
+                  className="w-full p-2 border rounded-lg mb-2"
+                  rows={3}
+                  placeholder="Add a new notice..."
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                >
+                  Add Notice
+                </button>
+              </form>
 
-            {course.noticeBoard.length === 0 ? (
-              <p className="text-gray-500">No notices yet.</p>
-            ) : (
-              <div className="space-y-4">
-                {course.noticeBoard.map((notice, index) => (
-                  <div key={index} className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-gray-700">{notice}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+              {course.noticeBoard.length === 0 ? (
+                <p className="text-gray-500">No notices yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {course.noticeBoard.map((notice, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <p className="text-gray-600">{notice}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

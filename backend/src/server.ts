@@ -6,11 +6,13 @@ import path from 'path';
 import fs from 'fs';
 import authRoutes from './routes/authRoutes';
 import courseRoutes from './routes/courseRoutes';
-import courseContentRoutes from './routes/courseContentRoutes';
+import lessonRoutes from './routes/lessonRoutes';
+import noticeRoutes from './routes/noticeRoutes';
 import enrollmentRoutes from './routes/enrollmentRoutes';
 import videoStreamRoutes from './routes/videoStreamRoutes';
 import paymentRoutes from './routes/paymentRoutes';
 import userRoutes from './routes/userRoutes';
+import courseContentRoutes from './routes/courseContentRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 config();
@@ -28,6 +30,9 @@ const createUploadDirectories = () => {
   const dirs = [
     'uploads',
     'uploads/course-content',
+    'uploads/course-videos',
+    'uploads/course-images',
+    'uploads/course-attachments',
     'uploads/payment-receipts'
   ];
   dirs.forEach(dir => {
@@ -40,11 +45,13 @@ const createUploadDirectories = () => {
 createUploadDirectories();
 
 // Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/courses', lessonRoutes);
+app.use('/api/courses', noticeRoutes);
 app.use('/api/courses', courseContentRoutes);
 app.use('/api/courses', videoStreamRoutes);
 app.use('/api/enrollments', enrollmentRoutes);

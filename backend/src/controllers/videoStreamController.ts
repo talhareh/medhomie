@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Course } from '../models/Course';
+import { Course, ICourseDocument, IModuleDocument, ILessonDocument } from '../models/Course';
 import { Enrollment, EnrollmentStatus } from '../models/Enrollment';
 import { AuthRequest } from '../middleware/auth';
 import { UserRole } from '../models/User';
@@ -8,7 +8,7 @@ import path from 'path';
 
 export const streamCourseVideo = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { courseId, contentId } = req.params;
+    const { courseId, moduleId, lessonId } = req.params;
 
     if (!req.user) {
       res.status(401).json({ message: 'Unauthorized' });
@@ -22,21 +22,28 @@ export const streamCourseVideo = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    // Find the specific content item
-    const content = course.content.find((item) => item._id?.toString() === contentId);
-    if (!content || !content.video) {
-      res.status(404).json({ message: 'Video content not found' });
+    // Find the module and lesson
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      res.status(404).json({ message: 'Module not found' });
       return;
     }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson || !lesson.video) {
+      res.status(404).json({ message: 'Video not found' });
+      return;
+    }
+
     // Check if user has access to the video
-    const hasAccess = await checkVideoAccess(req.user._id, course, req.user.role);
+    const hasAccess = await checkVideoAccess(req.user._id, course, lesson.isPreview, req.user.role);
     if (!hasAccess) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }
 
     // Get the absolute path of the video file
-    const videoPath = path.resolve(content.video);
+    const videoPath = path.resolve(lesson.video);
 
     // Check if file exists
     if (!require('fs').existsSync(videoPath)) {
@@ -47,29 +54,33 @@ export const streamCourseVideo = async (req: AuthRequest, res: Response): Promis
     // Stream the video
     streamVideo(videoPath, req, res);
   } catch (error) {
+    console.error('Error streaming video:', error);
     res.status(500).json({ message: 'Error streaming video', error });
   }
 };
 
-async function checkVideoAccess(
+const checkVideoAccess = async (
   userId: string,
-  course: any,
+  course: ICourseDocument,
+  isPreview: boolean,
   userRole: UserRole
-): Promise<boolean> {
-  // Admin and course instructor always have access
-  if (userRole === UserRole.ADMIN || course.instructor.toString() === userId) {
+): Promise<boolean> => {
+  // Course creator/admin always has access
+  if (userRole === UserRole.ADMIN || course.createdBy.toString() === userId) {
     return true;
   }
 
-  // For students, check if they are enrolled and approved
-  if (userRole === UserRole.STUDENT) {
-    const enrollment = await Enrollment.findOne({
-      student: userId,
-      course: course._id,
-      status: EnrollmentStatus.APPROVED
-    });
-    return !!enrollment;
+  // If it's a preview video, everyone has access
+  if (isPreview) {
+    return true;
   }
 
-  return false;
-}
+  // Check if user is enrolled and approved for the course
+  const enrollment = await Enrollment.findOne({
+    student: userId,
+    course: course._id,
+    status: EnrollmentStatus.APPROVED
+  });
+
+  return !!enrollment;
+};

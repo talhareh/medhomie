@@ -5,6 +5,10 @@ import { streamCourseVideo } from '../controllers/videoStreamController';
 const router = express.Router();
 
 // Video streaming route
-router.get('/:courseId/content/:contentId/stream', authenticateToken, streamCourseVideo);
+router.get(
+  '/:courseId/modules/:moduleId/lessons/:lessonId/stream',
+  authenticateToken,
+  streamCourseVideo
+);
 
 export default router;

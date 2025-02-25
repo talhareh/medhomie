@@ -10,7 +10,8 @@ interface CourseData {
   title: string;
   description: string;
   price: number;
-  image?: File;
+  thumbnail?: File;
+  banner?: File;
 }
 
 export const AddCoursePage: React.FC = () => {
@@ -19,16 +20,20 @@ export const AddCoursePage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [image, setImage] = useState<File | null>(null);
+  const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [banner, setBanner] = useState<File | null>(null);
 
   const addCourseMutation = useMutation({
     mutationFn: async (courseData: CourseData) => {
       const formData = new FormData();
-      formData.append('title', courseData.title);
-      formData.append('description', courseData.description);
+      formData.append('title', courseData.title.trim());
+      formData.append('description', courseData.description.trim());
       formData.append('price', courseData.price.toString());
-      if (courseData.image) {
-        formData.append('image', courseData.image);
+      if (courseData.thumbnail) {
+        formData.append('thumbnail', courseData.thumbnail);
+      }
+      if (courseData.banner) {
+        formData.append('banner', courseData.banner);
       }
 
       const response = await api.post('/courses', formData, {
@@ -47,7 +52,10 @@ export const AddCoursePage: React.FC = () => {
     },
   });
 
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    type: 'thumbnail' | 'banner'
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -64,13 +72,22 @@ export const AddCoursePage: React.FC = () => {
       return;
     }
 
-    setImage(file);
+    if (type === 'thumbnail') {
+      setThumbnail(file);
+    } else {
+      setBanner(file);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim() || !price.trim()) {
       toast.error('All fields are required');
+      return;
+    }
+
+    if (!thumbnail) {
+      toast.error('Course thumbnail is required');
       return;
     }
 
@@ -84,7 +101,8 @@ export const AddCoursePage: React.FC = () => {
       title,
       description,
       price: priceNumber,
-      image: image || undefined,
+      thumbnail,
+      banner: banner || undefined,
     });
   };
 
@@ -142,16 +160,32 @@ export const AddCoursePage: React.FC = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Course Image
+              Course Thumbnail (Required)
             </label>
             <input
               type="file"
-              onChange={handleImageChange}
+              onChange={(e) => handleImageChange(e, 'thumbnail')}
+              accept="image/jpeg,image/jpg,image/png"
+              className="w-full"
+              required
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              Recommended size: 800x600 pixels. Max 5MB.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Course Banner (Optional)
+            </label>
+            <input
+              type="file"
+              onChange={(e) => handleImageChange(e, 'banner')}
               accept="image/jpeg,image/jpg,image/png"
               className="w-full"
             />
             <p className="mt-1 text-sm text-gray-500">
-              Recommended size: 1280x720 pixels (16:9 ratio). Max 5MB.
+              Recommended size: 1920x480 pixels. Max 5MB.
             </p>
           </div>
 

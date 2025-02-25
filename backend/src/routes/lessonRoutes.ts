@@ -5,9 +5,7 @@ import {
   addLesson,
   removeLesson,
   updateLesson,
-  getLesson,
-  addNotice,
-  removeNotice
+  getLesson
 } from '../controllers/courseContentController';
 
 const router = express.Router();
@@ -38,9 +36,5 @@ router.get(
   authenticateToken,
   getLesson
 );
-
-// Notice board routes
-router.post('/:courseId/notices', authenticateToken, addNotice);
-router.delete('/:courseId/notices/:noticeId', authenticateToken, removeNotice);
 
 export default router;

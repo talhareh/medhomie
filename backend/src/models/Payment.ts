@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 import { IUser } from './User';
-import { ICourse } from './Course';
+import { ICourseDocument } from './Course';
 import { IEnrollment } from './Enrollment';
 
 export enum PaymentStatus {
@@ -25,7 +25,7 @@ export interface IPaymentHistory {
 export interface IPayment extends Document {
   enrollment: Types.ObjectId | IEnrollment;
   student: Types.ObjectId | IUser;
-  course: Types.ObjectId | ICourse;
+  course: Types.ObjectId | ICourseDocument;
   amount: number;
   paymentDate: Date;
   paymentMethod: PaymentMethod;

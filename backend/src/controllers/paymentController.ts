@@ -4,7 +4,7 @@ import { AuthRequest } from '../middleware/auth';
 import { Payment, PaymentStatus } from '../models/Payment';
 import { Enrollment, EnrollmentStatus } from '../models/Enrollment';
 import { UserRole } from '../models/User';
-import { Course, ICourse } from '../models/Course';
+import { Course, ICourseDocument } from '../models/Course';
 import { sendNotification } from '../utils/notification';
 
 // Create a new payment
@@ -32,7 +32,7 @@ export const createPayment = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     const enrollment = await Enrollment.findById(enrollmentId)
-      .populate<{ course: ICourse }>('course');
+      .populate<{ course: ICourseDocument }>('course');
 
     if (!enrollment) {
       res.status(404).json({ message: 'Enrollment not found' });
@@ -99,6 +99,7 @@ export const updatePaymentStatus = async (req: AuthRequest, res: Response): Prom
     }
 
     const payment = await Payment.findById(paymentId)
+      .populate<{ course: ICourseDocument }>('course')
       .populate('enrollment');
 
     if (!payment) {
@@ -197,8 +198,8 @@ export const getPayments = async (req: AuthRequest, res: Response): Promise<void
 
     // Execute query with pagination
     const payments = await Payment.find(query)
+      .populate<{ course: ICourseDocument }>('course')
       .populate('student', 'firstName lastName email')
-      .populate('course', 'title code')
       .populate('enrollment')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -229,8 +230,8 @@ export const getPaymentById = async (req: AuthRequest, res: Response): Promise<v
     }
 
     const payment = await Payment.findById(paymentId)
+      .populate<{ course: ICourseDocument }>('course')
       .populate('student', 'firstName lastName email')
-      .populate('course', 'title createdBy')
       .populate('enrollment');
 
     if (!payment) {
@@ -259,7 +260,7 @@ export const getPaymentById = async (req: AuthRequest, res: Response): Promise<v
 };
 
 // Reupload payment receipt
-export const reuploadePaymentReceipt = async (req: AuthRequest, res: Response): Promise<void> => {
+export const reuploadPaymentReceipt = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { paymentId } = req.params;
     const file = req.file;
