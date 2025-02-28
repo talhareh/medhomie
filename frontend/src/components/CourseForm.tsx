@@ -5,19 +5,25 @@ import { toast } from 'react-toastify';
 import api from '../utils/axios';
 import { useInstructors } from '../hooks/useInstructors';
 import { UserRole } from '../types/auth';
+import { CategorySelect } from './forms/CategorySelect';
+import { TagSelect } from './forms/TagSelect';
 
 interface CourseFormData {
   title: string;
   description: string;
   price: number;
   instructor: string;
+  categories: string[];
+  tags: string[];
 }
 
 const initialFormData: CourseFormData = {
   title: '',
   description: '',
   price: 0,
-  instructor: ''
+  instructor: '',
+  categories: [],
+  tags: []
 };
 
 export const CourseForm: React.FC = () => {
@@ -41,7 +47,9 @@ export const CourseForm: React.FC = () => {
           title: data.title.trim(),
           description: data.description.trim(),
           price: data.price,
-          instructor: data.instructor
+          instructor: data.instructor,
+          categories: data.categories,
+          tags: data.tags
         });
 
         return response.data;
@@ -130,6 +138,30 @@ export const CourseForm: React.FC = () => {
             step="0.01"
             required
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Categories
+          </label>
+          <CategorySelect
+            selectedCategories={formData.categories}
+            onChange={(categories) => setFormData(prev => ({ ...prev, categories }))}
+            className="mb-2"
+          />
+          <p className="text-sm text-gray-500">Hold Ctrl (or Cmd) to select multiple categories</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Tags
+          </label>
+          <TagSelect
+            selectedTags={formData.tags}
+            onChange={(tags) => setFormData(prev => ({ ...prev, tags }))}
+            className="mb-2"
+          />
+          <p className="text-sm text-gray-500">Hold Ctrl (or Cmd) to select multiple tags</p>
         </div>
 
         {user.role === UserRole.ADMIN && (

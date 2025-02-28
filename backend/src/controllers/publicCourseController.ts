@@ -15,6 +15,7 @@ interface PublicCourseResponse {
   banner?: string;
   enrollmentCount: number;
   isEnrolled?: boolean;
+  enrollmentStatus?: string | null;
 }
 
 // Test route to check course states
@@ -56,7 +57,8 @@ export const getPublicCourses = async (
       thumbnail: course.thumbnail,
       banner: course.banner,
       enrollmentCount: course.enrollmentCount,
-      isEnrolled: false // Default value
+      isEnrolled: false, // Default value
+      enrollmentStatus: null // Default value
     }));
 
     // If user is authenticated, check their enrollment status
@@ -73,6 +75,10 @@ export const getPublicCourses = async (
       
       publicCourses.forEach(course => {
         course.isEnrolled = enrolledCourseIds.has(course._id.toString());
+        const enrollment = userEnrollments.find(e => e.course.toString() === course._id.toString());
+        if (enrollment) {
+          course.enrollmentStatus = enrollment.status;
+        }
       });
     }
 

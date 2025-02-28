@@ -6,7 +6,9 @@ import {
   faBook, 
   faCreditCard,
   faUsers,
-  faCog
+  faCog,
+  faTags,
+  faLayerGroup
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types/auth';
@@ -38,9 +40,11 @@ export const Sidebar = () => {
     if (user?.role === UserRole.ADMIN) {
       items.push(
         { to: '/admin/courses', icon: faBook, label: 'Courses' },
-        { to: '/users', icon: faUsers, label: 'Users' },
+        { to: '/admin/users', icon: faUsers, label: 'Users' },
         { to: '/admin/payments', icon: faCreditCard, label: 'Payments' },
-        { to: '/settings', icon: faCog, label: 'Settings' }
+        { to: '/admin/categories', icon: faLayerGroup, label: 'Categories' },
+        { to: '/admin/tags', icon: faTags, label: 'Tags' },
+        { to: '/admin/settings', icon: faCog, label: 'Settings' }
       );
     }
 

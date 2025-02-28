@@ -38,6 +38,8 @@ export interface ICourseData {
   noticeBoard: string[];
   enrollmentCount: number;
   createdBy: Types.ObjectId | string;
+  categories: Types.ObjectId[] | string[];
+  tags: Types.ObjectId[] | string[];
 }
 
 // Mongoose Document interfaces
@@ -50,10 +52,12 @@ export interface IModuleDocument extends Omit<IModuleData, '_id' | 'lessons'>, D
   lessons: Types.DocumentArray<ILessonDocument>;
 }
 
-export interface ICourseDocument extends Omit<ICourseData, 'modules' | 'createdBy'>, Document {
+export interface ICourseDocument extends Omit<ICourseData, 'modules' | 'createdBy' | 'categories' | 'tags'>, Document {
   _id: Types.ObjectId;
   modules: Types.DocumentArray<IModuleDocument>;
   createdBy: Types.ObjectId;
+  categories: Types.ObjectId[];
+  tags: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,6 +94,14 @@ const courseSchema = new Schema<ICourseDocument>({
   modules: [moduleSchema],
   noticeBoard: [{ type: String }],
   enrollmentCount: { type: Number, default: 0 },
+  categories: [{
+    type: Schema.Types.ObjectId,
+    ref: 'Category'
+  }],
+  tags: [{
+    type: Schema.Types.ObjectId,
+    ref: 'Tag'
+  }],
   createdBy: {
     type: Schema.Types.ObjectId,
     ref: 'User',

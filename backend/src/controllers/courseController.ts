@@ -11,9 +11,21 @@ interface MulterFiles {
 }
 
 // Get all courses (admin only)
-export const getAllCourses = async (_req: Request, res: Response): Promise<void> => {
+export const getAllCourses = async (req: Request, res: Response): Promise<void> => {
   try {
-    const courses = await Course.find();
+    const filter: any = {};
+    
+    if (req.query.category) {
+      filter.categories = req.query.category;
+    }
+    
+    if (req.query.tag) {
+      filter.tags = req.query.tag;
+    }
+    
+    const courses = await Course.find(filter)
+      .populate('categories')
+      .populate('tags');
     res.json(courses);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching courses' });
@@ -21,10 +33,22 @@ export const getAllCourses = async (_req: Request, res: Response): Promise<void>
 };
 
 // Get public courses
-export const getPublicCourses = async (_req: Request, res: Response): Promise<void> => {
+export const getPublicCourses = async (req: Request, res: Response): Promise<void> => {
   try {
-    const courses = await Course.find({ state: CourseState.ACTIVE })
-      .select('title description price thumbnail');
+    const filter: any = { state: CourseState.ACTIVE };
+    
+    if (req.query.category) {
+      filter.categories = req.query.category;
+    }
+    
+    if (req.query.tag) {
+      filter.tags = req.query.tag;
+    }
+    
+    const courses = await Course.find(filter)
+      .select('title description price thumbnail categories tags')
+      .populate('categories')
+      .populate('tags');
     res.json(courses);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching courses' });
@@ -36,7 +60,9 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
   try {
     const course = await Course.findById(req.params.courseId)
       .populate('modules')
-      .populate('createdBy', 'name email');
+      .populate('createdBy', 'name email')
+      .populate('categories')
+      .populate('tags');
       
     if (!course) {
       res.status(404).json({ message: 'Course not found' });
@@ -75,7 +101,9 @@ export const createCourse = async (req: AuthRequest, res: Response): Promise<voi
       createdBy: req.user._id,
       modules: [],
       noticeBoard: [],
-      enrollmentCount: 0
+      enrollmentCount: 0,
+      categories: req.body.categories || [],
+      tags: req.body.tags || []
     };
 
     const { error } = validateCourse(courseData);
@@ -148,6 +176,15 @@ export const updateCourse = async (req: AuthRequest, res: Response): Promise<voi
       state: req.body.state,
     };
 
+    // Update categories and tags if provided
+    if (req.body.categories) {
+      updateData.categories = req.body.categories;
+    }
+    
+    if (req.body.tags) {
+      updateData.tags = req.body.tags;
+    }
+
     // Handle file uploads if present
     if (req.files) {
       const files = req.files as MulterFiles;
@@ -164,7 +201,9 @@ export const updateCourse = async (req: AuthRequest, res: Response): Promise<voi
       req.params.courseId,
       { $set: updateData },
       { new: true, runValidators: true }
-    );
+    )
+    .populate('categories')
+    .populate('tags');
 
     if (!course) {
       res.status(404).json({ message: 'Course not found' });

@@ -4,7 +4,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import api from '../utils/axios';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
-import { Course, Filters, ActiveFilters } from '../types/course';
+import { Course } from '../types/course';
 import Modal from 'react-modal';
 import { Header } from '../components/common/Header';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -12,6 +12,19 @@ import { faUpload, faTimes } from '@fortawesome/free-solid-svg-icons';
 
 // Bind modal to your appElement for accessibility
 Modal.setAppElement('#root');
+
+// Add enrollment status type
+export enum EnrollmentStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected'
+}
+
+// Extend Course interface to include enrollment status
+interface PublicCourse extends Course {
+  isEnrolled?: boolean;
+  enrollmentStatus?: EnrollmentStatus;
+}
 
 const customModalStyles = {
   content: {
@@ -34,12 +47,6 @@ const customModalStyles = {
     paddingTop: '2rem',
     paddingBottom: '2rem',
   },
-};
-
-const defaultFilters = {
-  testingBodies: ['PMDC', 'GMC', 'NBME'],
-  specialties: ['Gynae', 'Medicine', 'Surgery', 'Peads'],
-  courseTypes: ['FCPS', 'PLAB', 'USMLE']
 };
 
 const paymentInfo = {
@@ -70,24 +77,14 @@ export const PublicCoursesPage: React.FC = () => {
   const { user } = useAuth();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<PublicCourse | null>(null);
   const [receipt, setReceipt] = useState<File | null>(null);
-  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({
-    testingBody: [],
-    specialty: [],
-    courseType: []
-  });
 
   // Fetch courses
   const { data: courses = [], isLoading: isLoadingCourses } = useQuery({
-    queryKey: ['public-courses', activeFilters],
+    queryKey: ['public-courses'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      activeFilters.testingBody.forEach(body => params.append('testingBody', body));
-      activeFilters.specialty.forEach(spec => params.append('specialty', spec));
-      activeFilters.courseType.forEach(type => params.append('courseType', type));
-      
-      const response = await api.get<Course[]>('/courses/public', { params });
+      const response = await api.get<PublicCourse[]>('/public/courses');
       return response.data;
     },
   });
@@ -136,11 +133,17 @@ export const PublicCoursesPage: React.FC = () => {
     setReceipt(file);
   };
 
-  const handleEnrollClick = (course: Course) => {
+  const handleEnrollClick = (course: PublicCourse) => {
     if (!user) {
       setIsLoginModalOpen(true);
       return;
     }
+
+    // If already enrolled or pending, don't allow re-enrollment
+    if (course.isEnrolled && course.enrollmentStatus !== EnrollmentStatus.REJECTED) {
+      return;
+    }
+
     setSelectedCourse(course);
     setIsEnrollModalOpen(true);
   };
@@ -155,22 +158,6 @@ export const PublicCoursesPage: React.FC = () => {
       courseId: selectedCourse._id,
       receipt,
     });
-  };
-
-  const toggleFilter = (category: keyof ActiveFilters, value: string) => {
-    setActiveFilters(prev => ({
-      ...prev,
-      [category]: prev[category].includes(value)
-        ? prev[category].filter(v => v !== value)
-        : [...prev[category], value]
-    }));
-  };
-
-  const removeFilter = (category: keyof ActiveFilters, value: string) => {
-    setActiveFilters(prev => ({
-      ...prev,
-      [category]: prev[category].filter(v => v !== value)
-    }));
   };
 
   if (isLoadingCourses) {
@@ -188,227 +175,200 @@ export const PublicCoursesPage: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          {/* Filters Sidebar */}
-          <div className="w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg shadow p-6 sticky top-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Filters</h2>
-              
-              {/* Testing Body Filter */}
-              <div className="mb-6">
-                <h3 className="font-medium text-gray-700 mb-3">Testing Body</h3>
-                <div className="space-y-2">
-                  {defaultFilters.testingBodies.map(body => (
-                    <label key={body} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={activeFilters.testingBody.includes(body)}
-                        onChange={() => toggleFilter('testingBody', body)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-gray-700">{body}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Specialty Filter */}
-              <div className="mb-6">
-                <h3 className="font-medium text-gray-700 mb-3">Specialty</h3>
-                <div className="space-y-2">
-                  {defaultFilters.specialties.map(spec => (
-                    <label key={spec} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={activeFilters.specialty.includes(spec)}
-                        onChange={() => toggleFilter('specialty', spec)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-gray-700">{spec}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Course Type Filter */}
-              <div className="mb-6">
-                <h3 className="font-medium text-gray-700 mb-3">Course Type</h3>
-                <div className="space-y-2">
-                  {defaultFilters.courseTypes.map(type => (
-                    <label key={type} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={activeFilters.courseType.includes(type)}
-                        onChange={() => toggleFilter('courseType', type)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-gray-700">{type}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="flex-1">
-            {/* Active Filters */}
-            {Object.entries(activeFilters).some(([_, values]) => values.length > 0) && (
-              <div className="mb-6 flex flex-wrap gap-2">
-                {Object.entries(activeFilters).map(([category, values]) =>
-                  values.map(value => (
-                    <span
-                      key={`${category}-${value}`}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
-                    >
-                      {value}
-                      <button
-                        onClick={() => removeFilter(category as keyof ActiveFilters, value)}
-                        className="ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-blue-200"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Course Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {courses.map(course => (
-                <div key={course._id} className="bg-white rounded-lg shadow-lg overflow-hidden">
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{course.title}</h3>
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{course.description}</p>
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-500">
-                        Price: ${course.price}
-                      </p>
+        {/* Course Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {courses.length > 0 ? (
+            courses.map((course) => (
+              <div key={course._id.toString()} className="bg-white rounded-lg shadow-md overflow-hidden">
+                {/* Course Thumbnail */}
+                <div className="h-48 bg-gray-200 relative">
+                  {course.thumbnail ? (
+                    <img
+                      src={course.thumbnail.startsWith('http') ? course.thumbnail : course.thumbnail.replace('uploads/', '/api/uploads/')}
+                      alt={course.title}
+                      className="w-full h-full object-cover p-1 object-right-top"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = '/placeholder-course.jpg';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                      <span className="text-gray-400">No image available</span>
                     </div>
-                    <div className="flex space-x-3">
+                  )}
+                </div>
+                
+                {/* Course Info */}
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{course.title}</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-3">{course.description}</p>
+                  
+                  <div className="flex justify-between items-center mt-4">
+                    <span className="text-lg font-semibold text-primary">
+                      {course.price > 0 ? `$${course.price.toFixed(2)}` : 'Free'}
+                    </span>
+                    <div className="flex space-x-2">
                       <button
                         onClick={() => navigate(`/courses/${course._id}`)}
-                        className="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors"
+                        className="px-4 py-2 rounded-md text-white bg-gray-600 hover:bg-gray-700"
                       >
-                        View More
+                        View Course
                       </button>
                       <button
                         onClick={() => handleEnrollClick(course)}
-                        className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                        className={`px-4 py-2 rounded-md text-white ${
+                          course.isEnrolled
+                            ? course.enrollmentStatus === EnrollmentStatus.APPROVED
+                              ? 'bg-green-500 cursor-default'
+                              : course.enrollmentStatus === EnrollmentStatus.REJECTED
+                              ? 'bg-red-500 cursor-default'
+                              : 'bg-yellow-500 cursor-default'
+                            : 'bg-primary hover:bg-primary-dark'
+                        }`}
+                        disabled={course.isEnrolled && course.enrollmentStatus !== EnrollmentStatus.REJECTED}
                       >
-                        Enroll
+                        {course.isEnrolled
+                          ? course.enrollmentStatus === EnrollmentStatus.APPROVED
+                            ? 'Enrolled'
+                            : course.enrollmentStatus === EnrollmentStatus.REJECTED
+                            ? 'Rejected'
+                            : 'Pending'
+                          : 'Enroll Now'}
                       </button>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* No Results Message */}
-            {courses.length === 0 && (
-              <div className="text-center py-12">
-                <h3 className="text-xl font-medium text-gray-900">No courses found</h3>
-                <p className="text-gray-500 mt-2">Try adjusting your filters to find more courses.</p>
               </div>
-            )}
-          </div>
+            ))
+          ) : (
+            <div className="col-span-3 flex justify-center items-center py-16">
+              <p className="text-gray-500 text-lg">No courses available at the moment.</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Enrollment Modal */}
-      <Modal
-        isOpen={isEnrollModalOpen}
-        onRequestClose={() => setIsEnrollModalOpen(false)}
-        style={customModalStyles}
-        contentLabel="Enrollment Modal"
-      >
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Enroll in {selectedCourse?.title}</h2>
-            <button
-              onClick={() => setIsEnrollModalOpen(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <FontAwesomeIcon icon={faTimes} />
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {Object.values(paymentInfo).map((info) => (
-              <div key={info.title} className="border rounded-lg p-4">
-                <h3 className="font-semibold text-lg">{info.title}</h3>
-                <p className="text-gray-600">{info.instructions}</p>
-                <pre className="bg-gray-50 p-2 rounded mt-2 text-sm">{info.details}</pre>
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t pt-4">
-            <div className="space-y-4">
-              <h3 className="font-semibold">Upload Payment Receipt</h3>
-              <div className="flex items-center space-x-4">
-                <label className="flex-1">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-500">
-                    <FontAwesomeIcon icon={faUpload} className="text-2xl mb-2" />
-                    <p>Click to upload receipt</p>
-                    <p className="text-sm text-gray-500">JPEG, JPG, PNG, or PDF (max 5MB)</p>
-                  </div>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    onChange={handleFileChange}
-                  />
-                </label>
-                {receipt && (
-                  <div className="text-sm text-gray-600">
-                    Selected: {receipt.name}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={handleEnrollSubmit}
-                disabled={!receipt || enrollMutation.isLoading}
-                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
-              >
-                {enrollMutation.isLoading ? 'Submitting...' : 'Submit Enrollment'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Login Modal */}
+      {/* Login Prompt Modal */}
       <Modal
         isOpen={isLoginModalOpen}
         onRequestClose={() => setIsLoginModalOpen(false)}
         style={customModalStyles}
         contentLabel="Login Required"
       >
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-gray-900">Login Required</h2>
-          <p className="text-gray-600">
-            Please log in or create an account to enroll in courses.
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
+          <p className="text-gray-600 mb-6">
+            You need to be logged in to enroll in a course. Please login or create an account to continue.
           </p>
-          <div className="flex justify-end gap-4 pt-4">
+          <div className="flex justify-center space-x-4">
             <button
-              onClick={() => setIsLoginModalOpen(false)}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900"
+              onClick={() => {
+                setIsLoginModalOpen(false);
+                navigate('/auth?mode=login', { state: { from: '/courses' } });
+              }}
+              className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
             >
-              Cancel
+              Login
             </button>
             <button
               onClick={() => {
                 setIsLoginModalOpen(false);
-                navigate('/auth');
+                navigate('/auth?mode=register', { state: { from: '/courses' } });
               }}
-              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
+              className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
             >
-              Log In / Sign Up
+              Register
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Enrollment Modal */}
+      <Modal
+        isOpen={isEnrollModalOpen}
+        onRequestClose={() => setIsEnrollModalOpen(false)}
+        style={customModalStyles}
+        contentLabel="Enrollment Form"
+      >
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Enrollment Form</h2>
+            <button
+              onClick={() => setIsEnrollModalOpen(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <FontAwesomeIcon icon={faTimes} size="lg" />
+            </button>
+          </div>
+
+          {selectedCourse && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">{selectedCourse.title}</h3>
+              <p className="text-gray-600 mb-2">Price: ${selectedCourse.price.toFixed(2)}</p>
+            </div>
+          )}
+
+          <div className="mb-8">
+            <h4 className="text-lg font-medium text-gray-800 mb-4">Payment Methods</h4>
+            <div className="space-y-6">
+              {Object.entries(paymentInfo).map(([key, info]) => (
+                <div key={key} className="border rounded-lg p-4">
+                  <h5 className="font-medium text-gray-800 mb-2">{info.title}</h5>
+                  <p className="text-gray-600 mb-2">{info.instructions}</p>
+                  <pre className="bg-gray-100 p-3 rounded text-sm text-gray-700 whitespace-pre-wrap">
+                    {info.details}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <h4 className="text-lg font-medium text-gray-800 mb-4">Upload Payment Receipt</h4>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                id="receipt"
+                onChange={handleFileChange}
+                className="hidden"
+                accept=".jpg,.jpeg,.png,.pdf"
+              />
+              {receipt ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-700">{receipt.name}</span>
+                  <button
+                    onClick={() => setReceipt(null)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+              ) : (
+                <label
+                  htmlFor="receipt"
+                  className="cursor-pointer flex flex-col items-center justify-center"
+                >
+                  <FontAwesomeIcon icon={faUpload} className="text-gray-400 text-3xl mb-2" />
+                  <span className="text-gray-600 mb-1">Click to upload payment receipt</span>
+                  <span className="text-gray-400 text-sm">JPG, PNG or PDF (max 5MB)</span>
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={handleEnrollSubmit}
+              disabled={!receipt || enrollMutation.isPending}
+              className={`px-6 py-2 rounded-md text-white ${
+                !receipt || enrollMutation.isPending
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-primary hover:bg-primary-dark'
+              }`}
+            >
+              {enrollMutation.isPending ? 'Submitting...' : 'Submit Enrollment'}
             </button>
           </div>
         </div>

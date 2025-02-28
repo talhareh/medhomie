@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 interface User {
@@ -121,6 +121,34 @@ export const AdminDashboard = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+      
+      {/* Quick Access Links */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Link 
+          to="/admin/courses" 
+          className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-lg shadow text-center transition-colors"
+        >
+          Manage Courses
+        </Link>
+        <Link 
+          to="/admin/users" 
+          className="bg-green-500 hover:bg-green-600 text-white p-4 rounded-lg shadow text-center transition-colors"
+        >
+          Manage Users
+        </Link>
+        <Link 
+          to="/admin/categories" 
+          className="bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-lg shadow text-center transition-colors"
+        >
+          Manage Categories
+        </Link>
+        <Link 
+          to="/admin/tags" 
+          className="bg-yellow-500 hover:bg-yellow-600 text-white p-4 rounded-lg shadow text-center transition-colors"
+        >
+          Manage Tags
+        </Link>
+      </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Users List */}

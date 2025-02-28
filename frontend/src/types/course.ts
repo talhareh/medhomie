@@ -23,6 +23,24 @@ export interface Module {
   lessons: Lesson[];
 }
 
+export interface Category {
+  _id: string;
+  name: string;
+  description: string;
+  slug: string;
+  parent?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Tag {
+  _id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Course {
   _id: string;
   title: string;
@@ -34,6 +52,8 @@ export interface Course {
   modules: Module[];
   noticeBoard: string[];
   enrollmentCount: number;
+  categories: Category[];
+  tags: Tag[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -42,6 +62,8 @@ export interface Course {
 export interface Filters {
   search?: string;
   state?: CourseState;
+  category?: string;
+  tag?: string;
   sortBy?: string;
   order?: 'asc' | 'desc';
 }

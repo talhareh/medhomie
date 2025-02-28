@@ -13,15 +13,18 @@ import { EmailVerificationPage } from './pages/EmailVerificationPage';
 import { RequestPasswordResetPage } from './pages/RequestPasswordResetPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { CourseManagementPage } from './pages/admin/CourseManagementPage';
 import { AddCourseContentPage } from './pages/admin/AddCourseContentPage';
 import { AddCoursePage } from './pages/admin/AddCoursePage';
 import { CoursesListPage } from './pages/admin/CoursesListPage';
-import { CourseDetailPage } from './pages/admin/CourseDetailPage';
+import { CourseDetailPage as AdminCourseDetailPage } from './pages/admin/CourseDetailPage';
+import { CourseDetailPage as PublicCourseDetailPage } from './pages/CourseDetailPage';
+import { CourseContentPage } from './pages/CourseContentPage';
 import { MyCoursesPage } from './pages/student/MyCoursesPage';
 import { PaymentsPage } from './pages/student/PaymentsPage';
 import { UsersListPage } from './pages/admin/UsersListPage';
 import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
+import { CategoriesManagementPage } from './pages/admin/CategoriesManagementPage';
+import { TagsManagementPage } from './pages/admin/TagsManagementPage';
 import { CourseContentManager } from './components/layout/CourseContentManager';
 import { ModuleLessonsManager } from './components/layout/ModuleLessonsManager';
 
@@ -67,6 +70,17 @@ function App() {
             <Route path="/auth/request-password-reset" element={<RequestPasswordResetPage />} />
             <Route path="/auth/reset-password/:token" element={<ResetPasswordPage />} />
             <Route path="/courses" element={<PublicCoursesPage />} />
+            <Route path="/courses/:courseId" element={<PublicCourseDetailPage />} />
+            <Route path="/courses/:courseId/learn" element={
+              <ProtectedRoute>
+                <CourseContentPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/courses/:courseId/learn/:sectionId/:lessonId" element={
+              <ProtectedRoute>
+                <CourseContentPage />
+              </ProtectedRoute>
+            } />
 
             {/* Protected Routes */}
             <Route path="/dashboard" element={
@@ -114,7 +128,7 @@ function App() {
 
             <Route path="/admin/courses/:courseId" element={
               <ProtectedRoute adminOnly>
-                <CourseDetailPage />
+                <AdminCourseDetailPage />
               </ProtectedRoute>
             } />
 
@@ -139,6 +153,18 @@ function App() {
             <Route path="/admin/payments" element={
               <ProtectedRoute adminOnly>
                 <PaymentManagementPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/admin/categories" element={
+              <ProtectedRoute adminOnly>
+                <CategoriesManagementPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/admin/tags" element={
+              <ProtectedRoute adminOnly>
+                <TagsManagementPage />
               </ProtectedRoute>
             } />
             
