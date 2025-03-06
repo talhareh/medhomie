@@ -1,6 +1,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSignOutAlt, faUser } from '@fortawesome/free-solid-svg-icons';
+import { Link } from 'react-router-dom';
 
 export const Header = () => {
   const { user, logout } = useAuth();
@@ -10,13 +11,15 @@ export const Header = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-primary">MedHome</h1>
+            <Link to="/" className="no-underline">
+              <h1 className="text-2xl font-bold text-primary hover:text-primary-dark transition-colors">MedHome</h1>
+            </Link>
           </div>
           
           {user && (
             <div className="flex items-center gap-4">
               <div className="text-neutral-700">
-                <span className="font-medium">{user.firstName} {user.lastName}</span>
+                <span className="font-medium">{user.fullName}</span>
                 <span className="text-sm text-neutral-500 ml-2">({user.role})</span>
               </div>
               

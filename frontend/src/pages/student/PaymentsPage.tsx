@@ -18,6 +18,7 @@ import { EnrollmentStatus } from '../../types/enrollment';
 
 // Server URL
 const SERVER_URL = 'http://localhost:5000';
+const API_UPLOADS_URL = `${SERVER_URL}/api/uploads`; // URL for accessing uploaded files
 
 // Modal styles
 const customModalStyles = {
@@ -100,10 +101,27 @@ export const PaymentsPage: React.FC = () => {
   };
 
   const getReceiptUrl = (receiptPath: string) => {
+    if (!receiptPath) {
+      console.error('Receipt path is empty');
+      return '';
+    }
+    
     if (receiptPath.startsWith('http')) {
       return receiptPath;
     }
-    return `${SERVER_URL}/${receiptPath}`;
+    
+    // Extract just the filename part if it includes the uploads directory
+    let path = receiptPath;
+    if (path.includes('uploads/')) {
+      // Remove 'uploads/' from the path since the API endpoint already includes it
+      path = path.replace('uploads/', '');
+    }
+    
+    // Ensure there's no double slash when joining paths
+    path = path.startsWith('/') ? path.substring(1) : path;
+    
+    // Use the correct API endpoint for accessing uploaded files
+    return `${API_UPLOADS_URL}/${path}`;
   };
 
   const handleViewReceipt = (payment: Payment) => {
@@ -113,19 +131,35 @@ export const PaymentsPage: React.FC = () => {
 
   const handleDownloadReceipt = async (payment: Payment) => {
     try {
-      const response = await fetch(getReceiptUrl(payment.paymentReceipt));
+      if (!payment.paymentReceipt) {
+        toast.error('No receipt available for download');
+        return;
+      }
+      
+      const receiptUrl = getReceiptUrl(payment.paymentReceipt);
+      console.log('Downloading receipt from URL:', receiptUrl);
+      
+      const response = await fetch(receiptUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download: ${response.status} ${response.statusText}`);
+      }
+      
       const blob = await response.blob();
+      const fileExtension = payment.paymentReceipt.split('.').pop() || 'pdf';
       
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `receipt-${payment._id}.${payment.paymentReceipt.split('.').pop()}`);
+      link.setAttribute('download', `receipt-${payment._id}.${fileExtension}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      
+      toast.success('Receipt downloaded successfully');
     } catch (error: any) {
-      toast.error('Error downloading receipt');
+      console.error('Download error:', error);
+      toast.error(`Error downloading receipt: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -244,19 +278,53 @@ export const PaymentsPage: React.FC = () => {
                 
                 <div className="mt-4">
                   {selectedPayment.paymentReceipt.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                    <img
-                      src={getReceiptUrl(selectedPayment.paymentReceipt)}
-                      alt="Payment Receipt"
-                      className="max-w-full h-auto rounded-lg"
-                    />
+                    <>
+                      <div className="mb-4 p-2 bg-blue-50 text-blue-800 rounded">
+                        <p><strong>Troubleshooting:</strong></p>
+                        <p>If image doesn't appear, try opening this URL directly:</p>
+                        <a 
+                          href={getReceiptUrl(selectedPayment.paymentReceipt)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 underline break-all"
+                        >
+                          {getReceiptUrl(selectedPayment.paymentReceipt)}
+                        </a>
+                      </div>
+                      <img
+                        src={getReceiptUrl(selectedPayment.paymentReceipt)}
+                        alt="Payment Receipt"
+                        className="max-w-full h-auto rounded-lg border"
+                        onError={(e) => {
+                          console.error('Image failed to load:', getReceiptUrl(selectedPayment.paymentReceipt));
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = '/placeholder-receipt.png';
+                        }}
+                      />
+                    </>
                   ) : (
-                    <embed
-                      src={getReceiptUrl(selectedPayment.paymentReceipt)}
-                      type="application/pdf"
-                      width="100%"
-                      height="600px"
-                      className="rounded-lg"
-                    />
+                    <>
+                      <div className="mb-4 p-2 bg-blue-50 text-blue-800 rounded">
+                        <p><strong>Troubleshooting:</strong></p>
+                        <p>If PDF doesn't appear, try opening this URL directly:</p>
+                        <a 
+                          href={getReceiptUrl(selectedPayment.paymentReceipt)} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 underline break-all"
+                        >
+                          {getReceiptUrl(selectedPayment.paymentReceipt)}
+                        </a>
+                      </div>
+                      <embed
+                        src={getReceiptUrl(selectedPayment.paymentReceipt)}
+                        type="application/pdf"
+                        width="100%"
+                        height="600px"
+                        className="rounded-lg border"
+                      />
+                    </>
                   )}
                 </div>
               </div>

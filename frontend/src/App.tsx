@@ -9,6 +9,7 @@ import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { PublicCoursesPage } from './pages/PublicCoursesPage';
+import { LandingFirst } from './pages/LandingFirst';
 import { EmailVerificationPage } from './pages/EmailVerificationPage';
 import { RequestPasswordResetPage } from './pages/RequestPasswordResetPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -65,6 +66,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<PublicHomePage />} />
+            <Route path="/landing" element={<LandingFirst />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/verify-email/:token" element={<EmailVerificationPage />} />
             <Route path="/auth/request-password-reset" element={<RequestPasswordResetPage />} />
@@ -101,7 +103,8 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="/users" element={
+            {/* Admin Users Route */}
+            <Route path="/admin/users" element={
               <ProtectedRoute adminOnly>
                 <UsersListPage />
               </ProtectedRoute>

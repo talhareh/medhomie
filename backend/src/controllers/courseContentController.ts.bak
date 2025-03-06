@@ -1,0 +1,1068 @@
+import { Request, Response } from 'express';
+import { Course, IModuleDocument, ILessonDocument, ILessonData } from '../models/Course';
+import { AuthRequest } from '../middleware/auth';
+import { validateLesson } from '../validators/courseValidator';
+import path from 'path';
+import fs from 'fs';
+import mime from 'mime-types';
+
+// Add lesson to a module
+export const addLesson = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId } = req.params;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    
+    console.log('Request body:', req.body);
+    console.log('Request files:', files);
+    
+    if (!files) {
+      console.log('No files received in the request');
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    // Process video if it exists
+    let videoPath: string | undefined;
+    if (files && files.video && files.video.length > 0) {
+      videoPath = files.video[0].path;
+      console.log(`Video path set to: ${videoPath}`);
+    } else {
+      console.log('No video file provided');
+    }
+
+    // Process attachments if they exist
+    const attachmentPaths: string[] = [];
+    if (files && files.attachments && files.attachments.length > 0) {
+      attachmentPaths.push(...files.attachments.map(file => file.path));
+      console.log(`Attachment paths: ${JSON.stringify(attachmentPaths)}`);
+    } else {
+      console.log('No attachment files provided');
+    }
+
+    const lessonData: ILessonData = {
+      title: req.body.title,
+      description: req.body.description,
+      order: module.lessons.length,
+      duration: req.body.duration ? parseInt(req.body.duration) : undefined,
+      video: videoPath,
+      attachments: attachmentPaths,
+      isPreview: req.body.isPreview === 'true'
+    };
+
+// View PDF lesson attachment in browser (for enrolled students)
+export const readLessonPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    const fileExtension = path.extname(attachmentPath).toLowerCase();
+    
+    // Check if the file is a PDF
+    if (fileExtension !== '.pdf') {
+      console.log(`File is not a PDF: ${fileExtension}`);
+      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
+      return;
+    }
+    
+    console.log(`Serving PDF file: ${filename} for inline viewing`);
+    
+    // Set headers for inline viewing in browser
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Add cache control headers for better performance
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error viewing PDF attachment:', error);
+    res.status(500).json({ message: 'Error viewing PDF attachment', error });
+  }
+};
+
+    const { error } = validateLesson(lessonData);
+    if (error) {
+      res.status(400).json({ message: error.details[0].message });
+      return;
+    }
+
+    module.lessons.push(lessonData);
+    await course.save();
+
+    res.status(201).json({ message: 'Lesson added successfully', lesson: lessonData });
+  } catch (error) {
+    console.error('Error adding lesson:', error);
+    res.status(500).json({ message: 'Error adding lesson', error });
+  }
+};
+
+// View PDF lesson attachment in browser (for enrolled students)
+export const readLessonPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    const fileExtension = path.extname(attachmentPath).toLowerCase();
+    
+    // Check if the file is a PDF
+    if (fileExtension !== '.pdf') {
+      console.log(`File is not a PDF: ${fileExtension}`);
+      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
+      return;
+    }
+    
+    console.log(`Serving PDF file: ${filename} for inline viewing`);
+    
+    // Set headers for inline viewing in browser
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Add cache control headers for better performance
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error viewing PDF attachment:', error);
+    res.status(500).json({ message: 'Error viewing PDF attachment', error });
+  }
+};
+
+// Remove lesson from a module
+export const removeLesson = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId } = req.params;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lessonIndex = module.lessons.findIndex(
+      lesson => lesson._id.toString() === lessonId
+    );
+
+    if (lessonIndex === -1) {
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    // Remove the lesson
+    module.lessons.splice(lessonIndex, 1);
+
+    // Reorder remaining lessons
+    module.lessons.forEach((lesson, index) => {
+      lesson.order = index;
+    });
+
+    await course.save();
+    res.status(200).json({ message: 'Lesson removed successfully' });
+  } catch (error) {
+    console.error('Error removing lesson:', error);
+    res.status(500).json({ message: 'Error removing lesson', error });
+  }
+};
+
+// View PDF lesson attachment in browser (for enrolled students)
+export const readLessonPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    const fileExtension = path.extname(attachmentPath).toLowerCase();
+    
+    // Check if the file is a PDF
+    if (fileExtension !== '.pdf') {
+      console.log(`File is not a PDF: ${fileExtension}`);
+      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
+      return;
+    }
+    
+    console.log(`Serving PDF file: ${filename} for inline viewing`);
+    
+    // Set headers for inline viewing in browser
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Add cache control headers for better performance
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error viewing PDF attachment:', error);
+    res.status(500).json({ message: 'Error viewing PDF attachment', error });
+  }
+};
+
+// Update lesson details
+export const updateLesson = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId } = req.params;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+
+    console.log('Update lesson - Request body:', req.body);
+    console.log('Update lesson - Request files:', files);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    // Update lesson fields
+    if (req.body.title) lesson.title = req.body.title;
+    if (req.body.description) lesson.description = req.body.description;
+    if (req.body.duration) {
+      lesson.duration = parseInt(req.body.duration);
+    }
+    
+    // Update video if provided
+    if (files && files.video && files.video.length > 0) {
+      console.log(`Updating video path from ${lesson.video} to ${files.video[0].path}`);
+      lesson.video = files.video[0].path;
+    } else {
+      console.log('No new video file provided for update');
+    }
+    if (typeof req.body.isPreview === 'boolean') {
+      lesson.isPreview = req.body.isPreview;
+    }
+
+    // Handle attachments if they exist
+    if (files && files.attachments && files.attachments.length > 0) {
+      // Store the new attachment paths
+      const attachmentPaths = files.attachments.map(file => file.path);
+      console.log(`New attachment paths: ${JSON.stringify(attachmentPaths)}`);
+      
+      // Add new attachments to the lesson
+      if (!lesson.attachments) {
+        lesson.attachments = [];
+        console.log('Initializing empty attachments array');
+      }
+      console.log(`Current attachments: ${JSON.stringify(lesson.attachments)}`);
+      lesson.attachments = [...lesson.attachments, ...attachmentPaths];
+      console.log(`Updated attachments: ${JSON.stringify(lesson.attachments)}`);
+    } else {
+      console.log('No new attachment files provided for update');
+    }
+
+    // Handle attachment removal if specified
+    if (req.body.removeAttachments && Array.isArray(req.body.removeAttachments)) {
+      const attachmentsToRemove = req.body.removeAttachments;
+      
+      // Filter out attachments that should be removed
+      if (lesson.attachments && lesson.attachments.length > 0) {
+        // Delete the files from the filesystem
+        for (const attachmentPath of attachmentsToRemove) {
+          try {
+            if (fs.existsSync(attachmentPath)) {
+              fs.unlinkSync(attachmentPath);
+              console.log(`Deleted attachment: ${attachmentPath}`);
+            }
+          } catch (err) {
+            console.error(`Failed to delete attachment file: ${attachmentPath}`, err);
+          }
+        }
+        
+        // Remove the attachments from the lesson
+        lesson.attachments = lesson.attachments.filter(path => !attachmentsToRemove.includes(path));
+      }
+    }
+
+    const { error } = validateLesson(lesson);
+    if (error) {
+      res.status(400).json({ message: error.details[0].message });
+      return;
+    }
+
+    await course.save();
+    res.status(200).json({ message: 'Lesson updated successfully', lesson });
+  } catch (error) {
+    console.error('Error updating lesson:', error);
+    res.status(500).json({ message: 'Error updating lesson', error });
+  }
+};
+
+// View PDF lesson attachment in browser (for enrolled students)
+export const readLessonPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    const fileExtension = path.extname(attachmentPath).toLowerCase();
+    
+    // Check if the file is a PDF
+    if (fileExtension !== '.pdf') {
+      console.log(`File is not a PDF: ${fileExtension}`);
+      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
+      return;
+    }
+    
+    console.log(`Serving PDF file: ${filename} for inline viewing`);
+    
+    // Set headers for inline viewing in browser
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Add cache control headers for better performance
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error viewing PDF attachment:', error);
+    res.status(500).json({ message: 'Error viewing PDF attachment', error });
+  }
+};
+
+// Get lesson details
+export const getLesson = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId } = req.params;
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    res.status(200).json(lesson);
+  } catch (error) {
+    console.error('Error getting lesson:', error);
+    res.status(500).json({ message: 'Error getting lesson', error });
+  }
+};
+
+// View PDF lesson attachment in browser (for enrolled students)
+export const readLessonPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    const fileExtension = path.extname(attachmentPath).toLowerCase();
+    
+    // Check if the file is a PDF
+    if (fileExtension !== '.pdf') {
+      console.log(`File is not a PDF: ${fileExtension}`);
+      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
+      return;
+    }
+    
+    console.log(`Serving PDF file: ${filename} for inline viewing`);
+    
+    // Set headers for inline viewing in browser
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Add cache control headers for better performance
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error viewing PDF attachment:', error);
+    res.status(500).json({ message: 'Error viewing PDF attachment', error });
+  }
+};
+
+// Download a lesson attachment
+export const downloadAttachment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to download attachment: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    console.log(`Sending file: ${filename}`);
+    
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error downloading attachment:', error);
+    res.status(500).json({ message: 'Error downloading attachment', error });
+  }
+};
+
+// View PDF lesson attachment in browser (for enrolled students)
+export const readLessonPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    const fileExtension = path.extname(attachmentPath).toLowerCase();
+    
+    // Check if the file is a PDF
+    if (fileExtension !== '.pdf') {
+      console.log(`File is not a PDF: ${fileExtension}`);
+      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
+      return;
+    }
+    
+    console.log(`Serving PDF file: ${filename} for inline viewing`);
+    
+    // Set headers for inline viewing in browser
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Add cache control headers for better performance
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error viewing PDF attachment:', error);
+    res.status(500).json({ message: 'Error viewing PDF attachment', error });
+  }
+};
+
+// Add notice to course
+export const addNotice = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId } = req.params;
+    const { notice } = req.body;
+
+    if (!notice || typeof notice !== 'string' || notice.trim().length === 0) {
+      res.status(400).json({ message: 'Notice text is required' });
+      return;
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    course.noticeBoard.push(notice.trim());
+    await course.save();
+
+    res.status(201).json({ message: 'Notice added successfully' });
+  } catch (error) {
+    console.error('Error adding notice:', error);
+    res.status(500).json({ message: 'Error adding notice', error });
+  }
+};
+
+// View PDF lesson attachment in browser (for enrolled students)
+export const readLessonPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    const fileExtension = path.extname(attachmentPath).toLowerCase();
+    
+    // Check if the file is a PDF
+    if (fileExtension !== '.pdf') {
+      console.log(`File is not a PDF: ${fileExtension}`);
+      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
+      return;
+    }
+    
+    console.log(`Serving PDF file: ${filename} for inline viewing`);
+    
+    // Set headers for inline viewing in browser
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Add cache control headers for better performance
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error viewing PDF attachment:', error);
+    res.status(500).json({ message: 'Error viewing PDF attachment', error });
+  }
+};
+
+// Remove notice from course
+export const removeNotice = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId } = req.params;
+    const { noticeIndex } = req.body;
+
+    if (typeof noticeIndex !== 'number' || noticeIndex < 0) {
+      res.status(400).json({ message: 'Valid notice index is required' });
+      return;
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    if (noticeIndex >= course.noticeBoard.length) {
+      res.status(404).json({ message: 'Notice not found' });
+      return;
+    }
+
+    course.noticeBoard.splice(noticeIndex, 1);
+    await course.save();
+
+    res.status(200).json({ message: 'Notice removed successfully' });
+  } catch (error) {
+    console.error('Error removing notice:', error);
+    res.status(500).json({ message: 'Error removing notice', error });
+  }
+};
+
+// View PDF lesson attachment in browser (for enrolled students)
+export const readLessonPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId, moduleId, lessonId, attachmentIndex } = req.params;
+    const index = parseInt(attachmentIndex);
+    
+    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}, attachmentIndex=${attachmentIndex}`);
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      console.log(`Course not found: ${courseId}`);
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    const module = course.modules.id(moduleId) as IModuleDocument | null;
+    if (!module) {
+      console.log(`Module not found: ${moduleId}`);
+      res.status(404).json({ message: 'Module not found' });
+      return;
+    }
+
+    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!lesson) {
+      console.log(`Lesson not found: ${lessonId}`);
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+
+    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
+
+    if (!lesson.attachments || lesson.attachments.length === 0) {
+      console.log('No attachments found for this lesson');
+      res.status(404).json({ message: 'No attachments found for this lesson' });
+      return;
+    }
+
+    if (isNaN(index) || index < 0 || index >= lesson.attachments.length) {
+      console.log(`Invalid attachment index: ${index}, max index is ${lesson.attachments.length - 1}`);
+      res.status(400).json({ message: 'Invalid attachment index' });
+      return;
+    }
+
+    const attachmentPath = lesson.attachments[index];
+    console.log(`Attachment path: ${attachmentPath}`);
+    
+    if (!fs.existsSync(attachmentPath)) {
+      console.log(`Attachment file not found at path: ${attachmentPath}`);
+      res.status(404).json({ message: 'Attachment file not found' });
+      return;
+    }
+
+    const filename = path.basename(attachmentPath);
+    const fileExtension = path.extname(attachmentPath).toLowerCase();
+    
+    // Check if the file is a PDF
+    if (fileExtension !== '.pdf') {
+      console.log(`File is not a PDF: ${fileExtension}`);
+      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
+      return;
+    }
+    
+    console.log(`Serving PDF file: ${filename} for inline viewing`);
+    
+    // Set headers for inline viewing in browser
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Add cache control headers for better performance
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+    
+    const fileStream = fs.createReadStream(attachmentPath);
+    fileStream.on('error', (err) => {
+      console.error(`Error reading file stream: ${err.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Error streaming file' });
+      }
+    });
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error viewing PDF attachment:', error);
+    res.status(500).json({ message: 'Error viewing PDF attachment', error });
+  }
+};

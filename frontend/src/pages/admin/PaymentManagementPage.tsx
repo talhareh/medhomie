@@ -17,7 +17,8 @@ import api from '../../utils/axios';
 import { MainLayout } from '../../components/layout/MainLayout';
 
 // Server URL for receipt files
-const SERVER_URL = 'http://localhost:5000';
+const SERVER_URL = 'http://localhost:5000'; // Hardcoded server URL
+const API_UPLOADS_URL = `${SERVER_URL}/api/uploads`; // URL for accessing uploaded files
 
 // Modal styles
 const customModalStyles = {
@@ -49,10 +50,34 @@ interface Filters {
 }
 
 const getReceiptUrl = (receiptPath: string): string => {
+  if (!receiptPath) {
+    console.error('Receipt path is empty');
+    return '';
+  }
+  
   if (receiptPath.startsWith('http')) {
+    console.log('Receipt path is already a full URL:', receiptPath);
     return receiptPath;
   }
-  return `${SERVER_URL}/${receiptPath}`;
+  
+  // Extract just the filename part if it includes the uploads directory
+  let path = receiptPath;
+  if (path.includes('uploads/')) {
+    // Remove 'uploads/' from the path since the API endpoint already includes it
+    path = path.replace('uploads/', '');
+  }
+  
+  // Ensure there's no double slash when joining paths
+  path = path.startsWith('/') ? path.substring(1) : path;
+  
+  // Use the correct API endpoint for accessing uploaded files
+  const fullUrl = `${API_UPLOADS_URL}/${path}`;
+  console.log('Constructed receipt URL:', fullUrl);
+  
+  // Test URL directly in browser
+  console.log('Test this URL directly in your browser:', fullUrl);
+  
+  return fullUrl;
 };
 
 export const PaymentManagementPage: React.FC = () => {
@@ -65,6 +90,8 @@ export const PaymentManagementPage: React.FC = () => {
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
+  const [testingServer, setTestingServer] = useState(false);
+  const [serverTestResult, setServerTestResult] = useState<{success: boolean; message: string} | null>(null);
   const [filters, setFilters] = useState<Filters>({
     dateRange: {
       start: '',
@@ -181,7 +208,13 @@ export const PaymentManagementPage: React.FC = () => {
     <MainLayout>
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Payment Management</h1>
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Payment Management</h1>
+            
+            
+          </div>
+          
+         
           
           {/* Filters */}
           <div className="flex gap-4 items-center">
@@ -292,11 +325,20 @@ export const PaymentManagementPage: React.FC = () => {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => {
+                          console.log('Selected enrollment:', enrollment);
+                          console.log('Receipt path from DB:', enrollment.paymentReceipt);
+                          
+                          // Verify file exists by logging details
+                          const receiptUrl = getReceiptUrl(enrollment.paymentReceipt || '');
+                          console.log('Full receipt URL:', receiptUrl);
+                          console.log('To verify if file exists, open this URL in a new browser tab:', receiptUrl);
+                          
                           setSelectedEnrollment(enrollment);
                           setIsReceiptModalOpen(true);
                         }}
                         className="text-blue-600 hover:text-blue-900"
                         title="View Receipt"
+                        disabled={!enrollment.paymentReceipt}
                       >
                         <FontAwesomeIcon icon={faEye} />
                       </button>
@@ -360,22 +402,56 @@ export const PaymentManagementPage: React.FC = () => {
               </button>
             </div>
             
-            {selectedEnrollment?.paymentReceipt && (
+            {selectedEnrollment?.paymentReceipt ? (
               <div className="max-h-[70vh] overflow-auto">
-                {selectedEnrollment.paymentReceipt.endsWith('.pdf') ? (
-                  <embed
-                    src={getReceiptUrl(selectedEnrollment.paymentReceipt)}
-                    type="application/pdf"
-                    width="100%"
-                    height="600px"
-                  />
-                ) : (
-                  <img
-                    src={getReceiptUrl(selectedEnrollment.paymentReceipt)}
-                    alt="Payment Receipt"
-                    className="max-w-full"
-                  />
-                )}
+                {(() => {
+                  const receiptUrl = getReceiptUrl(selectedEnrollment.paymentReceipt);
+                  console.log('Modal rendering receipt URL:', receiptUrl);
+                  
+                  if (selectedEnrollment.paymentReceipt.endsWith('.pdf')) {
+                    return (
+                      <embed
+                        src={receiptUrl}
+                        type="application/pdf"
+                        width="100%"
+                        height="600px"
+                      />
+                    );
+                  } else {
+                    return (
+                      <>
+                        <div className="mb-4 p-2 bg-blue-50 text-blue-800 rounded">
+                          <p><strong>Troubleshooting:</strong></p>
+                          <p>If image doesn't appear, try opening this URL directly:</p>
+                          <a 
+                            href={receiptUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 underline break-all"
+                          >
+                            {receiptUrl}
+                          </a>
+                        </div>
+                        <img
+                          src={receiptUrl}
+                          alt="Payment Receipt"
+                          className="max-w-full border"
+                          onError={(e) => {
+                            console.error('Image failed to load:', receiptUrl);
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            // Just use a fallback image without showing a toast
+                            target.src = '/placeholder-receipt.png';
+                          }}
+                        />
+                      </>
+                    );
+                  }
+                })()}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No receipt available for this enrollment
               </div>
             )}
           </div>
