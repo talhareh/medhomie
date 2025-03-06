@@ -110,6 +110,8 @@ interface PublicCourseDetailResponse {
       order: number;
       duration?: number;
       isPreview: boolean;
+      video?: string;
+      attachments?: string[];
     }[];
   }[];
   enrollmentStatus?: string | null;
@@ -132,7 +134,7 @@ export const getPublicCourseDetails = async (
       select: 'title description order',
       populate: {
         path: 'lessons',
-        select: 'title description order duration isPreview'
+        select: 'title description order duration isPreview video'
       }
     });
 
@@ -176,7 +178,11 @@ export const getPublicCourseDetails = async (
             description: lesson.description,
             order: lesson.order,
             duration: lesson.duration,
-            isPreview: lesson.isPreview
+            isPreview: lesson.isPreview,
+            video: lesson.video,
+            attachments: lesson.attachments && lesson.attachments.length > 0 ? 
+              lesson.attachments.map((path, index) => `/api/public/${course._id}/modules/${module._id}/lessons/${lesson._id}/attachments/${index}`) : 
+              []
           }))
       })),
       enrollmentStatus,

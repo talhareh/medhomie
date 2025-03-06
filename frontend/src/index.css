@@ -44,4 +44,12 @@
   .sidebar-link.active {
     @apply bg-primary/10 text-primary;
   }
+  
+  .btn-lg {
+    @apply px-8 py-3 rounded-md font-medium inline-block text-center;
+  }
+  
+  .primary-dark {
+    @apply bg-blue-800;
+  }
 }

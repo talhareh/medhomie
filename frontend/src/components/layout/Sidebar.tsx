@@ -17,8 +17,11 @@ export const Sidebar = () => {
   const { user } = useAuth();
 
   const getNavItems = () => {
+    // Determine the home route based on user role
+    const homeRoute = user?.role === UserRole.ADMIN ? '/admin' : '/dashboard';
+    
     const items = [
-      { to: '/', icon: faHome, label: 'Home' },
+      { to: homeRoute, icon: faHome, label: 'Home' },
     ];
 
     if (user?.role === UserRole.STUDENT) {

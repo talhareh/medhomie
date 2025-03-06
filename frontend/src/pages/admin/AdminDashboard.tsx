@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { MainLayout } from '../../components/layout/MainLayout';
 
 interface User {
   _id: string;
@@ -112,14 +113,17 @@ export const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <MainLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-10rem)]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <MainLayout>
+      <div>
       <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
       
       {/* Quick Access Links */}
@@ -247,6 +251,7 @@ export const AdminDashboard = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </MainLayout>
   );
 };

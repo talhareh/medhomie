@@ -44,7 +44,7 @@ export const ModuleLessonsManager: React.FC = () => {
 
   const addLessonMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const url = `/courses/${courseId}/modules/${moduleId}/lessons`;
+      const url = `/course-content/${courseId}/modules/${moduleId}/lessons`;
       console.log('Sending request to:', url);
       console.log('FormData contents:');
       for (const [key, value] of formData.entries()) {
@@ -71,8 +71,10 @@ export const ModuleLessonsManager: React.FC = () => {
 
   const updateLessonMutation = useMutation({
     mutationFn: async ({ lessonId, formData }: { lessonId: string; formData: FormData }) => {
+      const url = `/course-content/${courseId}/modules/${moduleId}/lessons/${lessonId}`;
+      console.log('Sending update request to:', url);
       const response = await api.put(
-        `/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`,
+        url,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -92,7 +94,9 @@ export const ModuleLessonsManager: React.FC = () => {
 
   const deleteLessonMutation = useMutation({
     mutationFn: async (lessonId: string) => {
-      await api.delete(`/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`);
+      const url = `/course-content/${courseId}/modules/${moduleId}/lessons/${lessonId}`;
+      console.log('Sending delete request to:', url);
+      await api.delete(url);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['module', moduleId]);
@@ -132,6 +136,26 @@ export const ModuleLessonsManager: React.FC = () => {
     const formData = new FormData();
     formData.append('title', editingLesson.title);
     formData.append('description', editingLesson.description);
+    
+    // Check if we have a new video to upload
+    if (newLesson.video) {
+      console.log('Adding video to update request:', newLesson.video.name);
+      formData.append('video', newLesson.video);
+    }
+    
+    // Check if we have new attachments to upload
+    if (newLesson.attachments.length > 0) {
+      console.log(`Adding ${newLesson.attachments.length} attachments to update request`);
+      newLesson.attachments.forEach((file) => {
+        formData.append('attachments', file);
+      });
+    }
+    
+    // Log FormData contents for debugging
+    console.log('Update FormData contents:');
+    for (const [key, value] of formData.entries()) {
+      console.log(key, ':', value);
+    }
 
     updateLessonMutation.mutate({
       lessonId: editingLesson._id,

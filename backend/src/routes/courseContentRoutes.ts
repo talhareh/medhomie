@@ -1,13 +1,22 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth';
-import { uploadVideo } from '../utils/fileUpload';
+import { uploadLessonContent } from '../utils/fileUpload';
+
+// Middleware to log request details
+const logRequestDetails = (req: Request, res: Response, next: NextFunction) => {
+  console.log('Request headers:', req.headers);
+  console.log('Request content type:', req.headers['content-type']);
+  next();
+};
 import {
   addLesson,
   removeLesson,
   updateLesson,
   getLesson,
   addNotice,
-  removeNotice
+  removeNotice,
+  downloadAttachment,
+  viewPdfAttachment
 } from '../controllers/courseContentController';
 
 const router = express.Router();
@@ -16,14 +25,24 @@ const router = express.Router();
 router.post(
   '/:courseId/modules/:moduleId/lessons',
   authenticateToken,
-  uploadVideo.single('video'),
+  logRequestDetails,
+  (req: Request, res: Response, next: NextFunction) => {
+    console.log('Processing lesson upload request');
+    next();
+  },
+  uploadLessonContent,
   addLesson
 );
 
 router.put(
   '/:courseId/modules/:moduleId/lessons/:lessonId',
   authenticateToken,
-  uploadVideo.single('video'),
+  logRequestDetails,
+  (req: Request, res: Response, next: NextFunction) => {
+    console.log('Processing lesson update request');
+    next();
+  },
+  uploadLessonContent,
   updateLesson
 );
 
@@ -37,6 +56,28 @@ router.get(
   '/:courseId/modules/:moduleId/lessons/:lessonId',
   authenticateToken,
   getLesson
+);
+
+// Attachment routes
+router.get(
+  '/:courseId/modules/:moduleId/lessons/:lessonId/attachments/:attachmentIndex',
+  authenticateToken,
+  downloadAttachment
+);
+
+// Debug middleware for public routes
+const debugPublicRoute = (req: Request, res: Response, next: NextFunction) => {
+  console.log('DEBUG - Public PDF route accessed');
+  console.log('DEBUG - Request URL:', req.originalUrl);
+  console.log('DEBUG - Request params:', req.params);
+  next();
+};
+
+// Public attachment route (for enrolled students)
+router.get(
+  '/public/:courseId/modules/:moduleId/lessons/:lessonId/attachments/:attachmentIndex',
+  debugPublicRoute,
+  viewPdfAttachment
 );
 
 // Notice board routes

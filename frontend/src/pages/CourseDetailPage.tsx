@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlay, faClock, faCheck, faChevronRight, faChevronDown, faLock } from '@fortawesome/free-solid-svg-icons';
@@ -152,7 +152,7 @@ export const CourseDetailPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4">
           {/* Breadcrumb */}
           <div className="flex items-center space-x-2 text-sm mb-6">
-            <span>Courses</span>
+            <Link to="/courses" className="hover:text-primary-light transition-colors">Courses</Link>
             <FontAwesomeIcon icon={faChevronRight} className="text-xs" />
             <span className="text-neutral-300">{course.title}</span>
           </div>
