@@ -115,7 +115,7 @@ export const uploadVideo = multer({
   storage: courseVideoStorage,
   fileFilter: videoFilter,
   limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB max file size
+    fileSize: 2 * 1024 * 1024 * 1024 // 2GB max file size
   }
 });
 
@@ -229,7 +229,7 @@ const lessonUpload = multer({
   storage: lessonContentStorage,
   fileFilter: lessonContentFilter,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB max file size
+    fileSize: 2 * 1024 * 1024 * 1024, // 2GB max file size
     files: 10 // Allow up to 10 files to be uploaded at once
   }
 }).fields([
@@ -257,7 +257,7 @@ const handleMulterErrorMiddleware = (err: any, req: Request, res: Response, next
       });
     } else if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({ 
-        message: `File too large: Maximum file size is 100MB for videos and 10MB for attachments.` 
+        message: `File too large: Maximum file size is 2GB for videos and 10MB for attachments.` 
       });
     } else if (err.code === 'LIMIT_FILE_COUNT') {
       return res.status(400).json({ 

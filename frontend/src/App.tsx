@@ -14,6 +14,7 @@ import { EmailVerificationPage } from './pages/EmailVerificationPage';
 import { RequestPasswordResetPage } from './pages/RequestPasswordResetPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdDash } from './pages/admin/AdDash';
 import { AddCourseContentPage } from './pages/admin/AddCourseContentPage';
 import { AddCoursePage } from './pages/admin/AddCoursePage';
 import { CoursesListPage } from './pages/admin/CoursesListPage';
@@ -65,8 +66,9 @@ function App() {
         <BrowserRouter>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<PublicHomePage />} />
-            <Route path="/landing" element={<LandingFirst />} />
+            <Route path="/" element={<LandingFirst />} />
+            <Route path="/landing" element={<Navigate to="/" replace />} />
+            <Route path="/home" element={<PublicHomePage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/verify-email/:token" element={<EmailVerificationPage />} />
             <Route path="/auth/request-password-reset" element={<RequestPasswordResetPage />} />
@@ -112,6 +114,13 @@ function App() {
 
             {/* Admin Routes */}
             <Route path="/admin" element={
+              <ProtectedRoute adminOnly>
+                <AdDash />
+              </ProtectedRoute>
+            } />
+            
+            {/* Keep the original dashboard accessible at /admin/old-dashboard if needed */}
+            <Route path="/admin/old-dashboard" element={
               <ProtectedRoute adminOnly>
                 <AdminDashboard />
               </ProtectedRoute>

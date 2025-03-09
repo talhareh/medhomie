@@ -16,6 +16,7 @@ import courseContentRoutes from './routes/courseContentRoutes';
 import publicCourseRoutes from './routes/publicCourseRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import tagRoutes from './routes/tagRoutes';
+import statisticsRoutes from './routes/statisticsRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 config();
@@ -63,6 +64,7 @@ app.use('/api/course-content', courseContentRoutes);
 app.use('/api/public/courses', publicCourseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/statistics', statisticsRoutes);
 
 // Basic route for testing
 app.get('/', (req: Request, res: Response) => {

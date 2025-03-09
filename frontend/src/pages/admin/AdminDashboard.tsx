@@ -127,7 +127,7 @@ export const AdminDashboard = () => {
       <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
       
       {/* Quick Access Links */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <Link 
           to="/admin/courses" 
           className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-lg shadow text-center transition-colors"
@@ -151,6 +151,12 @@ export const AdminDashboard = () => {
           className="bg-yellow-500 hover:bg-yellow-600 text-white p-4 rounded-lg shadow text-center transition-colors"
         >
           Manage Tags
+        </Link>
+        <Link 
+          to="/admin/payments" 
+          className="bg-primary hover:bg-primary-dark text-white p-4 rounded-lg shadow text-center transition-colors"
+        >
+          Manage Payments
         </Link>
       </div>
       

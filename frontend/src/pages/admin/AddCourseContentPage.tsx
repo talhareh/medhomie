@@ -63,9 +63,9 @@ export const AddCourseContentPage: React.FC = () => {
       return;
     }
 
-    // Validate file size (100MB limit)
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error('Video file size should be less than 100MB');
+    // Validate file size (2GB limit)
+    if (file.size > 2 * 1024 * 1024 * 1024) {
+      toast.error('Video file size should be less than 2GB');
       return;
     }
 

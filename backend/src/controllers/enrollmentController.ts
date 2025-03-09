@@ -130,7 +130,7 @@ export const getEnrollments = async (req: AuthRequest, res: Response): Promise<v
 
     const enrollments = await Enrollment.find(query)
       .populate('student', 'fullName email whatsappNumber')
-      .populate('course', 'title')
+      .populate('course', 'title price')
       .sort({ enrollmentDate: -1 });
 
     res.status(200).json(enrollments);
