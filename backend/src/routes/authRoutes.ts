@@ -1,5 +1,5 @@
-import express, { RequestHandler } from 'express';
-import { authenticateToken } from '../middleware/auth';
+import express, { RequestHandler, Response, NextFunction } from 'express';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
 import * as authController from '../controllers/authController';
 
 const router = express.Router();
@@ -13,7 +13,12 @@ router.post('/request-password-reset', authController.requestPasswordReset as Re
 router.post('/reset-password/:token', authController.resetPassword as RequestHandler);
 
 // Protected routes
-router.get('/me', authenticateToken as RequestHandler, authController.getCurrentUser as RequestHandler);
-router.post('/logout', authenticateToken as RequestHandler, authController.logout as RequestHandler);
+// Create typed handlers
+const getCurrentUserHandler = (req: AuthRequest, res: Response, next: NextFunction) => authController.getCurrentUser(req, res, next);
+const logoutHandler = (req: AuthRequest, res: Response, next: NextFunction) => authController.logout(req, res, next);
+
+// Apply middleware and routes
+router.get('/me', authenticateToken, getCurrentUserHandler);
+router.post('/logout', authenticateToken, logoutHandler);
 
 export default router;
