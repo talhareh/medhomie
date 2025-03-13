@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { User, UserRole } from '../models/User';
+import { User } from '../models/User';
 import { Course } from '../models/Course'; // Import the Course model
 
 interface TokenPayload {
@@ -11,12 +11,21 @@ interface TokenPayload {
 // Define the user property interface
 interface UserInfo {
   _id: string;
+  email: string;
   role: UserRole;
+}
+
+// Define UserRole enum
+export enum UserRole {
+  Admin = 'Admin',
+  Instructor = 'Instructor',
+  Student = 'Student',
+  Guest = 'Guest'
 }
 
 // Extend the Express Request type
 export interface AuthRequest extends Request {
-  user?: UserInfo;
+  user: UserInfo;
 }
 
 // Create type-safe middleware functions
@@ -58,26 +67,20 @@ export const authenticateToken = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
+    const token = authReq.header('Authorization')?.replace('Bearer ', '');
     if (!token) {
-      res.status(401).json({ message: 'Access token is required' });
-      return;
+      throw new Error('Authentication required');
     }
-
-    const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret_key';
-    const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
-
-    (req as AuthRequest).user = {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key') as TokenPayload;
+    authReq.user = {
       _id: decoded.userId,
       role: decoded.role
     };
-
     next();
   } catch (error) {
-    res.status(403).json({ message: 'Invalid or expired token' });
+    res.status(401).json({ message: 'Please authenticate' });
   }
 };
 
@@ -87,7 +90,7 @@ export const isAdmin = (
   next: NextFunction
 ): void => {
   const authReq = req as AuthRequest;
-  if (authReq.user?.role === UserRole.ADMIN) {
+  if (authReq.user.role === UserRole.Admin) {
     next();
   } else {
     res.status(403).json({ message: 'Access denied. Admin role required.' });
@@ -100,7 +103,7 @@ export const isAdminOrInstructor = (
   next: NextFunction
 ): void => {
   const authReq = req as AuthRequest;
-  if (authReq.user?.role === UserRole.ADMIN || authReq.user?.role === UserRole.INSTRUCTOR) {
+  if (authReq.user.role === UserRole.Admin || authReq.user.role === UserRole.Instructor) {
     next();
   } else {
     res.status(403).json({ message: 'Access denied. Admin or instructor role required.' });
@@ -114,7 +117,7 @@ export const isAdminOrCourseInstructor = async (
 ): Promise<void> => {
   try {
     const authReq = req as AuthRequest;
-    if (authReq.user?.role === UserRole.ADMIN) {
+    if (authReq.user.role === UserRole.Admin) {
       next();
       return;
     }
@@ -125,7 +128,7 @@ export const isAdminOrCourseInstructor = async (
       return;
     }
 
-    if (course.createdBy.toString() === authReq.user?._id) {
+    if (course.createdBy.toString() === authReq.user._id) {
       next();
     } else {
       res.status(403).json({ message: 'Access denied. Not authorized to modify this course.' });
@@ -170,6 +173,7 @@ export const optionalAuthToken = async (
 
     (req as AuthRequest).user = {
       _id: user._id.toString(),
+      email: user.email, // Add email property
       role: user.role
     };
     next();
