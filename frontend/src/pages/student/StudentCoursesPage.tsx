@@ -1,0 +1,335 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
+import Modal from 'react-modal';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faUpload, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../../contexts/AuthContext';
+import api from '../../utils/axios';
+import { MainLayout } from '../../components/layout/MainLayout';
+import { Course } from '../../types/course';
+import { EnrollmentStatus } from '../../types/enrollment';
+
+// Bind modal to your appElement for accessibility
+Modal.setAppElement('#root');
+
+// Extend Course interface to include enrollment status
+interface StudentCourse extends Course {
+  isEnrolled?: boolean;
+  enrollmentStatus?: EnrollmentStatus;
+}
+
+const customModalStyles = {
+  content: {
+    top: '50%',
+    left: '50%',
+    right: 'auto',
+    bottom: 'auto',
+    marginRight: '-50%',
+    transform: 'translate(-50%, -50%)',
+    maxWidth: '600px',
+    width: '90%',
+    maxHeight: '90vh',
+    padding: '2rem',
+    borderRadius: '0.5rem',
+    overflow: 'auto',
+  },
+  overlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    overflow: 'auto',
+    paddingTop: '2rem',
+    paddingBottom: '2rem',
+  },
+};
+
+const paymentInfo = {
+  bankTransfer: {
+    title: 'Bank Transfer',
+    instructions: 'Transfer the course fee to our bank account',
+    details: 'Account Number: XXXX-XXXX-XXXX-XXXX\nBank: Sample Bank\nAccount Title: MedHome'
+  },
+  easypaisa: {
+    title: 'EasyPaisa',
+    instructions: 'Send payment through EasyPaisa',
+    details: 'Account Number: 03XX-XXXXXXX'
+  },
+  jazzcash: {
+    title: 'JazzCash',
+    instructions: 'Send payment through JazzCash',
+    details: 'Account Number: 03XX-XXXXXXX'
+  },
+  paypal: {
+    title: 'PayPal',
+    instructions: 'Send payment through PayPal',
+    details: 'Email: payment@medhome.com'
+  }
+};
+
+/**
+ * StudentCoursesPage - Renders the courses page with the student sidebar
+ * This component replicates the functionality of PublicCoursesPage but within the MainLayout
+ */
+export const StudentCoursesPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [isEnrollModalOpen, setIsEnrollModalOpen] = React.useState(false);
+  const [selectedCourse, setSelectedCourse] = React.useState<StudentCourse | null>(null);
+  const [receipt, setReceipt] = React.useState<File | null>(null);
+
+  // Fetch courses
+  const { data: courses = [], isLoading: isLoadingCourses } = useQuery({
+    queryKey: ['public-courses'],
+    queryFn: async () => {
+      const response = await api.get<StudentCourse[]>('/public/courses');
+      return response.data;
+    },
+  });
+
+  // Enrollment mutation
+  const enrollMutation = useMutation({
+    mutationFn: async ({ courseId, receipt }: { courseId: string; receipt: File }) => {
+      const formData = new FormData();
+      formData.append('paymentReceipt', receipt);
+      
+      const response = await api.post(`enrollments/courses/${courseId}/enroll`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Enrollment request submitted successfully');
+      setIsEnrollModalOpen(false);
+      setReceipt(null);
+      setSelectedCourse(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Error submitting enrollment');
+    },
+  });
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a valid file (JPEG, JPG, PNG, or PDF)');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size should be less than 5MB');
+      return;
+    }
+
+    setReceipt(file);
+  };
+
+  const handleEnrollClick = (course: StudentCourse) => {
+    // If already enrolled or pending, don't allow re-enrollment
+    if (course.isEnrolled && course.enrollmentStatus !== EnrollmentStatus.REJECTED) {
+      return;
+    }
+
+    setSelectedCourse(course);
+    setIsEnrollModalOpen(true);
+  };
+
+  const handleEnrollSubmit = () => {
+    if (!selectedCourse || !receipt) {
+      toast.error('Please upload a receipt');
+      return;
+    }
+
+    enrollMutation.mutate({
+      courseId: selectedCourse._id,
+      receipt,
+    });
+  };
+
+  if (isLoadingCourses) {
+    return (
+      <MainLayout>
+        <div className="flex justify-center items-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  return (
+    <MainLayout>
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6">Available Courses</h1>
+        
+        {/* Course Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {courses.length > 0 ? (
+            courses.map((course) => (
+              <div key={course._id.toString()} className="bg-white rounded-lg shadow-md overflow-hidden">
+                {/* Course Thumbnail */}
+                <div className="h-48 bg-gray-200 relative">
+                  {course.thumbnail ? (
+                    <img
+                      src={course.thumbnail.startsWith('http') ? course.thumbnail : course.thumbnail.replace('uploads/', '/api/uploads/')}
+                      alt={course.title}
+                      className="w-full h-full object-cover p-1 object-right-top"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null;
+                        target.src = '/placeholder-course.jpg';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                      <span className="text-gray-400">No image available</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Course Info */}
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{course.title}</h3>
+                  <p className="text-gray-600 mb-4 line-clamp-3">{course.description}</p>
+                  
+                  <div className="flex justify-between items-center mt-4">
+                    <span className="text-lg font-semibold text-primary">
+                      {course.price > 0 ? `$${course.price.toFixed(2)}` : 'Free'}
+                    </span>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => navigate(`/courses/${course._id}`)}
+                        className="px-4 py-2 rounded-md text-white bg-gray-600 hover:bg-gray-700"
+                      >
+                        View Course
+                      </button>
+                      <button
+                        onClick={() => handleEnrollClick(course)}
+                        className={`px-4 py-2 rounded-md text-white ${
+                          course.isEnrolled
+                            ? course.enrollmentStatus === EnrollmentStatus.APPROVED
+                              ? 'bg-green-500 cursor-default'
+                              : course.enrollmentStatus === EnrollmentStatus.REJECTED
+                              ? 'bg-red-500 cursor-default'
+                              : 'bg-yellow-500 cursor-default'
+                            : 'bg-primary hover:bg-primary-dark'
+                        }`}
+                        disabled={course.isEnrolled && course.enrollmentStatus !== EnrollmentStatus.REJECTED}
+                      >
+                        {course.isEnrolled
+                          ? course.enrollmentStatus === EnrollmentStatus.APPROVED
+                            ? 'Enrolled'
+                            : course.enrollmentStatus === EnrollmentStatus.REJECTED
+                            ? 'Rejected'
+                            : 'Pending'
+                          : 'Enroll Now'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-3 flex justify-center items-center py-16">
+              <p className="text-gray-500 text-lg">No courses available at the moment.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Enrollment Modal */}
+      <Modal
+        isOpen={isEnrollModalOpen}
+        onRequestClose={() => setIsEnrollModalOpen(false)}
+        style={customModalStyles}
+        contentLabel="Enrollment Form"
+      >
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Enrollment Form</h2>
+            <button
+              onClick={() => setIsEnrollModalOpen(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <FontAwesomeIcon icon={faTimes} size="lg" />
+            </button>
+          </div>
+
+          {selectedCourse && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">{selectedCourse.title}</h3>
+              <p className="text-gray-600 mb-2">Price: ${selectedCourse.price.toFixed(2)}</p>
+            </div>
+          )}
+
+          <div className="mb-8">
+            <h4 className="text-lg font-medium text-gray-800 mb-4">Payment Methods</h4>
+            <div className="space-y-6">
+              {Object.entries(paymentInfo).map(([key, info]) => (
+                <div key={key} className="border rounded-lg p-4">
+                  <h5 className="font-medium text-gray-800 mb-2">{info.title}</h5>
+                  <p className="text-gray-600 mb-2">{info.instructions}</p>
+                  <pre className="bg-gray-100 p-3 rounded text-sm text-gray-700 whitespace-pre-wrap">
+                    {info.details}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <h4 className="text-lg font-medium text-gray-800 mb-4">Upload Payment Receipt</h4>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                id="receipt"
+                onChange={handleFileChange}
+                className="hidden"
+                accept=".jpg,.jpeg,.png,.pdf"
+              />
+              {receipt ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-700">{receipt.name}</span>
+                  <button
+                    onClick={() => setReceipt(null)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
+                </div>
+              ) : (
+                <label
+                  htmlFor="receipt"
+                  className="cursor-pointer flex flex-col items-center justify-center"
+                >
+                  <FontAwesomeIcon icon={faUpload} className="text-gray-400 text-3xl mb-2" />
+                  <span className="text-gray-600 mb-1">Click to upload payment receipt</span>
+                  <span className="text-gray-400 text-sm">JPG, PNG or PDF (max 5MB)</span>
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={handleEnrollSubmit}
+              disabled={!receipt || enrollMutation.isPending}
+              className={`px-6 py-2 rounded-md text-white ${
+                !receipt || enrollMutation.isPending
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-primary hover:bg-primary-dark'
+              }`}
+            >
+              {enrollMutation.isPending ? 'Submitting...' : 'Submit Enrollment'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </MainLayout>
+  );
+};

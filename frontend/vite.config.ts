@@ -6,6 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0', // Listen on all available network interfaces
+    allowedHosts: [
+      'localhost',
+      'uat.medhome.courses',
+      ],
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

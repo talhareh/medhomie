@@ -11,6 +11,7 @@ interface TokenPayload {
 // Define the user property interface
 interface UserInfo {
   _id: string;
+  email: string;
   role: UserRole;
 }
 
@@ -70,8 +71,18 @@ export const authenticateToken = async (
     const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret_key';
     const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
 
+    // Find user to get email
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      // Instead of returning a response directly, set status and locals, then call next with error
+      res.status(404);
+      const error = new Error('User not found');
+      return next(error);
+    }
+    
     (req as AuthRequest).user = {
       _id: decoded.userId,
+      email: user.email,
       role: decoded.role
     };
 
@@ -170,6 +181,7 @@ export const optionalAuthToken = async (
 
     (req as AuthRequest).user = {
       _id: user._id.toString(),
+      email: user.email,
       role: user.role
     };
     next();

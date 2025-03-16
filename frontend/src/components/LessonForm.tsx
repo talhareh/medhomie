@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import api from '../utils/axios';
@@ -32,33 +32,58 @@ export const LessonForm: React.FC<LessonFormProps> = ({
   );
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const cancelTokenRef = useRef<AbortController | null>(null);
 
   const lessonMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      if (initialData?._id) {
-        // Update existing lesson
-        const response = await api.put(
-          `/courses/${courseId}/modules/${moduleId}/lessons/${initialData._id}`,
-          data,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }
-        );
-        return response.data;
-      } else {
-        // Create new lesson
-        const response = await api.post(
-          `/courses/${courseId}/modules/${moduleId}/lessons`,
-          data,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }
-        );
-        return response.data;
+      // Reset progress and set uploading state
+      setUploadProgress(0);
+      setIsUploading(true);
+      
+      // Create a new AbortController for this request
+      cancelTokenRef.current = new AbortController();
+      
+      try {
+        if (initialData?._id) {
+          // Update existing lesson
+          const response = await api.put(
+            `/courses/${courseId}/modules/${moduleId}/lessons/${initialData._id}`,
+            data,
+            {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+              onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+                setUploadProgress(percentCompleted);
+              },
+              signal: cancelTokenRef.current.signal
+            }
+          );
+          return response.data;
+        } else {
+          // Create new lesson
+          const response = await api.post(
+            `/courses/${courseId}/modules/${moduleId}/lessons`,
+            data,
+            {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+              onUploadProgress: (progressEvent) => {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+                setUploadProgress(percentCompleted);
+              },
+              signal: cancelTokenRef.current.signal
+            }
+          );
+          return response.data;
+        }
+      } finally {
+        // Reset uploading state when done (whether success or error)
+        setIsUploading(false);
       }
     },
     onSuccess: () => {
@@ -69,6 +94,7 @@ export const LessonForm: React.FC<LessonFormProps> = ({
         setFormData(initialLessonData);
         setVideoFile(null);
         setAttachmentFiles([]);
+        setUploadProgress(0);
       }
     },
     onError: (error: any) => {
@@ -129,6 +155,15 @@ export const LessonForm: React.FC<LessonFormProps> = ({
 
   const removeAttachment = (index: number) => {
     setAttachmentFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const cancelUpload = () => {
+    if (cancelTokenRef.current && isUploading) {
+      cancelTokenRef.current.abort();
+      setIsUploading(false);
+      setUploadProgress(0);
+      toast.info('Upload cancelled');
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -275,13 +310,48 @@ export const LessonForm: React.FC<LessonFormProps> = ({
         </label>
       </div>
 
-      <div className="flex justify-end">
+      {/* Upload Progress Bar */}
+      {isUploading && videoFile && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-gray-700">Uploading {videoFile.name}</span>
+            <span className="text-sm font-medium text-gray-700">{uploadProgress}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div 
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={cancelUpload}
+              className="text-sm text-red-600 hover:text-red-800"
+              disabled={!isUploading}
+            >
+              Cancel Upload
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end space-x-3">
+        {isUploading && (
+          <button
+            type="button"
+            onClick={cancelUpload}
+            className="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+          >
+            Cancel
+          </button>
+        )}
         <button
           type="submit"
           className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           disabled={lessonMutation.isLoading}
         >
-          {lessonMutation.isLoading ? 'Saving...' : initialData ? 'Update Lesson' : 'Add Lesson'}
+          {lessonMutation.isLoading ? (isUploading ? `Uploading (${uploadProgress}%)` : 'Saving...') : initialData ? 'Update Lesson' : 'Add Lesson'}
         </button>
       </div>
     </form>

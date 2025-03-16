@@ -46,7 +46,6 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@types/dotenv": "^8.2.3",
     "@types/express-fileupload": "^1.5.1",
     "@types/mongoose": "^5.11.97"
   }
