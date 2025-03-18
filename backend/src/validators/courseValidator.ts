@@ -58,8 +58,9 @@ export const validateCourse = (course: any) => {
       })).default([])
     })).default([]),
     noticeBoard: Joi.array().items(Joi.string()).default([]),
-    enrollmentCount: Joi.number().default(0)
-  });
+    enrollmentCount: Joi.number().default(0),
+    categories: Joi.array().items(Joi.string()).default([])
+  }).unknown(true);
 
   return schema.validate(course);
 };
@@ -67,7 +68,7 @@ export const validateCourse = (course: any) => {
 export const validateCourseStateUpdate = (course: any) => {
   const schema = Joi.object({
     state: Joi.string().valid(...Object.values(CourseState)).required()
-  });
+  }).unknown(false);
 
   return schema.validate(course);
 };

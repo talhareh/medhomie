@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
@@ -33,6 +33,9 @@ export const ModuleLessonsManager: React.FC = () => {
     video: null as File | null,
     attachments: [] as File[]
   });
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const cancelTokenRef = useRef<AbortController | null>(null);
 
   const { data: module, isLoading } = useQuery({
     queryKey: ['module', moduleId],
@@ -42,6 +45,15 @@ export const ModuleLessonsManager: React.FC = () => {
     },
   });
 
+  const cancelUpload = () => {
+    if (cancelTokenRef.current && isUploading) {
+      cancelTokenRef.current.abort();
+      setIsUploading(false);
+      setUploadProgress(0);
+      toast.info('Upload cancelled');
+    }
+  };
+
   const addLessonMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       const url = `/course-content/${courseId}/modules/${moduleId}/lessons`;
@@ -50,18 +62,36 @@ export const ModuleLessonsManager: React.FC = () => {
       for (const [key, value] of formData.entries()) {
         console.log(key, ':', value);
       }
-      const response = await api.post(
-        url,
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        }
-      );
-      return response.data;
+      
+      // Reset progress and set uploading state
+      setUploadProgress(0);
+      setIsUploading(true);
+      
+      // Create a new AbortController for this request
+      cancelTokenRef.current = new AbortController();
+      
+      try {
+        const response = await api.post(
+          url,
+          formData,
+          {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (progressEvent) => {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+              setUploadProgress(percentCompleted);
+            },
+            signal: cancelTokenRef.current.signal
+          }
+        );
+        return response.data;
+      } finally {
+        setIsUploading(false);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['module', moduleId]);
       setNewLesson({ title: '', description: '', video: null, attachments: [] });
+      setUploadProgress(0);
       toast.success('Lesson added successfully');
     },
     onError: (error: any) => {
@@ -73,18 +103,36 @@ export const ModuleLessonsManager: React.FC = () => {
     mutationFn: async ({ lessonId, formData }: { lessonId: string; formData: FormData }) => {
       const url = `/course-content/${courseId}/modules/${moduleId}/lessons/${lessonId}`;
       console.log('Sending update request to:', url);
-      const response = await api.put(
-        url,
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        }
-      );
-      return response.data;
+      
+      // Reset progress and set uploading state
+      setUploadProgress(0);
+      setIsUploading(true);
+      
+      // Create a new AbortController for this request
+      cancelTokenRef.current = new AbortController();
+      
+      try {
+        const response = await api.put(
+          url,
+          formData,
+          {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (progressEvent) => {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+              setUploadProgress(percentCompleted);
+            },
+            signal: cancelTokenRef.current.signal
+          }
+        );
+        return response.data;
+      } finally {
+        setIsUploading(false);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['module', moduleId]);
       setEditingLesson(null);
+      setUploadProgress(0);
       toast.success('Lesson updated successfully');
     },
     onError: (error: any) => {
@@ -265,6 +313,22 @@ export const ModuleLessonsManager: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   />
                 </div>
+                
+                {/* Upload Progress Bar (shown for both new and editing) */}
+                {isUploading && (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-700">Uploading video</span>
+                      <span className="text-sm font-medium text-gray-700">{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
                 {!editingLesson && (
                   <>
                     <div>
@@ -280,6 +344,22 @@ export const ModuleLessonsManager: React.FC = () => {
                       />
                       <p className="mt-1 text-sm text-gray-500">Max size: 100MB</p>
                     </div>
+                    
+                    {/* Upload Progress Bar */}
+                    {isUploading && newLesson.video && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-gray-700">Uploading {newLesson.video.name}</span>
+                          <span className="text-sm font-medium text-gray-700">{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Attachments
@@ -295,6 +375,15 @@ export const ModuleLessonsManager: React.FC = () => {
                   </>
                 )}
                 <div className="flex space-x-3">
+                  {isUploading && (
+                    <button
+                      type="button"
+                      onClick={cancelUpload}
+                      className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
+                    >
+                      Cancel Upload
+                    </button>
+                  )}
                   <button
                     type="submit"
                     className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
@@ -302,20 +391,32 @@ export const ModuleLessonsManager: React.FC = () => {
                   >
                     {editingLesson
                       ? updateLessonMutation.isLoading
-                        ? 'Updating...'
+                        ? isUploading ? `Uploading (${uploadProgress}%)` : 'Updating...'
                         : 'Update Lesson'
                       : addLessonMutation.isLoading
-                      ? 'Adding...'
+                      ? isUploading ? `Uploading (${uploadProgress}%)` : 'Adding...'
                       : 'Add Lesson'}
                   </button>
                   {editingLesson && (
-                    <button
-                      type="button"
-                      onClick={() => setEditingLesson(null)}
-                      className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600"
-                    >
-                      Cancel
-                    </button>
+                    <>
+                      {isUploading ? (
+                        <button
+                          type="button"
+                          onClick={cancelUpload}
+                          className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600"
+                        >
+                          Cancel Upload
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditingLesson(null)}
+                          className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </form>

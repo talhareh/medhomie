@@ -18,10 +18,12 @@ import { AdDash } from './pages/admin/AdDash';
 import { AddCourseContentPage } from './pages/admin/AddCourseContentPage';
 import { AddCoursePage } from './pages/admin/AddCoursePage';
 import { CoursesListPage } from './pages/admin/CoursesListPage';
+import { EditCoursePage } from './pages/admin/EditCoursePage';
 import { CourseDetailPage as AdminCourseDetailPage } from './pages/admin/CourseDetailPage';
 import { CourseDetailPage as PublicCourseDetailPage } from './pages/CourseDetailPage';
 import { CourseContentPage } from './pages/CourseContentPage';
 import { MyCoursesPage } from './pages/student/MyCoursesPage';
+import { StudentCoursesPage } from './pages/student/StudentCoursesPage';
 import { PaymentsPage } from './pages/student/PaymentsPage';
 import { UsersListPage } from './pages/admin/UsersListPage';
 import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
@@ -99,6 +101,12 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="/student/courses" element={
+              <ProtectedRoute>
+                <StudentCoursesPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="/payments" element={
               <ProtectedRoute>
                 <PaymentsPage />
@@ -141,6 +149,12 @@ function App() {
             <Route path="/admin/courses/:courseId" element={
               <ProtectedRoute adminOnly>
                 <AdminCourseDetailPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/courses/:courseId/edit" element={
+              <ProtectedRoute adminOnly>
+                <EditCoursePage />
               </ProtectedRoute>
             } />
 

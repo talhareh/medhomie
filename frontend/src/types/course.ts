@@ -15,6 +15,9 @@ export interface Lesson {
   isPreview: boolean;
 }
 
+// Alias for Lesson interface used in LessonForm component
+export type ILessonData = Lesson;
+
 export interface Module {
   _id?: string;
   title: string;

@@ -26,7 +26,7 @@ export const Sidebar = () => {
 
     if (user?.role === UserRole.STUDENT) {
       items.push(
-        { to: '/courses', icon: faBook, label: 'Courses' },
+        { to: '/student/courses', icon: faBook, label: 'Courses' },
         { to: '/my-courses', icon: faGraduationCap, label: 'My Courses' },
         { to: '/payments', icon: faCreditCard, label: 'Payments' }
       );

@@ -73,9 +73,21 @@ export const authenticateToken = async (
     if (!token) {
       throw new Error('Authentication required');
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key') as TokenPayload;
-    authReq.user = {
+    const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret_key';
+    const decoded = jwt.verify(token, jwtSecret) as TokenPayload;
+
+    // Find user to get email
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      // Instead of returning a response directly, set status and locals, then call next with error
+      res.status(404);
+      const error = new Error('User not found');
+      return next(error);
+    }
+    
+    (req as AuthRequest).user = {
       _id: decoded.userId,
+      email: user.email,
       role: decoded.role
     };
     next();
@@ -173,7 +185,11 @@ export const optionalAuthToken = async (
 
     (req as AuthRequest).user = {
       _id: user._id.toString(),
+<<<<<<< HEAD
       email: user.email, // Add email property
+=======
+      email: user.email,
+>>>>>>> version1.1.0
       role: user.role
     };
     next();

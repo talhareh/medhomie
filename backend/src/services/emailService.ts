@@ -1,4 +1,8 @@
-import nodemailer from 'nodemailer';
+import Mailgun from 'mailgun.js';
+import formData from 'form-data';
+import { config } from 'dotenv';
+
+config();
 
 // Define email colors
 const colors = {
@@ -12,72 +16,35 @@ const colors = {
   }
 };
 
-// Create test account for development if no credentials are provided
-const createTestAccount = async () => {
+// Initialize Mailgun
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({
+  username: 'api',
+  key: process.env.MAILGUN_API_KEY || '',
+  url: 'https://api.eu.mailgun.net'
+});
+
+const domain = process.env.MAILGUN_DOMAIN || '';
+const fromEmail = process.env.MAILGUN_FROM_EMAIL || '';
+
+// Validate Mailgun configuration
+const validateMailgunConfig = () => {
   console.log('Starting email configuration...');
-  console.log('Email credentials:', {
-    user: process.env.EMAIL_USER ? 'Set' : 'Not set',
-    pass: process.env.EMAIL_APP_PASSWORD ? 'Set' : 'Not set'
+  console.log('Mailgun credentials:', {
+    apiKey: process.env.MAILGUN_API_KEY ? 'Set' : 'Not set',
+    domain: process.env.MAILGUN_DOMAIN ? 'Set' : 'Not set',
+    fromEmail: process.env.MAILGUN_FROM_EMAIL ? 'Set' : 'Not set'
   });
 
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
-    console.log('No email credentials found, creating test account...');
-    const testAccount = await nodemailer.createTestAccount();
-    return {
-      user: testAccount.user,
-      pass: testAccount.pass,
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false
-    };
+  if (!process.env.MAILGUN_API_KEY || !process.env.MAILGUN_DOMAIN || !process.env.MAILGUN_FROM_EMAIL) {
+    console.error('Missing Mailgun configuration. Please set MAILGUN_API_KEY, MAILGUN_DOMAIN, and MAILGUN_FROM_EMAIL');
+    return false;
   }
-  return {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD,
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false
-  };
+  return true;
 };
 
-// Initialize transporter
-let transporter: nodemailer.Transporter;
-
-const initializeTransporter = async () => {
-  const config = await createTestAccount();
-  
-  transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: {
-      user: config.user,
-      pass: config.pass
-    },
-    debug: true
-  });
-
-  // Verify transporter configuration
-  try {
-    const success = await transporter.verify();
-    if (success) {
-      console.log('Email server connection verified and ready to send messages');
-    }
-  } catch (error) {
-    console.log('Email service error:', error);
-    console.log('Credentials being used:', {
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      user: config.user,
-      // Don't log the actual password
-      passLength: config.pass ? config.pass.length : 0
-    });
-  }
-};
-
-// Initialize the transporter
-initializeTransporter();
+// Validate configuration on startup
+validateMailgunConfig();
 
 const emailStyles = {
   button: `
@@ -125,13 +92,14 @@ export const sendVerificationEmail = async (
       </div>
     `;
 
-    const result = await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to,
+    const messageData = {
+      from: fromEmail,
+      to: [to],
       subject: 'Verify Your Email - MedHome',
       html
-    });
+    };
 
+    const result = await mg.messages.create(domain, messageData);
     console.log('Email sent successfully:', result);
     return result;
   } catch (error) {
@@ -161,13 +129,14 @@ export const sendPasswordResetEmail = async (
       </div>
     `;
 
-    const result = await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to,
+    const messageData = {
+      from: fromEmail,
+      to: [to],
       subject: 'Reset Your Password - MedHome',
       html
-    });
+    };
 
+    const result = await mg.messages.create(domain, messageData);
     console.log('Email sent successfully:', result);
     return result;
   } catch (error) {
@@ -192,13 +161,14 @@ export const sendPasswordChangeNotification = async (
       </div>
     `;
 
-    const result = await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to,
+    const messageData = {
+      from: fromEmail,
+      to: [to],
       subject: 'Password Changed - MedHome',
       html
-    });
+    };
 
+    const result = await mg.messages.create(domain, messageData);
     console.log('Email sent successfully:', result);
     return result;
   } catch (error) {
