@@ -15,7 +15,10 @@
       "@/*": ["src/*"]
     },
     "typeRoots": ["./node_modules/@types", "./src/types"],
-    "types": ["node", "dotenv"]
+    "types": ["node"],
+    "lib": ["dom", "es2018"],
+    "jsx": "react-jsx",
+    "noEmitOnError": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
