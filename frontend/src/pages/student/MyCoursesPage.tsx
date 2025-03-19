@@ -167,7 +167,7 @@ export const MyCoursesPage: React.FC = () => {
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">You haven't enrolled in any courses yet.</p>
             <button
-              onClick={() => navigate('/courses')}
+              onClick={() => navigate('/student/courses')}
               className="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
             >
               Browse Courses

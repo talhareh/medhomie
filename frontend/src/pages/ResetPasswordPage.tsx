@@ -98,7 +98,7 @@ export const ResetPasswordPage = () => {
             {isLoading ? 'Resetting Password...' : 'Reset Password'}
           </button>
         </form>
-        <div className="space-y-4">
+        <div className="space-y-4 mt-6">
           <Link
             to="/auth?mode=login"
             className="block w-full px-4 py-2 text-base font-medium text-white bg-primary rounded-md hover:bg-primary-dark transition-colors"
