@@ -29,6 +29,7 @@ import { UsersListPage } from './pages/admin/UsersListPage';
 import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
 import { CategoriesManagementPage } from './pages/admin/CategoriesManagementPage';
 import { TagsManagementPage } from './pages/admin/TagsManagementPage';
+import { EnrollmentManagement } from './pages/admin/EnrollmentManagement';
 import { CourseContentManager } from './components/layout/CourseContentManager';
 import { ModuleLessonsManager } from './components/layout/ModuleLessonsManager';
 
@@ -124,6 +125,12 @@ function App() {
             <Route path="/admin" element={
               <ProtectedRoute adminOnly>
                 <AdDash />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/enrolled" element={
+              <ProtectedRoute adminOnly>
+                <EnrollmentManagement />
               </ProtectedRoute>
             } />
             

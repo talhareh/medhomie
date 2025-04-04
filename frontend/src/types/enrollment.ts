@@ -28,3 +28,41 @@ export interface EnrollmentRequest {
   courseId: string;
   receipt: File;
 }
+
+export interface CourseWithEnrollment {
+  _id: string;
+  title: string;
+  instructor: {
+    _id: string;
+    fullName: string;
+  };
+  status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+  enrolledCount: number;
+}
+
+export interface Student {
+  _id: string;
+  fullName: string;
+  email: string;
+  whatsappNumber?: string;
+}
+
+export interface StudentEnrollment extends Student {
+  enrollmentDate: string;
+}
+
+export interface EnrollmentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  courseId: string;
+  courseTitle: string;
+  onEnroll: (studentIds: string[]) => Promise<void>;
+}
+
+export interface RemoveModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  courseId: string;
+  courseTitle: string;
+  onRemove: (studentIds: string[]) => Promise<void>;
+}

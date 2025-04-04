@@ -61,7 +61,9 @@ export const CourseContentPage: React.FC = () => {
   // Update the course when API data changes
   useEffect(() => {
     if (apiCourse) {
+      console.log('API Course data received:', apiCourse);
       const transformedCourse = transformCourse(apiCourse);
+      console.log('Transformed course data:', transformedCourse);
       setCourse(transformedCourse);
       
       // Find the current lesson if moduleId and lessonId are provided
@@ -84,9 +86,28 @@ export const CourseContentPage: React.FC = () => {
 
   // Fetch video blob when lesson changes
   useEffect(() => {
+    console.log('useEffect for video fetching triggered with currentLessonData:', currentLessonData?.id);
+    console.log('Current lesson data details:', {
+      type: currentLessonData?.type,
+      videoUrl: currentLessonData?.videoUrl,
+      hasVideo: !!currentLessonData?.videoUrl
+    });
+    
+    // Check if the current lesson is a video type and has a videoUrl
     if (currentLessonData?.type === 'video' && currentLessonData?.videoUrl) {
+      // Set loading state to true immediately
+      setVideoLoading(prev => {
+        const newLoading = {
+          ...prev,
+          [currentLessonData.id]: true
+        };
+        console.log('Setting loading state to true for lesson:', currentLessonData.id, newLoading);
+        return newLoading;
+      });
+      console.log('Current lesson is a video with URL:', currentLessonData.videoUrl);
       // Check if we already have this video blob
       if (!videoBlobs[currentLessonData.id]) {
+        console.log('Video blob not found in cache, will fetch from server');
         
         
         // Set loading state
@@ -106,28 +127,64 @@ export const CourseContentPage: React.FC = () => {
         
         // Create a function to fetch the video
         const fetchVideo = async () => {
+          console.log('fetchVideo function called');
           try {
             const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, currentLessonData.id));
+            console.log('Determined moduleId for video fetch:', currentModuleId);
             
             if (!currentModuleId) {
               throw new Error('Could not determine module ID for this lesson');
             }
             
+            console.log('Making API request to:', `/stream/${courseId}/modules/${currentModuleId}/lessons/${currentLessonData.id}/stream`);
+            // Use the videoUrl directly from the lesson data
+            // Remove any /api prefix if it exists since axios already adds it
+            let videoUrl = currentLessonData.videoUrl;
+            if (videoUrl.startsWith('/api/')) {
+              videoUrl = videoUrl.substring(4);
+            }
+            
+            console.log('Making API request using videoUrl:', videoUrl);
+            
             const response = await api.get(
-              `/stream/${courseId}/modules/${currentModuleId}/lessons/${currentLessonData.id}/stream`,
+              videoUrl,
               { responseType: 'blob' }
             );
+            console.log('API response received:', response.status);
             
             // Create a blob URL from the response
-            const blob = new Blob([response.data], { type: 'video/mp4' });
+            console.log('Creating blob from response data, size:', response.data.size);
+            console.log('Response headers:', response.headers);
+            
+            // Get content type from response headers or default to video/mp4
+            const contentType = response.headers['content-type'] || 'video/mp4';
+            console.log('Using content type for blob:', contentType);
+            
+            const blob = new Blob([response.data], { type: contentType });
+            console.log('Blob created:', blob.size, 'bytes, type:', blob.type);
             const blobUrl = URL.createObjectURL(blob);
+            console.log('Blob URL created:', blobUrl);
             
             // Store the blob URL
-            setVideoBlobs(prev => ({
-              ...prev,
-              [currentLessonData.id]: blobUrl
-            }));
+            console.log('Storing blob URL for lesson:', currentLessonData.id);
+            setVideoBlobs(prev => {
+              const newBlobs = {
+                ...prev,
+                [currentLessonData.id]: blobUrl
+              };
+              console.log('Updated videoBlobs state:', newBlobs);
+              return newBlobs;
+            });
             
+            // Set loading state to false after successful fetch
+            setVideoLoading(prev => {
+              const newLoading = {
+                ...prev,
+                [currentLessonData.id]: false
+              };
+              console.log('Setting loading state to false for lesson:', currentLessonData.id, newLoading);
+              return newLoading;
+            });
             
           } catch (error) {
             console.error('Error fetching video:', error);
@@ -136,14 +193,20 @@ export const CourseContentPage: React.FC = () => {
               [currentLessonData.id]: error instanceof Error ? error.message : 'Failed to load video'
             }));
           } finally {
-            setVideoLoading(prev => ({
-              ...prev,
-              [currentLessonData.id]: false
-            }));
+            setVideoLoading(prev => {
+              const newLoading = {
+                ...prev,
+                [currentLessonData.id]: false
+              };
+              console.log('Setting loading state to false in finally block for lesson:', currentLessonData.id, newLoading);
+              return newLoading;
+            });
           }
         };
         
         fetchVideo();
+      } else {
+        console.log('Video blob already exists in cache for lesson:', currentLessonData.id);
       }
     }
     
@@ -152,7 +215,7 @@ export const CourseContentPage: React.FC = () => {
       // We don't revoke URLs here because we want to keep them in cache
       // They will be revoked when navigating to a different lesson
     };
-  }, [currentLessonData, courseId, moduleId, course]);
+  }, [currentLessonData?.id, courseId, moduleId, course]);
 
   // Add event listener to prevent video downloading
   useEffect(() => {
@@ -174,6 +237,7 @@ export const CourseContentPage: React.FC = () => {
   const hasAccess = user && course?.enrollmentStatus === 'approved';
 
   const navigateToLesson = (sectionId: string, lessonId: string) => {
+    console.log('navigateToLesson called with:', { sectionId, lessonId });
     if (!hasAccess) {
       setIsModalOpen(true);
       return;
@@ -182,8 +246,16 @@ export const CourseContentPage: React.FC = () => {
     // Find the lesson in the course data
     const section = course?.sections.find(section => section.id === sectionId);
     if (section) {
+      console.log('Found section:', section.title, 'with lessons:', section.lessons.map(l => ({ id: l.id, title: l.title, type: l.type, hasVideo: !!l.videoUrl })));
       const lesson = section.lessons.find(lesson => lesson.id === lessonId);
       if (lesson) {
+        console.log('Found lesson:', { 
+          id: lesson.id, 
+          title: lesson.title, 
+          type: lesson.type, 
+          videoUrl: lesson.videoUrl,
+          hasVideo: !!lesson.videoUrl
+        });
         // If we're changing lessons and the current lesson has a video blob, 
         // we need to revoke the object URL to prevent memory leaks
         if (currentLessonData?.id !== lesson.id && 
@@ -203,13 +275,25 @@ export const CourseContentPage: React.FC = () => {
         // Reset any selected attachment when changing lessons
         setSelectedAttachment(null);
         
-        setCurrentLessonData(lesson);
-        // Update the URL without full navigation
+        // Clear any video errors for the new lesson
+        setVideoErrors(prev => {
+          const newErrors = { ...prev };
+          if (newErrors[lesson.id]) {
+            delete newErrors[lesson.id];
+          }
+          return newErrors;
+        });
+        
+        console.log('Setting new lesson data:', lesson.id);
+        // First update the URL without full navigation
         window.history.pushState(
           { moduleId: sectionId, lessonId },
           '',
           `/courses/${courseId}/learn/${sectionId}/${lessonId}`
         );
+        // Then set the current lesson data to trigger the useEffect
+        setCurrentLessonData(lesson);
+        console.log('URL updated, currentLessonData has been set to:', lesson.id);
       }
     }
   };

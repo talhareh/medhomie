@@ -25,6 +25,14 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   error, 
   title 
 }) => {
+  // Debug props
+  console.log('CustomVideoPlayer received props:', {
+    src,
+    isLoading,
+    error,
+    title,
+    hasSrc: !!src
+  });
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
@@ -134,7 +142,7 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
     
-    video.currentTime = Math.min(video.currentTime + 20, video.duration);
+    video.currentTime = Math.min(video.currentTime + 10, video.duration);
   };
   
   // Rewind 20 seconds
@@ -142,7 +150,7 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
     
-    video.currentTime = Math.max(video.currentTime - 20, 0);
+    video.currentTime = Math.max(video.currentTime - 10, 0);
   };
   
   // Toggle mute
@@ -240,6 +248,14 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
         style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
         onContextMenu={(e) => e.preventDefault()}
         onClick={togglePlay}
+        onError={(e) => {
+          console.error('Video element error:', e);
+          console.error('Video element error details:', e.currentTarget.error);
+        }}
+        onLoadStart={() => console.log('Video load started')}
+        onLoadedMetadata={() => console.log('Video metadata loaded')}
+        onLoadedData={() => console.log('Video data loaded')}
+        onCanPlay={() => console.log('Video can play')}
       />
       
       {/* Custom Controls */}

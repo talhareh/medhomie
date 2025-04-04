@@ -30,7 +30,24 @@ export const streamCourseVideo = async (req: AuthRequest, res: Response): Promis
     }
 
     const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
-    if (!lesson || !lesson.video) {
+    if (!lesson) {
+      res.status(404).json({ message: 'Lesson not found' });
+      return;
+    }
+    
+    // TEMPORARY FIX: For testing, check if video exists in the expected location
+    // even if the lesson.video field is not set
+    const expectedVideoPath = `uploads/course-videos/${lesson._id}.mp4`;
+    const fs = require('fs');
+    
+    // Log for debugging
+    console.log('Checking for video at path:', expectedVideoPath);
+    console.log('Lesson video field:', lesson.video);
+    
+    // Use the video field if it exists, otherwise use the expected path
+    const videoPath = lesson.video || (fs.existsSync(expectedVideoPath) ? expectedVideoPath : null);
+    
+    if (!videoPath) {
       res.status(404).json({ message: 'Video not found' });
       return;
     }
@@ -43,16 +60,20 @@ export const streamCourseVideo = async (req: AuthRequest, res: Response): Promis
     }
 
     // Get the absolute path of the video file
-    const videoPath = path.resolve(lesson.video);
+    const absoluteVideoPath = path.resolve(videoPath);
 
     // Check if file exists
-    if (!require('fs').existsSync(videoPath)) {
+    if (!require('fs').existsSync(absoluteVideoPath)) {
+      console.log('Video file not found at path:', absoluteVideoPath);
       res.status(404).json({ message: 'Video file not found' });
       return;
     }
+    
+    console.log('Video file found at path:', absoluteVideoPath);
 
     // Stream the video
-    streamVideo(videoPath, req, res);
+    console.log('Streaming video from path:', absoluteVideoPath);
+    streamVideo(absoluteVideoPath, req, res);
   } catch (error) {
     console.error('Error streaming video:', error);
     res.status(500).json({ message: 'Error streaming video', error });

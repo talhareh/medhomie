@@ -35,6 +35,15 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     );
   }
 
+  // Debug the rendering conditions
+  console.log('LessonContent render conditions:', {
+    hasLesson: !!lesson,
+    lessonType: lesson.type,
+    isVideo: lesson.type === 'video',
+    hasAttachment: !!selectedAttachment,
+    shouldShowVideo: !selectedAttachment && lesson.type === 'video'
+  });
+
   return (
     <>
       {/* PDF Viewer or Video Player */}
@@ -50,14 +59,24 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                     `Attachment ${selectedAttachment.index + 1}`)} 
           />
         </>
-      ) : lesson.type === 'video' && (
-        <CustomVideoPlayer 
-          src={videoBlobs[lesson.id] || ''} 
-          isLoading={videoLoading[lesson.id]} 
-          error={videoErrors[lesson.id]} 
-          title={lesson.title} 
-        />
-      )}
+      ) : lesson.type === 'video' ? (
+        <>
+          {console.log('VIDEO PLAYER RENDER - Lesson:', lesson.id, 'Type:', lesson.type)}
+          {console.log('VIDEO PLAYER PROPS:', {
+            src: videoBlobs[lesson.id] || '',
+            hasBlob: !!videoBlobs[lesson.id],
+            isLoading: videoLoading[lesson.id],
+            hasError: !!videoErrors[lesson.id],
+            error: videoErrors[lesson.id]
+          })}
+          <CustomVideoPlayer 
+            src={videoBlobs[lesson.id] || ''} 
+            isLoading={videoLoading[lesson.id]} 
+            error={videoErrors[lesson.id]} 
+            title={lesson.title} 
+          />
+        </>
+      ) : null}
       
       {/* Lesson Content */}
       <div className="p-6">

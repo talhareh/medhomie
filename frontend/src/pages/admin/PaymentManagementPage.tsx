@@ -313,7 +313,7 @@ export const PaymentManagementPage: React.FC = () => {
                     {enrollment.student.whatsappNumber || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {enrollment.course.title}
+                    {enrollment.course ? enrollment.course.title : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     Rs. {enrollment.course && enrollment.course.price ? enrollment.course.price.toFixed(2) : '0.00'}

@@ -99,25 +99,12 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                       )}
                     </div>
                     <div className="flex-grow text-left">
-                      <p className={`${lesson.completed ? 'text-green-500' : ''}`}>
-                        {lesson.title}
-                      </p>
-                      <div className="flex space-x-2 mt-1">
-                        {lesson.isPreview && (
-                          <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded-full">
-                            Preview
-                          </span>
-                        )}
-                        {lesson.attachments && lesson.attachments.length > 0 && (
-                          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full flex items-center">
-                            <FontAwesomeIcon icon={faFile} className="mr-1" />
-                            {lesson.attachments.length === 1 
-                              ? lesson.attachments[0].filename // Show the filename for a single attachment
-                              : `${lesson.attachments.length} Attachments` // Show count for multiple attachments
-                            }
-                          </span>
-                        )}
-                      </div>
+                      <div className="text-sm font-medium">{lesson.title}</div>
+                      {lesson.attachments && lesson.attachments.length > 0 && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          PDF: {lesson.attachments[0].filename}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center text-xs text-gray-500">
                       <FontAwesomeIcon icon={faClock} className="mr-1" />

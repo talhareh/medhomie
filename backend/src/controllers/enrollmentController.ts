@@ -206,3 +206,117 @@ export const getMyEnrollments = async (req: AuthRequest, res: Response): Promise
     });
   }
 };
+
+// Bulk enroll students in a course (admin only)
+export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { courseId } = req.params;
+    let { studentIds } = req.body;
+
+    // Check if user is admin
+    if (!req.user || req.user.role !== UserRole.ADMIN) {
+      res.status(403).json({ message: 'Only admin can perform bulk enrollment' });
+      return;
+    }
+
+    // Validate input
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      res.status(400).json({ message: 'Student IDs array is required' });
+      return;
+    }
+
+    // Check if course exists
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    // Check if all students exist
+    const students = await User.find({ 
+      _id: { $in: studentIds },
+      role: UserRole.STUDENT 
+    });
+
+    if (students.length !== studentIds.length) {
+      res.status(400).json({ message: 'Some student IDs are invalid' });
+      return;
+    }
+
+    // Check for existing enrollments
+    const existingEnrollments = await Enrollment.find({
+      course: courseId,
+      student: { $in: studentIds }
+    });
+
+    if (existingEnrollments.length > 0) {
+      const enrolledStudentIds = existingEnrollments.map(e => e.student.toString());
+      studentIds = studentIds.filter(id => !enrolledStudentIds.includes(id.toString()));
+
+      if (studentIds.length === 0) {
+        res.status(400).json({ message: 'All students are already enrolled' });
+        return;
+      }
+    }
+
+    // Create enrollments
+    const enrollments = studentIds.map((studentId: Types.ObjectId | string) => ({
+      student: studentId,
+      course: courseId,
+      status: EnrollmentStatus.APPROVED,
+      enrollmentDate: new Date(),
+      approvalDate: new Date()
+    }));
+
+    await Enrollment.insertMany(enrollments);
+
+    res.status(201).json({
+      message: 'Students enrolled successfully',
+      enrolledCount: studentIds.length
+    });
+  } catch (error) {
+    console.error('Error in bulkEnrollStudents:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Bulk remove students from a course (admin only)
+export const bulkRemoveStudents = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { courseId } = req.params;
+    const { studentIds } = req.body;
+
+    // Check if user is admin
+    if (!req.user || req.user.role !== UserRole.ADMIN) {
+      res.status(403).json({ message: 'Only admin can perform bulk removal' });
+      return;
+    }
+
+    // Validate input
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      res.status(400).json({ message: 'Student IDs array is required' });
+      return;
+    }
+
+    // Check if course exists
+    const course = await Course.findById(courseId);
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    // Remove enrollments
+    const result = await Enrollment.deleteMany({
+      course: courseId,
+      student: { $in: studentIds }
+    });
+
+    res.status(200).json({
+      message: 'Students removed successfully',
+      removedCount: result.deletedCount
+    });
+  } catch (error) {
+    console.error('Error in bulkRemoveStudents:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

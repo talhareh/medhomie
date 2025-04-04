@@ -181,7 +181,9 @@ export const LessonForm: React.FC<LessonFormProps> = ({
     formDataToSend.append('duration', (formData.duration || 0).toString());
     formDataToSend.append('isPreview', formData.isPreview.toString());
 
+    // Add video file with explicit field name 'video'
     if (videoFile) {
+      console.log('Adding video file to form data:', videoFile.name);
       formDataToSend.append('video', videoFile);
     }
 
