@@ -30,6 +30,8 @@ export interface IUser extends Document {
   createPasswordResetToken(): string;
 }
 
+
+
 const userSchema = new Schema<IUser>({
   email: {
     type: String,
