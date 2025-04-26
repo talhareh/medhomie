@@ -29,8 +29,20 @@ import { UsersListPage } from './pages/admin/UsersListPage';
 import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
 import { CategoriesManagementPage } from './pages/admin/CategoriesManagementPage';
 import { TagsManagementPage } from './pages/admin/TagsManagementPage';
+import { EnrollmentManagement } from './pages/admin/EnrollmentManagement';
 import { CourseContentManager } from './components/layout/CourseContentManager';
 import { ModuleLessonsManager } from './components/layout/ModuleLessonsManager';
+import MedicHomePage from './pages/medicMaterial/MedicHomePage';
+import MedicAboutPage from './pages/medicMaterial/MedicAboutPage';
+import MedicScholarshipPage from './pages/medicMaterial/MedicScholarshipPage';
+import MedicAccreditationsPage from './pages/medicMaterial/MedicAccreditationsPage';
+import MedicPartnersPage from './pages/medicMaterial/MedicPartnersPage';
+import MedicClinicalProgramsPage from './pages/medicMaterial/MedicClinicalProgramsPage';
+import MedicAdvancedUKProgramPage from './pages/medicMaterial/MedicAdvancedUKProgramPage';
+import MedicLMSPage from './pages/medicMaterial/MedicLMSPage';
+import MedicOSCEAppPage from './pages/medicMaterial/MedicOSCEAppPage';
+import MedicBlogsPage from './pages/medicMaterial/MedicBlogsPage';
+import MedicContactPage from './pages/medicMaterial/MedicContactPage';
 
 // Initialize React Query client
 const queryClient = new QueryClient({
@@ -77,6 +89,17 @@ function App() {
             <Route path="/auth/reset-password/:token" element={<ResetPasswordPage />} />
             <Route path="/courses" element={<PublicCoursesPage />} />
             <Route path="/courses/:courseId" element={<PublicCourseDetailPage />} />
+            <Route path="/medicHomePage" element={<MedicHomePage />} />
+            <Route path="/medicAbout" element={<MedicAboutPage />} />
+            <Route path="/medicScholarship" element={<MedicScholarshipPage />} />
+            <Route path="/medicAccreditations" element={<MedicAccreditationsPage />} />
+            <Route path="/medicPartners" element={<MedicPartnersPage />} />
+            <Route path="/medicClinicalPrograms" element={<MedicClinicalProgramsPage />} />
+            <Route path="/medicAdvancedUKProgram" element={<MedicAdvancedUKProgramPage />} />
+            <Route path="/medicLMS" element={<MedicLMSPage />} />
+            <Route path="/medicOSCEApp" element={<MedicOSCEAppPage />} />
+            <Route path="/medicBlogs" element={<MedicBlogsPage />} />
+            <Route path="/medicContact" element={<MedicContactPage />} />
             <Route path="/courses/:courseId/learn" element={
               <ProtectedRoute>
                 <CourseContentPage />
@@ -124,6 +147,12 @@ function App() {
             <Route path="/admin" element={
               <ProtectedRoute adminOnly>
                 <AdDash />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/enrolled" element={
+              <ProtectedRoute adminOnly>
+                <EnrollmentManagement />
               </ProtectedRoute>
             } />
             

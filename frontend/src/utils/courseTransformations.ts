@@ -56,14 +56,29 @@ export const transformCourse = (apiCourse: ApiCourse): MedicalCourse => {
             });
           }
           
+          // Debug info for video paths
+          console.log(`Processing lesson ${lesson.title}:`, {
+            hasVideo: !!lesson.video,
+            videoPath: lesson.video
+          });
+          
+          // Determine the video URL
+          let videoUrl;
+          
+          // Construct the stream URL
+          videoUrl = `/stream/${apiCourse._id}/modules/${module._id}/lessons/${lesson._id}/stream`;
+          console.log(`Constructed stream URL for ${lesson.title}:`, videoUrl);
+          
+          // TEMPORARY FIX: For testing purposes, assume all lessons have videos
+          // In production, this should be fixed on the backend
           return {
             id: lesson._id,
             title: lesson.title,
             duration: `${lesson.duration || 0}min`,
             completed: false, // We'll need to fetch this from user progress
-            type: lesson.video ? 'video' : 'file',
+            type: 'video', // Temporarily assume all lessons are videos
             content: lesson.description,
-            videoUrl: lesson.video ? `/api/stream/${apiCourse._id}/modules/${module._id}/lessons/${lesson._id}/stream` : undefined,
+            videoUrl: videoUrl,
             description: lesson.description,
             isPreview: lesson.isPreview,
             attachments: processedAttachments

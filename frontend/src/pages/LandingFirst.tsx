@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faGraduationCap, 
@@ -7,10 +7,16 @@ import {
   faBook, 
   faUsers,
   faCheck,
-  faArrowRight
+  faArrowRight,
+  faUser,
+  faSignOutAlt,
+  faTachometerAlt
 } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../contexts/AuthContext';
 
 export const LandingFirst: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   // Sample data for instructors
   const instructors = [
     { id: 1, name: 'Dr. Sarah Johnson', specialty: 'Cardiology', students: 1200, courses: 8, image: 'https://randomuser.me/api/portraits/women/44.jpg' },
@@ -100,12 +106,42 @@ export const LandingFirst: React.FC = () => {
               <a href="#testimonials" className="hover:text-blue-200">Testimonials</a>
             </div>
             <div className="space-x-4">
-              <Link to="/auth?mode=login" className="px-4 py-2 text-white hover:text-blue-200">
-                Login
-              </Link>
-              <Link to="/auth?mode=register" className="px-6 py-2 bg-white text-primary rounded-md hover:bg-blue-100 transition-colors">
-                Register
-              </Link>
+              {user ? (
+                <div className="flex items-center space-x-4">
+                  <Link 
+                    to={user.role === 'admin' ? '/admin' : 
+                        user.role === 'instructor' ? '/dashboard' : 
+                        '/dashboard'} 
+                    className="flex items-center px-4 py-2 text-white hover:text-blue-200"
+                  >
+                    <FontAwesomeIcon icon={faTachometerAlt} className="mr-2" />
+                    Dashboard
+                  </Link>
+                  <div className="flex items-center px-4 py-2 text-white">
+                    <FontAwesomeIcon icon={faUser} className="mr-2" />
+                    {user.name || user.email}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      logout();
+                      navigate('/');
+                    }} 
+                    className="flex items-center px-4 py-2 text-white hover:text-blue-200"
+                  >
+                    <FontAwesomeIcon icon={faSignOutAlt} className="mr-2" />
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <Link to="/auth?mode=login" className="px-4 py-2 text-white hover:text-blue-200">
+                    Login
+                  </Link>
+                  <Link to="/auth?mode=register" className="px-6 py-2 bg-white text-primary rounded-md hover:bg-blue-100 transition-colors">
+                    Register
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

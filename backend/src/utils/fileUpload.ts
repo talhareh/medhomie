@@ -32,8 +32,14 @@ const courseVideoStorage = multer.diskStorage({
     cb(null, 'uploads/course-videos');
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    // If we have a lesson ID, use it for the filename to make it easier to find
+    if (req.params.lessonId) {
+      console.log(`Using lesson ID ${req.params.lessonId} for video filename`);
+      cb(null, req.params.lessonId + path.extname(file.originalname));
+    } else {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
   }
 });
 
@@ -155,8 +161,10 @@ const lessonContentStorage = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb) => {
     console.log(`Processing file: ${file.fieldname}, mimetype: ${file.mimetype}`);
     if (file.fieldname === 'video') {
+      console.log('Storing video in uploads/course-videos');
       cb(null, 'uploads/course-videos');
     } else if (file.fieldname === 'attachments') {
+      console.log('Storing attachment in uploads/course-attachments');
       cb(null, 'uploads/course-attachments');
     } else {
       // Store unexpected fields in a temporary directory
@@ -170,10 +178,17 @@ const lessonContentStorage = multer.diskStorage({
     }
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const filename = uniqueSuffix + path.extname(file.originalname);
-    console.log(`Generated filename: ${filename} for ${file.fieldname}`);
-    cb(null, filename);
+    // For videos, use the lesson ID if we're updating a lesson
+    if (file.fieldname === 'video' && req.params.lessonId) {
+      const filename = req.params.lessonId + path.extname(file.originalname);
+      console.log(`Using lesson ID for video filename: ${filename}`);
+      cb(null, filename);
+    } else {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const filename = uniqueSuffix + path.extname(file.originalname);
+      console.log(`Generated filename: ${filename} for ${file.fieldname}`);
+      cb(null, filename);
+    }
   }
 });
 
@@ -239,10 +254,18 @@ const lessonUpload = multer({
 
 // Wrapper function to handle errors
 export const uploadLessonContent = (req: Request, res: Response, next: NextFunction) => {
+  console.log('Starting lesson content upload...');
+  console.log('Request headers:', req.headers);
+  console.log('Request content type:', req.headers['content-type']);
+  
   lessonUpload(req, res, (err: any) => {
     if (err) {
+      console.error('Multer error during upload:', err);
       return handleMulterErrorMiddleware(err, req, res, next);
     }
+    
+    console.log('Upload successful, files:', req.files);
+    console.log('Upload successful, file:', req.file);
     next();
   });
 };

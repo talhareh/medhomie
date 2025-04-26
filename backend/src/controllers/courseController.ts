@@ -1,13 +1,23 @@
 import { Request, Response } from 'express';
-import { Course, CourseState, ICourseData, IModuleData, IModuleDocument } from '../models/Course';
+import mongoose, { Types } from 'mongoose';
+import { Course, CourseState, ICourseData, IModuleData, IModuleDocument, ICourseDocument } from '../models/Course';
 import { AuthRequest } from '../middleware/auth';
 import { validateCourse, validateModule, validateCourseStateUpdate, validateCourseActivation } from '../validators/courseValidator';
 import fs from 'fs';
 import path from 'path';
-import { Types } from 'mongoose';
 
 interface MulterFiles {
   [fieldname: string]: Express.Multer.File[];
+}
+
+interface PopulatedCreatedBy {
+  _id: Types.ObjectId;
+  fullName: string;
+  email: string;
+}
+
+interface CourseWithPopulatedFields extends Omit<ICourseDocument, 'createdBy'> {
+  createdBy: PopulatedCreatedBy;
 }
 
 // Get all courses (admin only)
@@ -24,10 +34,34 @@ export const getAllCourses = async (req: Request, res: Response): Promise<void> 
     }
     
     const courses = await Course.find(filter)
+      .populate('createdBy', 'fullName email') // Populate createdBy with fullName and email fields
       .populate('categories')
-      .populate('tags');
-    res.json(courses);
+      .populate('tags')
+      .sort({ createdAt: -1 }).lean();
+
+    // Get enrollment counts for each course
+    const coursesWithEnrollment = await Promise.all(courses.map(async (course) => {
+      const enrollmentCount = await mongoose.model('Enrollment').countDocuments({ course: course._id });
+      
+      return {
+        _id: course._id,
+        title: course.title,
+        status: course.state,
+        thumbnail: course.thumbnail,
+        description: course.description,
+        price: course.price,
+        state: course.state,
+        instructor: course.createdBy ? {
+          _id: course.createdBy._id,
+          fullName: (course.createdBy as any).fullName // Use type assertion since we've populated the field
+        } : null,
+        enrolledCount: enrollmentCount
+      };
+    }));
+
+    res.json(coursesWithEnrollment);
   } catch (error) {
+    console.error('Error in getAllCourses:', error);
     res.status(500).json({ message: 'Error fetching courses' });
   }
 };
@@ -48,7 +82,8 @@ export const getPublicCourses = async (req: Request, res: Response): Promise<voi
     const courses = await Course.find(filter)
       .select('title description price thumbnail categories tags')
       .populate('categories')
-      .populate('tags');
+      .populate('tags').lean();
+
     res.json(courses);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching courses' });
@@ -60,9 +95,12 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
   try {
     const course = await Course.findById(req.params.courseId)
       .populate('modules')
-      .populate('createdBy', 'name email')
+      .populate({
+        path: 'createdBy',
+        select: 'fullName email'
+      })
       .populate('categories')
-      .populate('tags');
+      .populate('tags').lean();
       
     if (!course) {
       res.status(404).json({ message: 'Course not found' });
@@ -203,7 +241,7 @@ export const updateCourse = async (req: AuthRequest, res: Response): Promise<voi
       { new: true, runValidators: true }
     )
     .populate('categories')
-    .populate('tags');
+    .populate('tags').lean();
 
     if (!course) {
       res.status(404).json({ message: 'Course not found' });
@@ -270,7 +308,7 @@ export const updateModule = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
-    const module = course.modules.id(req.params.moduleId) as IModuleDocument | null;
+    const module = course.modules.id(req.params.moduleId);
     if (!module) {
       res.status(404).json({ message: 'Module not found' });
       return;

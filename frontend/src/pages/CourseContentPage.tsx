@@ -61,7 +61,9 @@ export const CourseContentPage: React.FC = () => {
   // Update the course when API data changes
   useEffect(() => {
     if (apiCourse) {
+      console.log('API Course data received:', apiCourse);
       const transformedCourse = transformCourse(apiCourse);
+      console.log('Transformed course data:', transformedCourse);
       setCourse(transformedCourse);
       
       // Find the current lesson if moduleId and lessonId are provided
@@ -82,77 +84,82 @@ export const CourseContentPage: React.FC = () => {
     }
   }, [apiCourse, moduleId, lessonId]);
 
-  // Fetch video blob when lesson changes
+  // Load video when lesson changes
   useEffect(() => {
-    if (currentLessonData?.type === 'video' && currentLessonData?.videoUrl) {
-      // Check if we already have this video blob
-      if (!videoBlobs[currentLessonData.id]) {
-        
-        
-        // Set loading state
-        setVideoLoading(prev => ({
-          ...prev,
-          [currentLessonData.id]: true
-        }));
-        
-        // Clear any previous errors
-        setVideoErrors(prev => {
-          const newErrors = { ...prev };
-          if (newErrors[currentLessonData.id]) {
-            delete newErrors[currentLessonData.id];
+    if (currentLessonData && currentLessonData.type === 'video') {
+      console.log('[DEBUG] Video useEffect triggered for lesson:', {
+        lessonId: currentLessonData.id,
+        lessonTitle: currentLessonData.title,
+        videoUrl: currentLessonData.videoUrl
+      });
+      
+      // For backend videos, get a signed URL that doesn't require auth headers
+      const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, currentLessonData.id));
+      console.log('[DEBUG] Getting signed URL for video streaming', {
+        moduleId: currentModuleId,
+        courseId,
+        lessonId: currentLessonData.id
+      });
+      
+      if (!currentModuleId) return;
+      
+      // Set loading state
+      setVideoLoading(prev => ({
+        ...prev,
+        [currentLessonData.id]: true
+      }));
+      
+      // Get a signed URL for the video
+      const getSignedUrl = async () => {
+        try {
+          // Get the auth token from localStorage
+          const token = localStorage.getItem('token');
+          if (!token) {
+            throw new Error('Authentication token not found');
           }
-          return newErrors;
-        });
-        
-        // Create a function to fetch the video
-        const fetchVideo = async () => {
-          try {
-            const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, currentLessonData.id));
-            
-            if (!currentModuleId) {
-              throw new Error('Could not determine module ID for this lesson');
+          
+          const signedUrlEndpoint = `/api/stream/${courseId}/modules/${currentModuleId}/lessons/${currentLessonData.id}/signed-url`;
+          console.log('[DEBUG] Fetching signed URL from:', signedUrlEndpoint);
+          
+          const response = await fetch(signedUrlEndpoint, {
+            headers: {
+              'Authorization': `Bearer ${token}`
             }
-            
-            const response = await api.get(
-              `/stream/${courseId}/modules/${currentModuleId}/lessons/${currentLessonData.id}/stream`,
-              { responseType: 'blob' }
-            );
-            
-            // Create a blob URL from the response
-            const blob = new Blob([response.data], { type: 'video/mp4' });
-            const blobUrl = URL.createObjectURL(blob);
-            
-            // Store the blob URL
-            setVideoBlobs(prev => ({
-              ...prev,
-              [currentLessonData.id]: blobUrl
-            }));
-            
-            
-          } catch (error) {
-            console.error('Error fetching video:', error);
-            setVideoErrors(prev => ({
-              ...prev,
-              [currentLessonData.id]: error instanceof Error ? error.message : 'Failed to load video'
-            }));
-          } finally {
-            setVideoLoading(prev => ({
-              ...prev,
-              [currentLessonData.id]: false
-            }));
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to get signed URL: ${response.status} ${response.statusText}`);
           }
-        };
-        
-        fetchVideo();
-      }
+          
+          const data = await response.json();
+          console.log('[DEBUG] Received signed URL:', data.url);
+          
+          // Set the signed URL as the video source
+          setVideoBlobs(prev => ({
+            ...prev,
+            [currentLessonData.id]: data.url
+          }));
+          
+          setVideoLoading(prev => ({
+            ...prev,
+            [currentLessonData.id]: false
+          }));
+        } catch (error) {
+          console.error('Error getting signed URL:', error);
+          setVideoErrors(prev => ({
+            ...prev,
+            [currentLessonData.id]: error instanceof Error ? error.message : 'Unknown error'
+          }));
+          setVideoLoading(prev => ({
+            ...prev,
+            [currentLessonData.id]: false
+          }));
+        }
+      };
+      
+      getSignedUrl();
     }
-    
-    // Cleanup function to revoke blob URLs when component unmounts
-    return () => {
-      // We don't revoke URLs here because we want to keep them in cache
-      // They will be revoked when navigating to a different lesson
-    };
-  }, [currentLessonData, courseId, moduleId, course]);
+  }, [currentLessonData, course, moduleId, courseId]);
 
   // Add event listener to prevent video downloading
   useEffect(() => {
@@ -174,6 +181,7 @@ export const CourseContentPage: React.FC = () => {
   const hasAccess = user && course?.enrollmentStatus === 'approved';
 
   const navigateToLesson = (sectionId: string, lessonId: string) => {
+    console.log('navigateToLesson called with:', { sectionId, lessonId });
     if (!hasAccess) {
       setIsModalOpen(true);
       return;
@@ -182,15 +190,23 @@ export const CourseContentPage: React.FC = () => {
     // Find the lesson in the course data
     const section = course?.sections.find(section => section.id === sectionId);
     if (section) {
+      console.log('Found section:', section.title, 'with lessons:', section.lessons.map(l => ({ id: l.id, title: l.title, type: l.type, hasVideo: !!l.videoUrl })));
       const lesson = section.lessons.find(lesson => lesson.id === lessonId);
       if (lesson) {
+        console.log('Found lesson:', { 
+          id: lesson.id, 
+          title: lesson.title, 
+          type: lesson.type, 
+          videoUrl: lesson.videoUrl,
+          hasVideo: !!lesson.videoUrl
+        });
         // If we're changing lessons and the current lesson has a video blob, 
         // we need to revoke the object URL to prevent memory leaks
         if (currentLessonData?.id !== lesson.id && 
             currentLessonData?.type === 'video' && 
             videoBlobs[currentLessonData.id]) {
           // Revoke the previous blob URL
-          URL.revokeObjectURL(videoBlobs[currentLessonData.id]);
+          // URL.revokeObjectURL(videoBlobs[currentLessonData.id]);
           
           // Remove the blob from state
           setVideoBlobs(prev => {
@@ -203,13 +219,25 @@ export const CourseContentPage: React.FC = () => {
         // Reset any selected attachment when changing lessons
         setSelectedAttachment(null);
         
-        setCurrentLessonData(lesson);
-        // Update the URL without full navigation
+        // Clear any video errors for the new lesson
+        setVideoErrors(prev => {
+          const newErrors = { ...prev };
+          if (newErrors[lesson.id]) {
+            delete newErrors[lesson.id];
+          }
+          return newErrors;
+        });
+        
+        console.log('Setting new lesson data:', lesson.id);
+        // First update the URL without full navigation
         window.history.pushState(
           { moduleId: sectionId, lessonId },
           '',
           `/courses/${courseId}/learn/${sectionId}/${lessonId}`
         );
+        // Then set the current lesson data to trigger the useEffect
+        setCurrentLessonData(lesson);
+        console.log('URL updated, currentLessonData has been set to:', lesson.id);
       }
     }
   };

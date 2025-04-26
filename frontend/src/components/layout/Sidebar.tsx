@@ -8,7 +8,8 @@ import {
   faUsers,
   faCog,
   faTags,
-  faLayerGroup
+  faLayerGroup,
+  faClipboardList
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types/auth';
@@ -43,6 +44,7 @@ export const Sidebar = () => {
     if (user?.role === UserRole.ADMIN) {
       items.push(
         { to: '/admin/courses', icon: faBook, label: 'Courses' },
+        { to: '/enrolled', icon: faClipboardList, label: 'Enrollments' },
         { to: '/admin/users', icon: faUsers, label: 'Users' },
         { to: '/admin/payments', icon: faCreditCard, label: 'Payments' },
         { to: '/admin/categories', icon: faLayerGroup, label: 'Categories' },

@@ -17,7 +17,7 @@ import api from '../../utils/axios';
 import { MainLayout } from '../../components/layout/MainLayout';
 
 // Server URL for receipt files
-const SERVER_URL = 'http://localhost:5000'; // Hardcoded server URL
+const SERVER_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://uat.medhome.courses'; // Dynamic server URL based on environment
 const API_UPLOADS_URL = `${SERVER_URL}/api/uploads`; // URL for accessing uploaded files
 
 // Modal styles
@@ -313,7 +313,7 @@ export const PaymentManagementPage: React.FC = () => {
                     {enrollment.student.whatsappNumber || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {enrollment.course.title}
+                    {enrollment.course ? enrollment.course.title : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     Rs. {enrollment.course && enrollment.course.price ? enrollment.course.price.toFixed(2) : '0.00'}

@@ -14,6 +14,15 @@ export const addLesson = async (req: AuthRequest, res: Response): Promise<void> 
     console.log('Request file:', file);
     console.log('Request body:', req.body);
     console.log('Request files:', req.files);
+    
+    // Log more details about the files
+    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
+      console.log('Files object keys:', Object.keys(req.files));
+      const videoFiles = req.files['video'];
+      if (videoFiles && Array.isArray(videoFiles) && videoFiles.length > 0) {
+        console.log('Video file details:', videoFiles[0]);
+      }
+    }
 
     const course = await Course.findById(courseId);
     if (!course) {
@@ -27,15 +36,37 @@ export const addLesson = async (req: AuthRequest, res: Response): Promise<void> 
       return;
     }
 
+    // Get the video file from the files object
+    let videoPath = undefined;
+    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
+      const videoFiles = req.files['video'];
+      if (videoFiles && Array.isArray(videoFiles) && videoFiles.length > 0) {
+        videoPath = videoFiles[0].path;
+        console.log('Setting video path to:', videoPath);
+      }
+    } else if (file) {
+      // Fallback to single file upload
+      videoPath = file.path;
+      console.log('Setting video path from single file to:', videoPath);
+    }
+    
+    // Create lesson data object with basic fields
     const lessonData: ILessonData = {
       title: req.body.title,
       description: req.body.description,
       order: module.lessons.length,
       duration: req.body.duration ? parseInt(req.body.duration) : undefined,
-      video: file?.path,
       attachments: [],
       isPreview: req.body.isPreview === 'true'
     };
+    
+    // Handle traditional file upload
+    if (videoPath) {
+      lessonData.video = videoPath;
+    }
+    
+    console.log('Created lesson data with video path:', lessonData.video);
+    console.log('Full lesson data:', lessonData);
 
     const { error } = validateLesson(lessonData);
     if (error) {
@@ -100,6 +131,10 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
   try {
     const { courseId, moduleId, lessonId } = req.params;
     const file = req.file;
+    
+    console.log('Update lesson request file:', file);
+    console.log('Update lesson request body:', req.body);
+    console.log('Update lesson request files:', req.files);
 
     const course = await Course.findById(courseId);
     if (!course) {
@@ -125,9 +160,21 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
     if (req.body.duration) {
       lesson.duration = parseInt(req.body.duration);
     }
-    if (file) {
+    
+    // Handle traditional video file upload
+    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
+      const videoFiles = req.files['video'];
+      if (videoFiles && Array.isArray(videoFiles) && videoFiles.length > 0) {
+        const videoPath = videoFiles[0].path;
+        console.log('Setting video path to:', videoPath);
+        lesson.video = videoPath;
+      }
+    } else if (file) {
+      // Fallback to single file upload
+      console.log('Setting video path from single file to:', file.path);
       lesson.video = file.path;
     }
+    
     if (typeof req.body.isPreview === 'boolean') {
       lesson.isPreview = req.body.isPreview;
     }

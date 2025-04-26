@@ -7,7 +7,8 @@ import {
   updateUserStatus,
   updateUserRole,
   deleteUser,
-  getUserById
+  getUserById,
+  getAvailableStudents
 } from '../controllers/userController';
 
 const router = express.Router();
@@ -17,6 +18,9 @@ router.use(authenticateToken);
 
 // Get all users (Admin only)
 router.get('/', getUsers);
+
+// Get available students for enrollment
+router.get('/students', getAvailableStudents);
 
 // Create user (Admin only)
 router.post('/', createUser);
