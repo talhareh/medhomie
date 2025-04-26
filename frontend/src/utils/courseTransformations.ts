@@ -56,18 +56,18 @@ export const transformCourse = (apiCourse: ApiCourse): MedicalCourse => {
             });
           }
           
-          // Debug the lesson video property
-          console.log(`Lesson ${lesson.title} video property:`, {
+          // Debug info for video paths
+          console.log(`Processing lesson ${lesson.title}:`, {
             hasVideo: !!lesson.video,
             videoPath: lesson.video
           });
           
-          // TEMPORARY FIX: For testing purposes, assume all lessons have videos
-          // In production, this should be fixed on the backend
-          // Construct the video URL directly without the /api prefix since axios adds it
-          const videoUrl = `/stream/${apiCourse._id}/modules/${module._id}/lessons/${lesson._id}/stream`;
-            
-          console.log(`Constructed video URL for ${lesson.title}:`, videoUrl);
+          // Determine the video URL
+          let videoUrl;
+          
+          // Construct the stream URL
+          videoUrl = `/stream/${apiCourse._id}/modules/${module._id}/lessons/${lesson._id}/stream`;
+          console.log(`Constructed stream URL for ${lesson.title}:`, videoUrl);
           
           // TEMPORARY FIX: For testing purposes, assume all lessons have videos
           // In production, this should be fixed on the backend

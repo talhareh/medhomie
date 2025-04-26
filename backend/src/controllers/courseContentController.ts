@@ -50,17 +50,23 @@ export const addLesson = async (req: AuthRequest, res: Response): Promise<void> 
       console.log('Setting video path from single file to:', videoPath);
     }
     
+    // Create lesson data object with basic fields
     const lessonData: ILessonData = {
       title: req.body.title,
       description: req.body.description,
       order: module.lessons.length,
       duration: req.body.duration ? parseInt(req.body.duration) : undefined,
-      video: videoPath,
       attachments: [],
       isPreview: req.body.isPreview === 'true'
     };
     
+    // Handle traditional file upload
+    if (videoPath) {
+      lessonData.video = videoPath;
+    }
+    
     console.log('Created lesson data with video path:', lessonData.video);
+    console.log('Full lesson data:', lessonData);
 
     const { error } = validateLesson(lessonData);
     if (error) {
@@ -154,7 +160,8 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
     if (req.body.duration) {
       lesson.duration = parseInt(req.body.duration);
     }
-    // Handle video file upload
+    
+    // Handle traditional video file upload
     if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
       const videoFiles = req.files['video'];
       if (videoFiles && Array.isArray(videoFiles) && videoFiles.length > 0) {
@@ -167,6 +174,7 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
       console.log('Setting video path from single file to:', file.path);
       lesson.video = file.path;
     }
+    
     if (typeof req.body.isPreview === 'boolean') {
       lesson.isPreview = req.body.isPreview;
     }

@@ -84,138 +84,82 @@ export const CourseContentPage: React.FC = () => {
     }
   }, [apiCourse, moduleId, lessonId]);
 
-  // Fetch video blob when lesson changes
+  // Load video when lesson changes
   useEffect(() => {
-    console.log('useEffect for video fetching triggered with currentLessonData:', currentLessonData?.id);
-    console.log('Current lesson data details:', {
-      type: currentLessonData?.type,
-      videoUrl: currentLessonData?.videoUrl,
-      hasVideo: !!currentLessonData?.videoUrl
-    });
-    
-    // Check if the current lesson is a video type and has a videoUrl
-    if (currentLessonData?.type === 'video' && currentLessonData?.videoUrl) {
-      // Set loading state to true immediately
-      setVideoLoading(prev => {
-        const newLoading = {
-          ...prev,
-          [currentLessonData.id]: true
-        };
-        console.log('Setting loading state to true for lesson:', currentLessonData.id, newLoading);
-        return newLoading;
+    if (currentLessonData && currentLessonData.type === 'video') {
+      console.log('[DEBUG] Video useEffect triggered for lesson:', {
+        lessonId: currentLessonData.id,
+        lessonTitle: currentLessonData.title,
+        videoUrl: currentLessonData.videoUrl
       });
-      console.log('Current lesson is a video with URL:', currentLessonData.videoUrl);
-      // Check if we already have this video blob
-      if (!videoBlobs[currentLessonData.id]) {
-        console.log('Video blob not found in cache, will fetch from server');
-        
-        
-        // Set loading state
-        setVideoLoading(prev => ({
-          ...prev,
-          [currentLessonData.id]: true
-        }));
-        
-        // Clear any previous errors
-        setVideoErrors(prev => {
-          const newErrors = { ...prev };
-          if (newErrors[currentLessonData.id]) {
-            delete newErrors[currentLessonData.id];
+      
+      // For backend videos, get a signed URL that doesn't require auth headers
+      const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, currentLessonData.id));
+      console.log('[DEBUG] Getting signed URL for video streaming', {
+        moduleId: currentModuleId,
+        courseId,
+        lessonId: currentLessonData.id
+      });
+      
+      if (!currentModuleId) return;
+      
+      // Set loading state
+      setVideoLoading(prev => ({
+        ...prev,
+        [currentLessonData.id]: true
+      }));
+      
+      // Get a signed URL for the video
+      const getSignedUrl = async () => {
+        try {
+          // Get the auth token from localStorage
+          const token = localStorage.getItem('token');
+          if (!token) {
+            throw new Error('Authentication token not found');
           }
-          return newErrors;
-        });
-        
-        // Create a function to fetch the video
-        const fetchVideo = async () => {
-          console.log('fetchVideo function called');
-          try {
-            const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, currentLessonData.id));
-            console.log('Determined moduleId for video fetch:', currentModuleId);
-            
-            if (!currentModuleId) {
-              throw new Error('Could not determine module ID for this lesson');
+          
+          const signedUrlEndpoint = `/api/stream/${courseId}/modules/${currentModuleId}/lessons/${currentLessonData.id}/signed-url`;
+          console.log('[DEBUG] Fetching signed URL from:', signedUrlEndpoint);
+          
+          const response = await fetch(signedUrlEndpoint, {
+            headers: {
+              'Authorization': `Bearer ${token}`
             }
-            
-            console.log('Making API request to:', `/stream/${courseId}/modules/${currentModuleId}/lessons/${currentLessonData.id}/stream`);
-            // Use the videoUrl directly from the lesson data
-            // Remove any /api prefix if it exists since axios already adds it
-            let videoUrl = currentLessonData.videoUrl;
-            if (videoUrl.startsWith('/api/')) {
-              videoUrl = videoUrl.substring(4);
-            }
-            
-            console.log('Making API request using videoUrl:', videoUrl);
-            
-            const response = await api.get(
-              videoUrl,
-              { responseType: 'blob' }
-            );
-            console.log('API response received:', response.status);
-            
-            // Create a blob URL from the response
-            console.log('Creating blob from response data, size:', response.data.size);
-            console.log('Response headers:', response.headers);
-            
-            // Get content type from response headers or default to video/mp4
-            const contentType = response.headers['content-type'] || 'video/mp4';
-            console.log('Using content type for blob:', contentType);
-            
-            const blob = new Blob([response.data], { type: contentType });
-            console.log('Blob created:', blob.size, 'bytes, type:', blob.type);
-            const blobUrl = URL.createObjectURL(blob);
-            console.log('Blob URL created:', blobUrl);
-            
-            // Store the blob URL
-            console.log('Storing blob URL for lesson:', currentLessonData.id);
-            setVideoBlobs(prev => {
-              const newBlobs = {
-                ...prev,
-                [currentLessonData.id]: blobUrl
-              };
-              console.log('Updated videoBlobs state:', newBlobs);
-              return newBlobs;
-            });
-            
-            // Set loading state to false after successful fetch
-            setVideoLoading(prev => {
-              const newLoading = {
-                ...prev,
-                [currentLessonData.id]: false
-              };
-              console.log('Setting loading state to false for lesson:', currentLessonData.id, newLoading);
-              return newLoading;
-            });
-            
-          } catch (error) {
-            console.error('Error fetching video:', error);
-            setVideoErrors(prev => ({
-              ...prev,
-              [currentLessonData.id]: error instanceof Error ? error.message : 'Failed to load video'
-            }));
-          } finally {
-            setVideoLoading(prev => {
-              const newLoading = {
-                ...prev,
-                [currentLessonData.id]: false
-              };
-              console.log('Setting loading state to false in finally block for lesson:', currentLessonData.id, newLoading);
-              return newLoading;
-            });
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to get signed URL: ${response.status} ${response.statusText}`);
           }
-        };
-        
-        fetchVideo();
-      } else {
-        console.log('Video blob already exists in cache for lesson:', currentLessonData.id);
-      }
+          
+          const data = await response.json();
+          console.log('[DEBUG] Received signed URL:', data.url);
+          
+          // Set the signed URL as the video source
+          setVideoBlobs(prev => ({
+            ...prev,
+            [currentLessonData.id]: data.url
+          }));
+          
+          setVideoLoading(prev => ({
+            ...prev,
+            [currentLessonData.id]: false
+          }));
+        } catch (error) {
+          console.error('Error getting signed URL:', error);
+          setVideoErrors(prev => ({
+            ...prev,
+            [currentLessonData.id]: error instanceof Error ? error.message : 'Unknown error'
+          }));
+          setVideoLoading(prev => ({
+            ...prev,
+            [currentLessonData.id]: false
+          }));
+        }
+      };
+      
+      getSignedUrl();
     }
-    
-    // Cleanup function to revoke blob URLs when component unmounts
-    return () => {
-      // We don't revoke URLs here because we want to keep them in cache
-      // They will be revoked when navigating to a different lesson
-    };
-  }, [currentLessonData?.id, courseId, moduleId, course]);
+  }, [currentLessonData, course, moduleId, courseId]);
 
   // Add event listener to prevent video downloading
   useEffect(() => {
@@ -262,7 +206,7 @@ export const CourseContentPage: React.FC = () => {
             currentLessonData?.type === 'video' && 
             videoBlobs[currentLessonData.id]) {
           // Revoke the previous blob URL
-          URL.revokeObjectURL(videoBlobs[currentLessonData.id]);
+          // URL.revokeObjectURL(videoBlobs[currentLessonData.id]);
           
           // Remove the blob from state
           setVideoBlobs(prev => {

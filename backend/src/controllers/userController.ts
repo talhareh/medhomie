@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { User, UserRole } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 
@@ -266,5 +267,60 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ message: 'Error creating user', error });
+  }
+};
+
+// Get available students for enrollment (students not enrolled in a specific course)
+export const getAvailableStudents = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    // Only allow admins and instructors to access this endpoint
+    if (req.user.role !== UserRole.ADMIN && req.user.role !== UserRole.INSTRUCTOR) {
+      res.status(403).json({ message: 'Access denied' });
+      return;
+    }
+
+    const { courseId, search } = req.query;
+
+    if (!courseId) {
+      res.status(400).json({ message: 'Course ID is required' });
+      return;
+    }
+
+    // Find all students (users with role STUDENT)
+    const query: any = { role: UserRole.STUDENT, isApproved: true };
+    
+    // Add search filter if provided
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Get all students
+    const students = await User.find(query).select('_id fullName email whatsappNumber');
+    
+    // Get all enrollments for the course
+    const enrollments = await mongoose.model('Enrollment').find({ 
+      course: courseId 
+    }).select('student');
+
+    // Extract student IDs from enrollments
+    const enrolledStudentIds = enrollments.map(enrollment => enrollment.student.toString());
+
+    // Filter out students who are already enrolled
+    const availableStudents = students.filter(student => 
+      !enrolledStudentIds.includes(student._id.toString())
+    );
+
+    res.status(200).json(availableStudents);
+  } catch (error) {
+    console.error('Error in getAvailableStudents:', error);
+    res.status(500).json({ message: 'Error fetching available students', error });
   }
 };

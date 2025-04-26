@@ -36,6 +36,19 @@ export const enrollmentService = {
         search: searchQuery
       }
     });
-    return response.data;
+    
+    // Check if the response is already in the expected format
+    if (response.data.length > 0 && !response.data[0].student) {
+      // If data is already in the correct format (direct student objects)
+      return response.data;
+    }
+    
+    // Extract student data from enrollments
+    return response.data.map((enrollment: any) => ({
+      _id: enrollment.student._id,
+      fullName: enrollment.student.fullName,
+      email: enrollment.student.email,
+      whatsappNumber: enrollment.student.whatsappNumber
+    }));
   }
 };

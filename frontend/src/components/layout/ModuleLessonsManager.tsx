@@ -1,10 +1,16 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { MainLayout } from './MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/axios';
+
+// Cloudinary widget type
+declare global {
+  interface Window {
+  }
+}
 
 interface Lesson {
   _id: string;
@@ -132,6 +138,7 @@ export const ModuleLessonsManager: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['module', moduleId]);
       setEditingLesson(null);
+      setNewLesson({ title: '', description: '', video: null, attachments: [] });
       setUploadProgress(0);
       toast.success('Lesson updated successfully');
     },
@@ -184,25 +191,13 @@ export const ModuleLessonsManager: React.FC = () => {
     const formData = new FormData();
     formData.append('title', editingLesson.title);
     formData.append('description', editingLesson.description);
-    
-    // Check if we have a new video to upload
     if (newLesson.video) {
-      console.log('Adding video to update request:', newLesson.video.name);
       formData.append('video', newLesson.video);
     }
-    
-    // Check if we have new attachments to upload
     if (newLesson.attachments.length > 0) {
-      console.log(`Adding ${newLesson.attachments.length} attachments to update request`);
       newLesson.attachments.forEach((file) => {
         formData.append('attachments', file);
       });
-    }
-    
-    // Log FormData contents for debugging
-    console.log('Update FormData contents:');
-    for (const [key, value] of formData.entries()) {
-      console.log(key, ':', value);
     }
 
     updateLessonMutation.mutate({
@@ -217,23 +212,20 @@ export const ModuleLessonsManager: React.FC = () => {
     }
   };
 
-  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate video file
-    if (!file.type.startsWith('video/')) {
-      toast.error('Please upload a valid video file');
-      return;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      if (e.target.name === 'video') {
+        setNewLesson(prev => ({
+          ...prev,
+          video: e.target.files![0]
+        }));
+      } else if (e.target.name === 'attachments') {
+        setNewLesson(prev => ({
+          ...prev,
+          attachments: [...prev.attachments, ...Array.from(e.target.files!)]
+        }));
+      }
     }
-
-    // 2GB limit
-    if (file.size > 2 * 1024 * 1024 * 1024) {
-      toast.error('Video file size should be less than 2GB');
-      return;
-    }
-
-    setNewLesson((prev) => ({ ...prev, video: file }));
   };
 
   const handleAttachmentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -252,6 +244,12 @@ export const ModuleLessonsManager: React.FC = () => {
       ...prev,
       attachments: [...prev.attachments, ...validFiles],
     }));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLesson(null);
+    setNewLesson({ title: '', description: '', video: null, attachments: [] });
+    setUploadProgress(0);
   };
 
   if (!user || user.role !== 'admin') {
@@ -329,44 +327,42 @@ export const ModuleLessonsManager: React.FC = () => {
                     </div>
                   </div>
                 )}
+                
+                {/* Video Upload Button (for both new and editing) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Video
+                  </label>
+                  <input
+                    type="file"
+                    name="video"
+                    onChange={handleFileChange}
+                    className="w-full"
+                  />
+                  {newLesson.video && (
+                    <div className="mt-2 text-sm text-gray-500">
+                      <p className="font-semibold">Selected Video:</p>
+                      <p>Filename: {newLesson.video.name}</p>
+                    </div>
+                  )}
+                  {editingLesson && !newLesson.video && editingLesson.video && (
+                    <div className="mt-2 text-sm text-gray-500">
+                      <p>Current video: {editingLesson.video.split('/').pop()}</p>
+                    </div>
+                  )}
+                </div>
+                
                 {!editingLesson && (
                   <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Video
-                      </label>
-                      <input
-                        type="file"
-                        onChange={handleVideoChange}
-                        accept="video/*"
-                        className="w-full"
-                        required
-                      />
-                      <p className="mt-1 text-sm text-gray-500">Max size: 100MB</p>
-                    </div>
-                    
-                    {/* Upload Progress Bar */}
-                    {isUploading && newLesson.video && (
-                      <div className="mt-2">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-700">Uploading {newLesson.video.name}</span>
-                          <span className="text-sm font-medium text-gray-700">{uploadProgress}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div 
-                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-                            style={{ width: `${uploadProgress}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    )}
+                    {/* Attachments section - only for new lessons */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Attachments
                       </label>
                       <input
                         type="file"
-                        onChange={handleAttachmentsChange}
+                        name="attachments"
+                        onChange={handleFileChange}
                         multiple
                         className="w-full"
                       />
@@ -410,7 +406,7 @@ export const ModuleLessonsManager: React.FC = () => {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setEditingLesson(null)}
+                          onClick={handleCancelEdit}
                           className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600"
                         >
                           Cancel

@@ -34,12 +34,10 @@ export const getAllCourses = async (req: Request, res: Response): Promise<void> 
     }
     
     const courses = await Course.find(filter)
+      .populate('createdBy', 'fullName email') // Populate createdBy with fullName and email fields
       .populate('categories')
       .populate('tags')
-      .populate({
-        path: 'createdBy',
-        select: 'fullName email'
-      }).lean();
+      .sort({ createdAt: -1 }).lean();
 
     // Get enrollment counts for each course
     const coursesWithEnrollment = await Promise.all(courses.map(async (course) => {
@@ -49,9 +47,13 @@ export const getAllCourses = async (req: Request, res: Response): Promise<void> 
         _id: course._id,
         title: course.title,
         status: course.state,
+        thumbnail: course.thumbnail,
+        description: course.description,
+        price: course.price,
+        state: course.state,
         instructor: course.createdBy ? {
           _id: course.createdBy._id,
-          fullName: course.createdBy.fullName
+          fullName: (course.createdBy as any).fullName // Use type assertion since we've populated the field
         } : null,
         enrolledCount: enrollmentCount
       };

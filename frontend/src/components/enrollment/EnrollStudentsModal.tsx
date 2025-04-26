@@ -40,7 +40,11 @@ export const EnrollStudentsModal: React.FC<EnrollmentModalProps> = ({
   // Query for available students
   const { data: students = [], isLoading } = useQuery({
     queryKey: ['available-students', courseId, searchTerm],
-    queryFn: () => enrollmentService.getAvailableStudents(courseId, searchTerm),
+    queryFn: async () => {
+      const response = await enrollmentService.getAvailableStudents(courseId, searchTerm);
+      
+      return response;
+    },
     keepPreviousData: true
   });
 
@@ -173,7 +177,7 @@ export const EnrollStudentsModal: React.FC<EnrollmentModalProps> = ({
           <button
             onClick={handleEnroll}
             disabled={selectedStudents.length === 0 || enrollMutation.isLoading}
-            className="inline-flex justify-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {enrollMutation.isLoading ? 'Enrolling...' : 'Enroll Selected'}
           </button>

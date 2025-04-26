@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { Course } from '../models/Course';
 import { Enrollment, EnrollmentStatus } from '../models/Enrollment';
 import { AuthRequest } from '../middleware/auth';
@@ -96,6 +96,21 @@ export const getEnrollments = async (req: AuthRequest, res: Response): Promise<v
       query.course = { $in: courseIds };
     }
 
+    // Add courseId filter if provided
+    if (req.query.courseId) {
+      // If there's already a course filter (for instructors), we need to ensure it's also in their courses
+      if (query.course && query.course.$in) {
+        // Keep only this courseId if it's in the instructor's courses
+        const courseId = new Types.ObjectId(req.query.courseId as string);
+        if (query.course.$in.some(id => id.equals(courseId))) {
+          query.course = { $in: [courseId] };
+        }
+      } else {
+        // For admins or when no previous course filter exists
+        query.course = { $in: [new Types.ObjectId(req.query.courseId as string)] };
+      }
+    }
+    
     // Add date range filter
     if (req.query.startDate || req.query.endDate) {
       query.enrollmentDate = {};
@@ -263,6 +278,7 @@ export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promi
     const enrollments = studentIds.map((studentId: Types.ObjectId | string) => ({
       student: studentId,
       course: courseId,
+      paymentReceipt: 'admin-enrollment', // Default value for admin enrollments
       status: EnrollmentStatus.APPROVED,
       enrollmentDate: new Date(),
       approvalDate: new Date()
@@ -305,11 +321,29 @@ export const bulkRemoveStudents = async (req: AuthRequest, res: Response): Promi
       return;
     }
 
+    // Check if enrollments exist
+    const existingEnrollments = await Enrollment.find({
+      course: courseId,
+      student: { $in: studentIds }
+    });
+
+    if (existingEnrollments.length === 0) {
+      res.status(400).json({ message: 'No matching enrollments found' });
+      return;
+    }
+
     // Remove enrollments
     const result = await Enrollment.deleteMany({
       course: courseId,
       student: { $in: studentIds }
     });
+
+    // Update course enrollment count if needed
+    if (result.deletedCount > 0) {
+      await Course.findByIdAndUpdate(courseId, {
+        $inc: { enrollmentCount: -result.deletedCount }
+      });
+    }
 
     res.status(200).json({
       message: 'Students removed successfully',
@@ -317,6 +351,9 @@ export const bulkRemoveStudents = async (req: AuthRequest, res: Response): Promi
     });
   } catch (error) {
     console.error('Error in bulkRemoveStudents:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ 
+      message: 'Error removing students', 
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 };
