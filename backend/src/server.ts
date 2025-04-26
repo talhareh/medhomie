@@ -17,11 +17,12 @@ import publicCourseRoutes from './routes/publicCourseRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import tagRoutes from './routes/tagRoutes';
 import statisticsRoutes from './routes/statisticsRoutes';
+import quizRoutes from './routes/quizRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 config();
 
-const app: Express = express();
+export const app: Express = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
@@ -37,7 +38,8 @@ const createUploadDirectories = () => {
     'uploads/course-videos',
     'uploads/course-images',
     'uploads/course-attachments',
-    'uploads/payment-receipts'
+    'uploads/payment-receipts',
+    'uploads/question-images'
   ];
   dirs.forEach(dir => {
     const dirPath = path.join(__dirname, '..', dir);
@@ -65,6 +67,7 @@ app.use('/api/public/courses', publicCourseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/statistics', statisticsRoutes);
+app.use('/api/quizzes', quizRoutes);
 
 // Basic route for testing
 app.get('/', (req: Request, res: Response) => {
@@ -93,7 +96,9 @@ const connectDB = async () => {
 // Start server
 const startServer = async () => {
   try {
-    await connectDB();
+    if (!process.env.DISABLE_DB_CONNECT) {
+      await connectDB();
+    }
     app.listen(port, () => {
       console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
     });
