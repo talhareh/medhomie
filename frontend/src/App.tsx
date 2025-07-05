@@ -15,7 +15,7 @@ import { RequestPasswordResetPage } from './pages/RequestPasswordResetPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdDash } from './pages/admin/AdDash';
-import { AddCourseContentPage } from './pages/admin/AddCourseContentPage';
+// import { AddCourseContentPage } from './pages/admin/AddCourseContentPage';
 import { AddCoursePage } from './pages/admin/AddCoursePage';
 import { CoursesListPage } from './pages/admin/CoursesListPage';
 import { EditCoursePage } from './pages/admin/EditCoursePage';
@@ -25,6 +25,7 @@ import { CourseContentPage } from './pages/CourseContentPage';
 import { MyCoursesPage } from './pages/student/MyCoursesPage';
 import { StudentCoursesPage } from './pages/student/StudentCoursesPage';
 import { PaymentsPage } from './pages/student/PaymentsPage';
+import { CardPaymentPage } from './pages/student/CardPaymentPage';
 import { UsersListPage } from './pages/admin/UsersListPage';
 import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
 import { CategoriesManagementPage } from './pages/admin/CategoriesManagementPage';
@@ -43,6 +44,16 @@ import MedicLMSPage from './pages/medicMaterial/MedicLMSPage';
 import MedicOSCEAppPage from './pages/medicMaterial/MedicOSCEAppPage';
 import MedicBlogsPage from './pages/medicMaterial/MedicBlogsPage';
 import MedicContactPage from './pages/medicMaterial/MedicContactPage';
+import { PDFViewerPage } from './pages/PDFViewerPage';
+import BlogsListPage from './pages/admin/blog/BlogsListPage';
+import CreateBlogPage from './pages/admin/blog/CreateBlogPage';
+import EditBlogPage from './pages/admin/blog/EditBlogPage';
+import BlogListingPage from './pages/blog/BlogListingPage';
+import BlogDetailPage from './pages/blog/BlogDetailPage';
+import RefundPolicyPage from './pages/RefundPolicyPage';
+import WhatsappConversationsPage from './pages/admin/WhatsappConversationsPage';
+import MedicalAIBot from './components/common/MedicalAIBot';
+import PublicAIChatConversationsPage from './pages/admin/PublicAIChatConversationsPage';
 
 // Initialize React Query client
 const queryClient = new QueryClient({
@@ -73,6 +84,12 @@ const ProtectedRoute = ({ children, adminOnly = false }: { children: React.React
   return <>{children}</>;
 };
 
+function PublicMedicalAIBot() {
+  const { user, isLoading } = useAuth();
+  if (isLoading || user) return null;
+  return <MedicalAIBot />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -80,7 +97,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<LandingFirst />} />
+            <Route path="/" element={<MedicHomePage />} />
             <Route path="/landing" element={<Navigate to="/" replace />} />
             <Route path="/home" element={<PublicHomePage />} />
             <Route path="/auth" element={<AuthPage />} />
@@ -100,6 +117,11 @@ function App() {
             <Route path="/medicOSCEApp" element={<MedicOSCEAppPage />} />
             <Route path="/medicBlogs" element={<MedicBlogsPage />} />
             <Route path="/medicContact" element={<MedicContactPage />} />
+            <Route path="/refund-policy" element={<RefundPolicyPage />} />
+            
+            {/* Public Blog Routes */}
+            <Route path="/blogs" element={<BlogListingPage />} />
+            <Route path="/blogs/:slug" element={<BlogDetailPage />} />
             <Route path="/courses/:courseId/learn" element={
               <ProtectedRoute>
                 <CourseContentPage />
@@ -110,6 +132,15 @@ function App() {
                 <CourseContentPage />
               </ProtectedRoute>
             } />
+            
+            {/* PDF Viewer Routes */}
+            <Route path="/pdf/:courseId/modules/:moduleId/lessons/:lessonId/attachments/:attachmentIndex" element={
+              <ProtectedRoute>
+                <PDFViewerPage />
+              </ProtectedRoute>
+            } />
+            
+
 
             {/* Protected Routes */}
             <Route path="/dashboard" element={
@@ -133,6 +164,12 @@ function App() {
             <Route path="/payments" element={
               <ProtectedRoute>
                 <PaymentsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/cardPayment" element={
+              <ProtectedRoute>
+                <CardPaymentPage />
               </ProtectedRoute>
             } />
 
@@ -199,27 +236,61 @@ function App() {
               </ProtectedRoute>
             } />
 
-            <Route path="/admin/courses/:courseId/content/new" element={
+            <Route path="/admin/courses/:courseId/content/:moduleId" element={
               <ProtectedRoute adminOnly>
-                <AddCourseContentPage />
+                <ModuleLessonsManager />
               </ProtectedRoute>
             } />
-
+            
+            {/* Admin Blog Management */}
+            <Route path="/admin/blogs" element={
+              <ProtectedRoute adminOnly>
+                <BlogsListPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blogs/new" element={
+              <ProtectedRoute adminOnly>
+                <CreateBlogPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blogs/:id" element={
+              <ProtectedRoute adminOnly>
+                <EditBlogPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin Payment Management */}
             <Route path="/admin/payments" element={
               <ProtectedRoute adminOnly>
                 <PaymentManagementPage />
               </ProtectedRoute>
             } />
             
+            {/* Admin Categories Management */}
             <Route path="/admin/categories" element={
               <ProtectedRoute adminOnly>
                 <CategoriesManagementPage />
               </ProtectedRoute>
             } />
             
+            {/* Admin Tags Management */}
             <Route path="/admin/tags" element={
               <ProtectedRoute adminOnly>
                 <TagsManagementPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin WhatsApp Conversations */}
+            <Route path="/admin/whatsapp-conversations" element={
+              <ProtectedRoute adminOnly>
+                <WhatsappConversationsPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin Public AI Chat Conversations */}
+            <Route path="/admin/public-ai-chat-conversations" element={
+              <ProtectedRoute adminOnly>
+                <PublicAIChatConversationsPage />
               </ProtectedRoute>
             } />
             
@@ -227,6 +298,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <ToastContainer position="bottom-right" />
+          <PublicMedicalAIBot />
         </BrowserRouter>
       </AuthProvider>
       <ReactQueryDevtools initialIsOpen={false} />

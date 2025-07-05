@@ -7,7 +7,8 @@ import {
   updateEnrollmentStatus,
   getMyEnrollments,
   bulkEnrollStudents,
-  bulkRemoveStudents
+  bulkRemoveStudents,
+  processCardPayment
 } from '../controllers/enrollmentController';
 
 const router = express.Router();
@@ -22,6 +23,9 @@ router.post(
 router.get('/', authenticateToken, getEnrollments);
 router.get('/my-enrollments', authenticateToken, getMyEnrollments);
 router.patch('/:enrollmentId/status', authenticateToken, updateEnrollmentStatus);
+
+// Card payment route
+router.post('/courses/:courseId/card-payment', authenticateToken, processCardPayment);
 
 // Bulk enrollment routes
 router.post('/courses/:courseId/bulk-enroll', authenticateToken, bulkEnrollStudents);

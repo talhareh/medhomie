@@ -17,6 +17,9 @@ import publicCourseRoutes from './routes/publicCourseRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import tagRoutes from './routes/tagRoutes';
 import statisticsRoutes from './routes/statisticsRoutes';
+import blogRoutes from './routes/blogRoutes';
+import whatsappRoutes from './routes/whatsappRoutes';
+import aiChatRoutes from './routes/aiChatRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 config();
@@ -37,7 +40,8 @@ const createUploadDirectories = () => {
     'uploads/course-videos',
     'uploads/course-images',
     'uploads/course-attachments',
-    'uploads/payment-receipts'
+    'uploads/payment-receipts',
+    'uploads/blogs'
   ];
   dirs.forEach(dir => {
     const dirPath = path.join(__dirname, '..', dir);
@@ -65,6 +69,10 @@ app.use('/api/public/courses', publicCourseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/statistics', statisticsRoutes);
+app.use('/api/blogs', blogRoutes);
+app.use('/api/webhook/whatsapp', whatsappRoutes);
+app.use('/api', whatsappRoutes);
+app.use('/api', aiChatRoutes);
 
 // Basic route for testing
 app.get('/', (req: Request, res: Response) => {

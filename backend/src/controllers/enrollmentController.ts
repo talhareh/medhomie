@@ -296,6 +296,87 @@ export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promi
   }
 };
 
+// Process card payment and auto-approve enrollment
+export const processCardPayment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { courseId } = req.params;
+    const { paymentMethod, paymentDetails } = req.body;
+
+    if (!req.user) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    const course = await Course.findById(courseId);
+    
+    if (!course) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    // Check if student is already enrolled
+    const existingEnrollment = await Enrollment.findOne({
+      student: req.user._id,
+      course: courseId
+    });
+
+    if (existingEnrollment && existingEnrollment.status === EnrollmentStatus.APPROVED) {
+      res.status(400).json({ message: 'Already enrolled in this course' });
+      return;
+    }
+
+    // If there's a rejected enrollment, update it instead of creating a new one
+    if (existingEnrollment && existingEnrollment.status === EnrollmentStatus.REJECTED) {
+      existingEnrollment.status = EnrollmentStatus.APPROVED;
+      existingEnrollment.approvalDate = new Date();
+      existingEnrollment.paymentMethod = paymentMethod;
+      existingEnrollment.paymentDetails = paymentDetails;
+      existingEnrollment.rejectionReason = undefined;
+      
+      await existingEnrollment.save();
+      
+      // Add student to course's enrolled students
+      await Course.findByIdAndUpdate(courseId, {
+        $addToSet: { enrolledStudents: req.user._id }
+      });
+      
+      res.status(200).json({
+        message: 'Payment processed and enrollment approved',
+        enrollment: existingEnrollment
+      });
+      return;
+    }
+
+    // Create a new enrollment with approved status
+    const enrollment = new Enrollment({
+      student: req.user._id,
+      course: courseId,
+      paymentMethod: paymentMethod,
+      paymentDetails: paymentDetails,
+      status: EnrollmentStatus.APPROVED,
+      approvalDate: new Date()
+    });
+
+    await enrollment.save();
+    
+    // Add student to course's enrolled students
+    await Course.findByIdAndUpdate(courseId, {
+      $addToSet: { enrolledStudents: req.user._id }
+    });
+
+    res.status(201).json({
+      message: 'Payment processed and enrollment approved',
+      enrollment
+    });
+  } catch (error) {
+    console.error('Error in processCardPayment:', error);
+    res.status(500).json({ 
+      message: 'Error processing payment', 
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
 // Bulk remove students from a course (admin only)
 export const bulkRemoveStudents = async (req: AuthRequest, res: Response): Promise<void> => {
   try {

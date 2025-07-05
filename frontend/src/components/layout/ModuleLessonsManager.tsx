@@ -102,6 +102,9 @@ export const ModuleLessonsManager: React.FC = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Error adding lesson');
+      // Clear files on error
+      setNewLesson({ ...newLesson, video: null, attachments: [] });
+      setUploadProgress(0);
     },
   });
 
@@ -144,6 +147,10 @@ export const ModuleLessonsManager: React.FC = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Error updating lesson');
+      // Clear files on error
+      setEditingLesson(null);
+      setNewLesson({ title: '', description: '', video: null, attachments: [] });
+      setUploadProgress(0);
     },
   });
 
@@ -168,15 +175,17 @@ export const ModuleLessonsManager: React.FC = () => {
       toast.error('Lesson title is required');
       return;
     }
-    if (!newLesson.video) {
-      toast.error('Video is required');
+    if (!newLesson.video && newLesson.attachments.length === 0) {
+      toast.error('Either a video or at least one attachment is required');
       return;
     }
 
     const formData = new FormData();
     formData.append('title', newLesson.title);
     formData.append('description', newLesson.description);
-    formData.append('video', newLesson.video);
+    if (newLesson.video) {
+      formData.append('video', newLesson.video);
+    }
     newLesson.attachments.forEach((file) => {
       formData.append('attachments', file);
     });
@@ -366,7 +375,7 @@ export const ModuleLessonsManager: React.FC = () => {
                         multiple
                         className="w-full"
                       />
-                      <p className="mt-1 text-sm text-gray-500">Max size per file: 10MB</p>
+                      <p className="mt-1 text-sm text-gray-500">Max size per file: 200MB</p>
                     </div>
                   </>
                 )}
@@ -435,6 +444,14 @@ export const ModuleLessonsManager: React.FC = () => {
                         <div>
                           <h3 className="font-semibold">{lesson.title}</h3>
                           <p className="text-gray-600">{lesson.description}</p>
+                          {lesson.video && (
+                            <div className="mt-2">
+                              <p className="text-sm font-medium">Video:</p>
+                              <p className="text-sm text-blue-500">
+                                {lesson.video.split('/').pop()}
+                              </p>
+                            </div>
+                          )}
                           {lesson.attachments.length > 0 && (
                             <div className="mt-2">
                               <p className="text-sm font-medium">Attachments:</p>

@@ -60,12 +60,31 @@ export const addLesson = async (req: AuthRequest, res: Response): Promise<void> 
       isPreview: req.body.isPreview === 'true'
     };
     
-    // Handle traditional file upload
+    // Handle video file upload
     if (videoPath) {
       lessonData.video = videoPath;
     }
     
+    // Handle attachment files upload
+    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
+      const attachmentFiles = req.files['attachments'];
+      if (attachmentFiles && Array.isArray(attachmentFiles) && attachmentFiles.length > 0) {
+        // Add each attachment path to the lesson data
+        attachmentFiles.forEach(file => {
+          lessonData.attachments.push(file.path);
+          console.log('Added attachment path:', file.path);
+        });
+      }
+    }
+    
+    // Validate that at least one of video or attachments is provided
+    if (!videoPath && lessonData.attachments.length === 0) {
+      res.status(400).json({ message: 'Either a video or at least one attachment is required' });
+      return;
+    }
+    
     console.log('Created lesson data with video path:', lessonData.video);
+    console.log('Created lesson data with attachments:', lessonData.attachments);
     console.log('Full lesson data:', lessonData);
 
     const { error } = validateLesson(lessonData);

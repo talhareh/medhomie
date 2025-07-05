@@ -1,5 +1,5 @@
 // courseTransformations.ts - Utility functions for transforming course data
-import { ApiCourse, MedicalCourse, Section } from '../types/courseTypes';
+import { ApiCourse, MedicalCourse, Section, Attachment } from '../types/courseTypes';
 
 /**
  * Transforms API course data to the internal format used by the UI
@@ -16,11 +16,12 @@ export const transformCourse = (apiCourse: ApiCourse): MedicalCourse => {
   const sections = apiCourse.modules
     .sort((a, b) => a.order - b.order)
     .map(module => {
+      // Store the course ID in each section for correct PDF URL construction
       const lessons = module.lessons
         .sort((a, b) => a.order - b.order)
         .map(lesson => {
           // Process attachments to include filenames
-          let processedAttachments = [];
+          let processedAttachments: Attachment[] = [];
           if (lesson.attachments && lesson.attachments.length > 0) {
             // Map the attachments to include both the API path and the filename
             processedAttachments = lesson.attachments.map((path, index) => {
@@ -63,11 +64,10 @@ export const transformCourse = (apiCourse: ApiCourse): MedicalCourse => {
           });
           
           // Determine the video URL
-          let videoUrl;
-          
-          // Construct the stream URL
-          videoUrl = `/stream/${apiCourse._id}/modules/${module._id}/lessons/${lesson._id}/stream`;
-          console.log(`Constructed stream URL for ${lesson.title}:`, videoUrl);
+          let videoUrl = '';
+          if (lesson.video) {
+            videoUrl = `/stream/${apiCourse._id}/modules/${module._id}/lessons/${lesson._id}/stream`;
+          }
           
           // TEMPORARY FIX: For testing purposes, assume all lessons have videos
           // In production, this should be fixed on the backend
@@ -76,7 +76,7 @@ export const transformCourse = (apiCourse: ApiCourse): MedicalCourse => {
             title: lesson.title,
             duration: `${lesson.duration || 0}min`,
             completed: false, // We'll need to fetch this from user progress
-            type: 'video', // Temporarily assume all lessons are videos
+            type: (lesson.video ? 'video' : 'file') as 'video' | 'file',
             content: lesson.description,
             videoUrl: videoUrl,
             description: lesson.description,
@@ -87,6 +87,7 @@ export const transformCourse = (apiCourse: ApiCourse): MedicalCourse => {
       
       return {
         id: module._id,
+        courseId: apiCourse._id, // Add the course ID to each section for correct PDF URL construction
         title: module.title,
         description: module.description,
         duration: `${module.lessons.reduce((sum, lesson) => sum + (lesson.duration || 0), 0)}min`,

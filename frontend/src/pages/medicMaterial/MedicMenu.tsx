@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 /**
  * MedicMenu component - Navigation menu for the MedicHomePage
@@ -24,6 +25,15 @@ const MedicMenu: React.FC = () => {
   const closeDropdown = () => {
     setOpenDropdown(null);
   };
+
+  const whatsappNumber = '15551519131';
+  const isMobile = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+  }, []);
+  const whatsappLink = isMobile
+    ? `https://wa.me/${whatsappNumber}`
+    : `https://web.whatsapp.com/send?phone=${whatsappNumber}`;
 
   return (
     <header className="bg-white shadow-md relative z-50">
@@ -142,20 +152,33 @@ const MedicMenu: React.FC = () => {
           </div>
           
           <Link to="/medicContact" className="text-neutral-700 hover:text-primary py-2">Contact</Link>
+          {/* WhatsApp Button for desktop */}
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-2 flex items-center bg-[#25D366] text-white px-3 py-2 rounded hover:bg-[#1ebe57] transition-colors md:inline-flex hidden"
+            title="Chat with us on WhatsApp"
+          >
+            <FontAwesomeIcon icon={faWhatsapp} className="mr-2 text-lg" /> WhatsApp
+          </a>
         </nav>
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 items-center">
           <Link to="/auth" className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90">
             Login
           </Link>
+          {/* WhatsApp Button for mobile */}
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center bg-[#25D366] text-white px-3 py-2 rounded hover:bg-[#1ebe57] transition-colors md:hidden"
+            title="Chat with us on WhatsApp"
+          >
+            <FontAwesomeIcon icon={faWhatsapp} className="mr-2 text-lg" /> WhatsApp
+          </a>
         </div>
       </div>
-
-      {/* Custom CSS for dropdown behavior */}
-      <style jsx>{`
-        .group:hover > div {
-          display: block;
-        }
-      `}</style>
     </header>
   );
 };

@@ -64,7 +64,7 @@ export interface ICourseDocument extends Omit<ICourseData, 'modules' | 'createdB
 
 const lessonSchema = new Schema<ILessonDocument>({
   title: { type: String, required: true },
-  description: { type: String, required: true },
+  description: { type: String, required: false, default: '' },
   order: { type: Number, required: true },
   duration: { type: Number },
   video: { type: String },

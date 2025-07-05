@@ -147,13 +147,6 @@ const MedicClinicalProgramsPage: React.FC = () => {
                 <div className="p-6">
                   <h3 className="text-xl font-bold mb-4 text-primary">{program.title}</h3>
                   
-                  <div className="flex items-center mb-2">
-                    <FontAwesomeIcon icon={faClock} className="text-neutral-500 mr-2" />
-                    <p className="text-neutral-700">
-                      <span className="font-medium">Duration:</span> {program.duration}
-                    </p>
-                  </div>
-                  
                   <div className="flex items-center mb-4">
                     <FontAwesomeIcon icon={faCalendarAlt} className="text-neutral-500 mr-2" />
                     <p className="text-neutral-700">

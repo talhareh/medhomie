@@ -199,11 +199,8 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Validate password and confirmPassword match
-    if (req.body.password !== req.body.confirmPassword) {
-      res.status(400).json({ message: 'Passwords do not match' });
-      return;
-    }
+    // Note: Password validation and confirmation is handled on the frontend
+    // The frontend only sends the validated password field
 
     user.password = req.body.password;
     user.passwordResetToken = undefined;

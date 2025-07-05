@@ -8,7 +8,7 @@ import { Course } from '../types/course';
 import Modal from 'react-modal';
 import { Header } from '../components/common/Header';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTimes, faUpload, faCreditCard } from '@fortawesome/free-solid-svg-icons';
 
 // Bind modal to your appElement for accessibility
 Modal.setAppElement('#root');
@@ -50,6 +50,12 @@ const customModalStyles = {
 };
 
 const paymentInfo = {
+  paypal: {
+    title: 'PayPal',
+    instructions: 'Pay with Credit/Debit Card',
+    details: 'Secure online payment',
+    useCardPayment: true
+  },
   bankTransfer: {
     title: 'Bank Transfer',
     instructions: 'Transfer the course fee to our bank account',
@@ -65,11 +71,7 @@ const paymentInfo = {
     instructions: 'Send payment through JazzCash',
     details: 'Account Number: 03XX-XXXXXXX'
   },
-  paypal: {
-    title: 'PayPal',
-    instructions: 'Send payment through PayPal',
-    details: 'Email: payment@medhome.com'
-  }
+ 
 };
 
 export const PublicCoursesPage: React.FC = () => {
@@ -144,8 +146,8 @@ export const PublicCoursesPage: React.FC = () => {
       return;
     }
 
-    setSelectedCourse(course);
-    setIsEnrollModalOpen(true);
+    // Route to refund policy page with course info
+    navigate('/refund-policy', { state: { course } });
   };
 
   const handleEnrollSubmit = () => {
@@ -157,6 +159,25 @@ export const PublicCoursesPage: React.FC = () => {
     enrollMutation.mutate({
       courseId: selectedCourse._id,
       receipt,
+    });
+  };
+  
+  const handleCardPayment = () => {
+    if (!selectedCourse) {
+      toast.error('No course selected');
+      return;
+    }
+    
+    // Close the enrollment modal
+    setIsEnrollModalOpen(false);
+    
+    // Navigate to card payment page with course details
+    navigate('/cardPayment', {
+      state: {
+        courseId: selectedCourse._id,
+        courseTitle: selectedCourse.title,
+        coursePrice: selectedCourse.price
+      }
     });
   };
 
@@ -320,6 +341,17 @@ export const PublicCoursesPage: React.FC = () => {
                   <pre className="bg-gray-100 p-3 rounded text-sm text-gray-700 whitespace-pre-wrap">
                     {info.details}
                   </pre>
+                  {(info as any).useCardPayment && (
+                    <div className="mt-4">
+                      <button
+                        onClick={handleCardPayment}
+                        className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-md transition duration-300 flex items-center justify-center"
+                      >
+                        <FontAwesomeIcon icon={faCreditCard} className="mr-2" />
+                        Pay with Card
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

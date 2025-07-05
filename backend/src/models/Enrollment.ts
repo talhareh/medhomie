@@ -9,7 +9,9 @@ export enum EnrollmentStatus {
 export interface IEnrollment extends Document {
   student: Schema.Types.ObjectId;
   course: Schema.Types.ObjectId;
-  paymentReceipt: string;
+  paymentReceipt?: string;
+  paymentMethod?: string;
+  paymentDetails?: Record<string, any>;
   status: EnrollmentStatus;
   enrollmentDate: Date;
   approvalDate?: Date;
@@ -29,6 +31,14 @@ const enrollmentSchema = new Schema<IEnrollment>({
   },
   paymentReceipt: {
     type: String,
+    required: false
+  },
+  paymentMethod: {
+    type: String,
+    required: false
+  },
+  paymentDetails: {
+    type: Schema.Types.Mixed,
     required: false
   },
   status: {
