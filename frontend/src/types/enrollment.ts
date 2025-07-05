@@ -17,7 +17,8 @@ export interface Enrollment {
     title: string;
     price: number;
   };
-  paymentReceipt: string;
+  paymentReceipt?: string;
+  paymentMethod?: string;
   status: EnrollmentStatus;
   enrollmentDate: string;
   approvalDate?: string;

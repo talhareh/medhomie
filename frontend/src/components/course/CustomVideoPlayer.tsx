@@ -9,7 +9,8 @@ import {
   faVolumeUp,
   faVolumeMute,
   faExpand,
-  faExclamationTriangle
+  faExclamationTriangle,
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 
 interface CustomVideoPlayerProps {
@@ -41,6 +42,7 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
   const [isMuted, setIsMuted] = React.useState(false);
   const [playbackRate, setPlaybackRate] = React.useState(1);
   const [showControls, setShowControls] = React.useState(true);
+  const [buffering, setBuffering] = React.useState(false);
   
   // Hide controls after inactivity
   React.useEffect(() => {
@@ -89,22 +91,35 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     
     const handlePlay = () => {
       setIsPlaying(true);
+      setBuffering(false);
     };
     
     const handlePause = () => {
       setIsPlaying(false);
     };
     
+    const handleWaiting = () => {
+      setBuffering(true);
+    };
+    
+    const handlePlaying = () => {
+      setBuffering(false);
+    };
+    
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('durationchange', handleDurationChange);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('playing', handlePlaying);
     
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('playing', handlePlaying);
     };
   }, [isLoading, error, src]);
   
@@ -162,6 +177,26 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     setIsMuted(video.muted);
   };
   
+  // Handle volume change
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    video.volume = newVolume;
+    
+    // If volume is set to 0, mute the video
+    // If volume was 0 and is now increased, unmute
+    if (newVolume === 0 && !isMuted) {
+      video.muted = true;
+      setIsMuted(true);
+    } else if (newVolume > 0 && isMuted) {
+      video.muted = false;
+      setIsMuted(false);
+    }
+  };
+  
   // Change playback rate
   const changePlaybackRate = (rate: number) => {
     const video = videoRef.current;
@@ -205,7 +240,6 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     return (
       <div className="bg-black h-[80vh] flex items-center justify-center">
         <div className="text-white text-center">
-          <FontAwesomeIcon icon={faPlay} className="text-6xl mb-4" />
           <p className="text-xl">Loading...</p>
         </div>
       </div>
@@ -228,7 +262,6 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
     return (
       <div className="bg-black h-[80vh] flex items-center justify-center">
         <div className="text-white text-center">
-          <FontAwesomeIcon icon={faPlay} className="text-6xl mb-4" />
           <p className="text-xl">Video Player Placeholder</p>
           {title && <p className="text-sm mt-2">Currently playing: {title}</p>}
         </div>
@@ -241,6 +274,12 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
       className="video-container relative w-full h-[80vh] bg-black"
       onMouseEnter={() => setShowControls(true)}
     >
+      {/* Buffering Spinner Overlay */}
+      {buffering && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+          <FontAwesomeIcon icon={faSpinner} spin className="text-primary text-5xl opacity-80" />
+        </div>
+      )}
       <video
         ref={videoRef}
         src={src}
@@ -303,16 +342,27 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
             </button>
             
             {/* Volume */}
-            <button 
-              className="text-white text-xl focus:outline-none"
-              onClick={toggleMute}
-            >
-              <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
-            </button>
-            
-            {/* Time */}
-            <div className="text-white text-sm">
-              {formatTime(currentTime)} / {formatTime(duration)}
+            <div className="flex items-center space-x-2">
+              <button 
+                className="text-white text-xl focus:outline-none"
+                onClick={toggleMute}
+              >
+                <FontAwesomeIcon icon={isMuted ? faVolumeMute : faVolumeUp} />
+              </button>
+              <div className="relative group w-24">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, #3390CE 0%, #3390CE ${volume * 100}%, #4B5563 ${volume * 100}%, #4B5563 100%)`
+                  }}
+                />
+              </div>
             </div>
           </div>
           

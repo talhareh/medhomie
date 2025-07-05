@@ -12,6 +12,7 @@ import { transformCourse, findModuleIdForLesson } from '../utils/courseTransform
 import { CourseSidebar } from '../components/course/CourseSidebar';
 import { LessonContent } from '../components/course/LessonContent';
 import { EnrollmentModal } from '../components/course/EnrollmentModal';
+import CourseAIBot from '../components/common/CourseAIBot';
 
 export const CourseContentPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -178,9 +179,9 @@ export const CourseContentPage: React.FC = () => {
   }, []);
 
   // Check if user has access to the course
-  const hasAccess = user && course?.enrollmentStatus === 'approved';
+  const hasAccess = Boolean(user && course?.enrollmentStatus === 'approved');
 
-  const navigateToLesson = (sectionId: string, lessonId: string) => {
+  const navigateToLesson = (sectionId: string, lessonId: string, attachmentIndex?: number) => {
     console.log('navigateToLesson called with:', { sectionId, lessonId });
     if (!hasAccess) {
       setIsModalOpen(true);
@@ -238,6 +239,14 @@ export const CourseContentPage: React.FC = () => {
         // Then set the current lesson data to trigger the useEffect
         setCurrentLessonData(lesson);
         console.log('URL updated, currentLessonData has been set to:', lesson.id);
+        
+        // If an attachment index was provided, automatically open that attachment
+        if (attachmentIndex !== undefined && lesson.attachments && lesson.attachments.length > attachmentIndex) {
+          // Use setTimeout to ensure the lesson data is fully loaded before trying to open the attachment
+          setTimeout(() => {
+            handleAttachmentClick(attachmentIndex);
+          }, 100);
+        }
       }
     }
   };
@@ -335,7 +344,7 @@ export const CourseContentPage: React.FC = () => {
       <div className="bg-neutral-900 text-white py-3 px-4 flex items-center justify-between">
         <div className="flex items-center">
           <button 
-            onClick={() => navigate(`/courses`)}
+            onClick={() => navigate(`/student/courses`)}
             className="mr-4 hover:text-gray-300"
           >
             <FontAwesomeIcon icon={faArrowLeft} />
@@ -343,7 +352,7 @@ export const CourseContentPage: React.FC = () => {
           <div className="flex items-center">
             <span 
               className="cursor-pointer hover:text-gray-300"
-              onClick={() => navigate('/courses')}
+              onClick={() => navigate('/student/courses')}
             >
               Courses
             </span>
@@ -392,6 +401,9 @@ export const CourseContentPage: React.FC = () => {
         courseId={courseId || ''}
         onClose={() => setIsModalOpen(false)}
       />
+
+      {/* Course AI Bot - Only show for enrolled students */}
+      {hasAccess && <CourseAIBot />}
     </div>
   );
 };

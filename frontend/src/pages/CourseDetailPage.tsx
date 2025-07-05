@@ -169,10 +169,6 @@ export const CourseDetailPage: React.FC = () => {
                   <FontAwesomeIcon icon={faPlay} className="mr-2" />
                   <span>{totalLessons} lessons</span>
                 </div>
-                <div className="flex items-center">
-                  <FontAwesomeIcon icon={faClock} className="mr-2" />
-                  <span>{totalDuration} minutes total</span>
-                </div>
                 <div>
                   <span>{course.enrollmentCount} students enrolled</span>
                 </div>
@@ -339,12 +335,6 @@ export const CourseDetailPage: React.FC = () => {
                                 )}
                               </div>
                             </div>
-                            {lesson.duration && (
-                              <div className="flex items-center text-neutral-500">
-                                <FontAwesomeIcon icon={faClock} className="mr-2" />
-                                <span>{lesson.duration} min</span>
-                              </div>
-                            )}
                           </div>
                         ))}
                     </div>

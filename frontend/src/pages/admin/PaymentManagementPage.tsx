@@ -288,6 +288,9 @@ export const PaymentManagementPage: React.FC = () => {
                   Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Method
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -303,20 +306,31 @@ export const PaymentManagementPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {enrollment.student.fullName}
+                      {enrollment.student?.fullName || 'N/A'}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {enrollment.student.email}
+                      {enrollment.student?.email || 'N/A'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {enrollment.student.whatsappNumber || '-'}
+                    {enrollment.student?.whatsappNumber || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {enrollment.course ? enrollment.course.title : 'N/A'}
+                    {enrollment.course?.title || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    Rs. {enrollment.course && enrollment.course.price ? enrollment.course.price.toFixed(2) : '0.00'}
+                    ${enrollment.course?.price ? enrollment.course.price.toFixed(2) : '0.00'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {enrollment.paymentMethod === 'paypal' ? (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        Card Payment
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                        Manual
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full

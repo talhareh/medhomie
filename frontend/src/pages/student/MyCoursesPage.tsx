@@ -73,13 +73,16 @@ export const MyCoursesPage: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['my-enrollments']);
+      queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
       toast.success('Receipt uploaded successfully');
       setIsUploadModalOpen(false);
       setNewReceipt(null);
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Error uploading receipt');
+    onError: (error) => {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Error uploading receipt';
+      toast.error(errorMessage);
     },
   });
 
@@ -90,11 +93,14 @@ export const MyCoursesPage: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['my-enrollments']);
+      queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
       toast.success('Enrollment cancelled successfully');
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Error cancelling enrollment');
+    onError: (error) => {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Error cancelling enrollment';
+      toast.error(errorMessage);
     },
   });
 
@@ -182,7 +188,7 @@ export const MyCoursesPage: React.FC = () => {
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
-                    <h2 className="text-xl font-semibold">{enrollment.course.title}</h2>
+                    <h2 className="text-xl font-semibold">{enrollment.course?.title || 'Course unavailable'}</h2>
                     <div className="flex items-center">
                       {getStatusIcon(enrollment.status)}
                       <span className={`ml-2 text-sm font-medium
@@ -197,7 +203,7 @@ export const MyCoursesPage: React.FC = () => {
 
                   <div className="space-y-2 text-sm text-gray-600">
                     <p>Enrolled: {new Date(enrollment.enrollmentDate).toLocaleDateString()}</p>
-                    <p>Price: ${enrollment.course.price}</p>
+                    <p>Price: ${enrollment.course?.price || 0}</p>
                     {enrollment.status === EnrollmentStatus.REJECTED && (
                       <div className="mt-4 p-3 bg-red-50 rounded-lg">
                         <p className="text-red-700 flex items-center">
@@ -211,8 +217,9 @@ export const MyCoursesPage: React.FC = () => {
                   <div className="mt-6 space-x-3">
                     {enrollment.status === EnrollmentStatus.APPROVED ? (
                       <button
-                        onClick={() => navigate(`/courses/${enrollment.course._id}`)}
+                        onClick={() => navigate(`/courses/${enrollment.course?._id}`)}
                         className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        disabled={!enrollment.course}
                       >
                         Access Course
                       </button>
@@ -289,10 +296,10 @@ export const MyCoursesPage: React.FC = () => {
               <div className="flex justify-end">
                 <button
                   onClick={handleUploadReceipt}
-                  disabled={!newReceipt || uploadReceiptMutation.isLoading}
+                  disabled={!newReceipt || uploadReceiptMutation.isPending}
                   className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
                 >
-                  {uploadReceiptMutation.isLoading ? 'Uploading...' : 'Upload Receipt'}
+                  {uploadReceiptMutation.isPending ? 'Uploading...' : 'Upload Receipt'}
                 </button>
               </div>
             </div>

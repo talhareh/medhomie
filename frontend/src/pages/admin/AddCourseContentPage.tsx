@@ -19,15 +19,22 @@ export const AddCourseContentPage: React.FC = () => {
 
   const addContentMutation = useMutation({
     mutationFn: async () => {
-      if (!videoFile) {
-        throw new Error('Video file is required');
+      // At least one of video or attachments must be provided
+      if (!videoFile && attachments.length === 0) {
+        throw new Error('Either a video or at least one attachment is required');
       }
 
       setIsUploading(true);
       const formData = new FormData();
       formData.append('title', title);
       formData.append('description', description);
-      formData.append('video', videoFile);
+      
+      // Only append video if it exists
+      if (videoFile) {
+        formData.append('video', videoFile);
+      }
+      
+      // Append any attachments
       attachments.forEach((file) => {
         formData.append('attachments', file);
       });
@@ -42,10 +49,18 @@ export const AddCourseContentPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['course', courseId]);
       toast.success('Course content added successfully');
+      // Clear form fields
+      setTitle('');
+      setDescription('');
+      setVideoFile(null);
+      setAttachments([]);
       navigate(`/admin/courses/${courseId}`);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Error adding course content');
+      // Clear file selections on error too
+      setVideoFile(null);
+      setAttachments([]);
     },
     onSettled: () => {
       setIsUploading(false);
@@ -91,8 +106,8 @@ export const AddCourseContentPage: React.FC = () => {
         return false;
       }
 
-      // Validate file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
+      // Validate file size (200MB limit)
+      if (file.size > 200 * 1024 * 1024) {
         toast.error(`File too large: ${file.name}`);
         return false;
       }
@@ -113,12 +128,8 @@ export const AddCourseContentPage: React.FC = () => {
       toast.error('Title is required');
       return;
     }
-    if (!description.trim()) {
-      toast.error('Description is required');
-      return;
-    }
-    if (!videoFile) {
-      toast.error('Video file is required');
+    if (!videoFile && attachments.length === 0) {
+      toast.error('Either a video or at least one attachment is required');
       return;
     }
     addContentMutation.mutate();
@@ -157,7 +168,6 @@ export const AddCourseContentPage: React.FC = () => {
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              required
             />
           </div>
 
@@ -170,7 +180,6 @@ export const AddCourseContentPage: React.FC = () => {
               onChange={handleVideoChange}
               accept="video/mp4,video/webm,video/ogg"
               className="w-full"
-              required
             />
             <p className="mt-1 text-sm text-gray-500">
               Supported formats: MP4, WebM, OGG (max 100MB)
@@ -189,7 +198,7 @@ export const AddCourseContentPage: React.FC = () => {
               className="w-full"
             />
             <p className="mt-1 text-sm text-gray-500">
-              Supported formats: PDF, DOC, DOCX, PPT, PPTX (max 10MB each)
+              Supported formats: PDF, DOC, DOCX, PPT, PPTX (max 200MB each)
             </p>
             
             {attachments.length > 0 && (

@@ -1,6 +1,7 @@
 import React from 'react';
 import MedicMenu from './MedicMenu';
 import MedicFooter from './MedicFooter';
+import MedicalAIBot from '../../components/common/MedicalAIBot';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCalendarAlt,
@@ -240,13 +241,6 @@ const MedicAdvancedUKProgramPage: React.FC = () => {
                 </div>
                 
                 <div className="p-6">
-                  <div className="flex items-center mb-2">
-                    <FontAwesomeIcon icon={faClock} className="text-neutral-500 mr-2" />
-                    <p className="text-neutral-700">
-                      <span className="font-medium">Duration:</span> {course.duration}
-                    </p>
-                  </div>
-                  
                   <div className="flex items-center mb-4">
                     <FontAwesomeIcon icon={faCalendarAlt} className="text-neutral-500 mr-2" />
                     <p className="text-neutral-700">
@@ -395,6 +389,7 @@ const MedicAdvancedUKProgramPage: React.FC = () => {
 
       {/* Footer */}
       <MedicFooter />
+      <MedicalAIBot />
     </div>
   );
 };

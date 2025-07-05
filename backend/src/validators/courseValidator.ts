@@ -4,7 +4,7 @@ import { CourseState } from '../models/Course';
 export const validateLesson = (lesson: any) => {
   const schema = Joi.object({
     title: Joi.string().required().min(3).max(255),
-    description: Joi.string().required().min(10),
+    description: Joi.string().optional().allow(''),
     order: Joi.number().required().min(0),
     duration: Joi.number().optional().min(0),
     video: Joi.string().optional(),
@@ -22,7 +22,7 @@ export const validateModule = (module: any) => {
     order: Joi.number().required().min(0),
     lessons: Joi.array().items(Joi.object({
       title: Joi.string().required().min(3).max(255),
-      description: Joi.string().required().min(10),
+      description: Joi.string().optional().allow(''),
       order: Joi.number().required().min(0),
       duration: Joi.number().optional().min(0),
       video: Joi.string().optional(),
@@ -49,7 +49,7 @@ export const validateCourse = (course: any) => {
       order: Joi.number().required().min(0),
       lessons: Joi.array().items(Joi.object({
         title: Joi.string().required().min(3).max(255),
-        description: Joi.string().required().min(10),
+        description: Joi.string().optional().allow(''),
         order: Joi.number().required().min(0),
         duration: Joi.number().optional().min(0),
         video: Joi.string().optional(),

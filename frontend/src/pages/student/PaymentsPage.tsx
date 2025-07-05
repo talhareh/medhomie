@@ -16,9 +16,8 @@ import { MainLayout } from '../../components/layout/MainLayout';
 import api from '../../utils/axios';
 import { EnrollmentStatus } from '../../types/enrollment';
 
-// Server URL
-const SERVER_URL = 'http://localhost:5000';
-const API_UPLOADS_URL = `${SERVER_URL}/api/uploads`; // URL for accessing uploaded files
+// API path for uploads (using relative URL to work with both localhost and production domains)
+const API_UPLOADS_URL = '/api/uploads'; // URL for accessing uploaded files
 
 // Modal styles
 const customModalStyles = {
@@ -53,7 +52,8 @@ interface Payment {
   };
   status: EnrollmentStatus;
   enrollmentDate: string;
-  paymentReceipt: string;
+  paymentReceipt?: string;
+  paymentMethod?: string;
   rejectionReason?: string;
 }
 
@@ -63,16 +63,21 @@ export const PaymentsPage: React.FC = () => {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   // Fetch student's payments (enrollments)
-  const { data: payments = [], isLoading } = useQuery({
+  const { data: payments = [], isLoading, error } = useQuery<Payment[], Error>({
     queryKey: ['student-payments'],
     queryFn: async () => {
       const response = await api.get<Payment[]>('/enrollments/my-enrollments');
       return response.data;
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Error fetching payments');
-    },
   });
+
+  // Handle query errors
+  React.useEffect(() => {
+    if (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error fetching payments';
+      toast.error(errorMessage);
+    }
+  }, [error]);
 
   const getStatusIcon = (status: EnrollmentStatus) => {
     switch (status) {
@@ -100,12 +105,13 @@ export const PaymentsPage: React.FC = () => {
     }
   };
 
-  const getReceiptUrl = (receiptPath: string) => {
+  const getReceiptUrl = (receiptPath?: string) => {
     if (!receiptPath) {
       console.error('Receipt path is empty');
       return '';
     }
     
+    // If it's already a full URL, return it as is
     if (receiptPath.startsWith('http')) {
       return receiptPath;
     }
@@ -120,7 +126,8 @@ export const PaymentsPage: React.FC = () => {
     // Ensure there's no double slash when joining paths
     path = path.startsWith('/') ? path.substring(1) : path;
     
-    // Use the correct API endpoint for accessing uploaded files
+    // Use the correct API endpoint for accessing uploaded files with relative URL
+    // This ensures it works with both localhost and production domains
     return `${API_UPLOADS_URL}/${path}`;
   };
 
@@ -157,9 +164,10 @@ export const PaymentsPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       
       toast.success('Receipt downloaded successfully');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Download error:', error);
-      toast.error(`Error downloading receipt: ${error.message || 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Error downloading receipt: ${errorMessage}`);
     }
   };
 
@@ -195,6 +203,9 @@ export const PaymentsPage: React.FC = () => {
                     Amount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Method
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -209,10 +220,21 @@ export const PaymentsPage: React.FC = () => {
                       {format(new Date(payment.enrollmentDate), 'MMM dd, yyyy')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {payment.course.title}
+                      {payment.course?.title || 'Course unavailable'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${payment.course.price}
+                      ${payment.course?.price || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {payment.paymentMethod === 'paypal' ? (
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          Card Payment
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                          Manual
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(payment.status)}`}>
@@ -267,8 +289,8 @@ export const PaymentsPage: React.FC = () => {
             {selectedPayment && (
               <div className="space-y-4">
                 <div className="border rounded-lg p-4 space-y-2">
-                  <p><strong>Course:</strong> {selectedPayment.course.title}</p>
-                  <p><strong>Amount:</strong> ${selectedPayment.course.price}</p>
+                  <p><strong>Course:</strong> {selectedPayment.course?.title || 'Course unavailable'}</p>
+                  <p><strong>Amount:</strong> ${selectedPayment.course?.price || 0}</p>
                   <p><strong>Date:</strong> {format(new Date(selectedPayment.enrollmentDate), 'MMMM dd, yyyy')}</p>
                   <p><strong>Status:</strong> {selectedPayment.status}</p>
                   {selectedPayment.rejectionReason && (
@@ -277,7 +299,7 @@ export const PaymentsPage: React.FC = () => {
                 </div>
                 
                 <div className="mt-4">
-                  {selectedPayment.paymentReceipt.match(/\.(jpg|jpeg|png|gif)$/i) ? (
+                  {selectedPayment.paymentReceipt && selectedPayment.paymentReceipt.match(/\.(jpg|jpeg|png|gif)$/i) ? (
                     <>
                       <div className="mb-4 p-2 bg-blue-50 text-blue-800 rounded">
                         <p><strong>Troubleshooting:</strong></p>

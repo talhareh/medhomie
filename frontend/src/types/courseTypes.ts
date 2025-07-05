@@ -53,6 +53,7 @@ export interface Lesson {
 
 export interface Section {
   id: string;
+  courseId?: string; // The parent course ID (important for PDF URLs)
   title: string;
   duration: string;
   completedLessons: number;

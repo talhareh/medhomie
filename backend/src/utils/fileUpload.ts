@@ -137,7 +137,7 @@ export const uploadAttachment = multer({
   storage: courseAttachmentStorage,
   fileFilter: attachmentFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB max file size
+    fileSize: 200 * 1024 * 1024 // 200MB max file size
   }
 });
 
@@ -206,6 +206,16 @@ const lessonContentFilter = (req: Request, file: Express.Multer.File, cb: multer
       // Return false to reject the file without throwing an error
       return cb(null, false);
     }
+    
+    // Check video file size - limit is 2GB
+    const maxVideoSize = 2 * 1024 * 1024 * 1024; // 2GB
+    if (file.size && file.size > maxVideoSize) {
+      const errorMessage = `Video file too large: ${(file.size / (1024 * 1024)).toFixed(2)}MB. Maximum size is 2GB.`;
+      console.log(`Rejected video file: ${errorMessage}`);
+      req.fileTypeError = errorMessage;
+      return cb(null, false);
+    }
+    
     console.log('Video file accepted');
     return cb(null, true);
   } else if (file.fieldname === 'attachments') {
@@ -229,6 +239,16 @@ const lessonContentFilter = (req: Request, file: Express.Multer.File, cb: multer
       // Return false to reject the file without throwing an error
       return cb(null, false);
     }
+    
+    // Check attachment file size - limit is 200MB
+    const maxAttachmentSize = 200 * 1024 * 1024; // 200MB
+    if (file.size && file.size > maxAttachmentSize) {
+      const errorMessage = `Attachment file too large: ${(file.size / (1024 * 1024)).toFixed(2)}MB. Maximum size is 200MB.`;
+      console.log(`Rejected attachment file: ${errorMessage}`);
+      req.fileTypeError = errorMessage;
+      return cb(null, false);
+    }
+    
     console.log('Attachment file accepted');
     return cb(null, true);
   } else {
@@ -244,7 +264,9 @@ const lessonUpload = multer({
   storage: lessonContentStorage,
   fileFilter: lessonContentFilter,
   limits: {
-    fileSize: 2 * 1024 * 1024 * 1024, // 2GB max file size
+    // Note: We'll handle file size limits in the filter function
+    // since multer doesn't support different limits for different fields
+    fileSize: 2 * 1024 * 1024 * 1024, // 2GB max file size (for videos)
     files: 10 // Allow up to 10 files to be uploaded at once
   }
 }).fields([
@@ -280,7 +302,7 @@ const handleMulterErrorMiddleware = (err: any, req: Request, res: Response, next
       });
     } else if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({ 
-        message: `File too large: Maximum file size is 2GB for videos and 10MB for attachments.` 
+        message: `File too large: Maximum file size is 2GB for videos and 200MB for attachments.` 
       });
     } else if (err.code === 'LIMIT_FILE_COUNT') {
       return res.status(400).json({ 

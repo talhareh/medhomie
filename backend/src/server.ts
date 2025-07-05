@@ -17,6 +17,9 @@ import publicCourseRoutes from './routes/publicCourseRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import tagRoutes from './routes/tagRoutes';
 import statisticsRoutes from './routes/statisticsRoutes';
+import blogRoutes from './routes/blogRoutes';
+import whatsappRoutes from './routes/whatsappRoutes';
+import aiChatRoutes from './routes/aiChatRoutes';
 import quizRoutes from './routes/quizRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -38,6 +41,8 @@ const createUploadDirectories = () => {
     'uploads/course-videos',
     'uploads/course-images',
     'uploads/course-attachments',
+    'uploads/payment-receipts',
+    'uploads/blogs'
     'uploads/payment-receipts',
     'uploads/question-images'
   ];
@@ -67,6 +72,10 @@ app.use('/api/public/courses', publicCourseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/statistics', statisticsRoutes);
+app.use('/api/blogs', blogRoutes);
+app.use('/api/webhook/whatsapp', whatsappRoutes);
+app.use('/api', whatsappRoutes);
+app.use('/api', aiChatRoutes);
 app.use('/api/quizzes', quizRoutes);
 
 // Basic route for testing
