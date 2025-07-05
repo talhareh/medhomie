@@ -20,11 +20,12 @@ import statisticsRoutes from './routes/statisticsRoutes';
 import blogRoutes from './routes/blogRoutes';
 import whatsappRoutes from './routes/whatsappRoutes';
 import aiChatRoutes from './routes/aiChatRoutes';
+import quizRoutes from './routes/quizRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 config();
 
-const app: Express = express();
+export const app: Express = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
@@ -42,6 +43,8 @@ const createUploadDirectories = () => {
     'uploads/course-attachments',
     'uploads/payment-receipts',
     'uploads/blogs'
+    'uploads/payment-receipts',
+    'uploads/question-images'
   ];
   dirs.forEach(dir => {
     const dirPath = path.join(__dirname, '..', dir);
@@ -73,6 +76,7 @@ app.use('/api/blogs', blogRoutes);
 app.use('/api/webhook/whatsapp', whatsappRoutes);
 app.use('/api', whatsappRoutes);
 app.use('/api', aiChatRoutes);
+app.use('/api/quizzes', quizRoutes);
 
 // Basic route for testing
 app.get('/', (req: Request, res: Response) => {
@@ -101,7 +105,9 @@ const connectDB = async () => {
 // Start server
 const startServer = async () => {
   try {
-    await connectDB();
+    if (!process.env.DISABLE_DB_CONNECT) {
+      await connectDB();
+    }
     app.listen(port, () => {
       console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
     });
