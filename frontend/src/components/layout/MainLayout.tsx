@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Header } from './Header';
+import MedicMenu from '../../pages/medicMaterial/MedicMenu';
 import { Sidebar } from './Sidebar';
 import MedicalAIBot from '../common/MedicalAIBot';
 
@@ -10,7 +10,7 @@ interface MainLayoutProps {
 export const MainLayout = ({ children }: MainLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <MedicMenu />
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-8">
@@ -19,7 +19,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           </div>
         </main>
       </div>
-      <MedicalAIBot />
+      {/* <MedicalAIBot /> */}
     </div>
   );
 };

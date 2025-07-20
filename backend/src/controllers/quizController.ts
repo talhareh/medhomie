@@ -4,17 +4,8 @@ import { Question } from '../models/Question';
 import { QuizAttempt } from '../models/QuizAttempt';
 import multer from 'multer';
 import path from 'path';
-
-export enum UserRole {
-  // Add user roles here
-}
-
-export interface AuthRequest extends Request {
-  user: {
-    _id: string;
-    role: UserRole;
-  };
-}
+import { AuthRequest } from '../middleware/auth';
+import { UserRole } from '../models/User';
 
 // Configure multer storage
 const storage = multer.diskStorage({
@@ -44,7 +35,8 @@ const upload = multer({
 });
 
 // Quiz CRUD Operations
-const createQuiz = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+const createQuiz = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const { title, description, passingScore, maxAttempts, timeLimit, categories, tags } = req.body;
     const quiz = await Quiz.create({
@@ -80,8 +72,13 @@ const getQuiz = async (req: Request, res: Response, next: NextFunction): Promise
   }
 };
 
-const updateQuiz = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  if (req.user.role !== 'Admin' && req.user.role !== 'Instructor') {
+const updateQuiz = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role !== UserRole.ADMIN && authReq.user.role !== UserRole.INSTRUCTOR) {
     return next(new Error('Unauthorized: Only admins and instructors can update quizzes'));
   }
   try {
@@ -95,8 +92,13 @@ const updateQuiz = async (req: AuthRequest, res: Response, next: NextFunction): 
   }
 };
 
-const deleteQuiz = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  if (req.user.role !== 'Admin') {
+const deleteQuiz = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role !== UserRole.ADMIN) {
     return next(new Error('Unauthorized: Only admins can delete quizzes'));
   }
   try {
@@ -111,8 +113,13 @@ const deleteQuiz = async (req: AuthRequest, res: Response, next: NextFunction): 
 };
 
 // Question Management
-const addQuestion = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  if (req.user.role !== 'Admin' && req.user.role !== 'Instructor') {
+const addQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role !== UserRole.ADMIN && authReq.user.role !== UserRole.INSTRUCTOR) {
     return next(new Error('Unauthorized: Only admins and instructors can add questions'));
   }
   try {
@@ -124,8 +131,13 @@ const addQuestion = async (req: AuthRequest, res: Response, next: NextFunction):
   }
 };
 
-const updateQuestion = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  if (req.user.role !== 'Admin' && req.user.role !== 'Instructor') {
+const updateQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role !== UserRole.ADMIN && authReq.user.role !== UserRole.INSTRUCTOR) {
     return next(new Error('Unauthorized: Only admins and instructors can update questions'));
   }
   try {
@@ -139,8 +151,13 @@ const updateQuestion = async (req: AuthRequest, res: Response, next: NextFunctio
   }
 };
 
-const deleteQuestion = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  if (req.user.role !== 'Admin') {
+const deleteQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role !== UserRole.ADMIN) {
     return next(new Error('Unauthorized: Only admins can delete questions'));
   }
   try {
@@ -155,7 +172,12 @@ const deleteQuestion = async (req: AuthRequest, res: Response, next: NextFunctio
 };
 
 // Quiz Attempt Tracking
-const startAttempt = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+const startAttempt = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
   try {
     const quiz = await Quiz.findById(req.params.quizId);
     if (!quiz) {
@@ -163,10 +185,10 @@ const startAttempt = async (req: AuthRequest, res: Response, next: NextFunction)
       return;
     }
     const attempt = await QuizAttempt.create({
-      userId: req.user._id,
+      userId: authReq.user._id,
       quizId: quiz._id,
       startedAt: new Date(),
-      attemptNumber: await QuizAttempt.countDocuments({ userId: req.user._id, quizId: quiz._id }) + 1
+      attemptNumber: await QuizAttempt.countDocuments({ userId: authReq.user._id, quizId: quiz._id }) + 1
     });
     res.status(201).json(attempt);
   } catch (error) {
@@ -175,7 +197,8 @@ const startAttempt = async (req: AuthRequest, res: Response, next: NextFunction)
   }
 };
 
-const submitAttempt = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+const submitAttempt = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const attempt = await QuizAttempt.findById(req.params.attemptId);
     if (!attempt) {
@@ -191,7 +214,8 @@ const submitAttempt = async (req: AuthRequest, res: Response, next: NextFunction
 };
 
 // Analytics Endpoints
-const getQuizStatistics = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+const getQuizStatistics = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const quiz = await Quiz.findById(req.params.quizId);
     if (!quiz) {

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlay, faClock, faCheck, faChevronRight, faChevronDown, faLock } from '@fortawesome/free-solid-svg-icons';
-import { Header } from '../components/common/Header';
+import MedicMenu from './medicMaterial/MedicMenu';
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 import { EnrollmentStatus } from './PublicCoursesPage';
@@ -78,6 +78,13 @@ export const CourseDetailPage: React.FC = () => {
     },
   });
 
+  // Expand the first module by default when course data is loaded
+  React.useEffect(() => {
+    if (course && course.modules.length > 0) {
+      setExpandedModules({ [course.modules[0]._id]: true });
+    }
+  }, [course]);
+
   const toggleModule = (moduleId: string) => {
     setExpandedModules(prev => ({
       ...prev,
@@ -108,7 +115,7 @@ export const CourseDetailPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        <MedicMenu />
         <div className="flex justify-center items-center min-h-[60vh]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
@@ -119,7 +126,7 @@ export const CourseDetailPage: React.FC = () => {
   if (error || !course) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        <MedicMenu />
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
             <strong className="font-bold">Error!</strong>
@@ -145,7 +152,7 @@ export const CourseDetailPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <MedicMenu />
       
       {/* Hero Section */}
       <div className="bg-neutral-800 text-white py-12">
@@ -231,17 +238,10 @@ export const CourseDetailPage: React.FC = () => {
                       alt={course.title} 
                       className="w-full aspect-video object-cover"
                     />
-                    <button 
-                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2
-                        bg-primary hover:bg-primary/90 text-white rounded-full w-16 h-16 flex items-center justify-center
-                        transition-colors duration-200"
-                    >
-                      <FontAwesomeIcon icon={faPlay} size="lg" />
-                    </button>
                   </div>
                 )}
                 <div className="p-6">
-                  <div className="text-3xl font-bold mb-6">Rs. {course.price}</div>
+                  {/* <div className="text-3xl font-bold mb-6 text-black">Rs. {course.price}</div> */}
                   {course.enrollmentStatus === 'approved' ? (
                     <button className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium transition-colors">
                       <FontAwesomeIcon icon={faCheck} className="mr-2" />

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { Course } from '../models/Course'; // Import the Course model
+import { UserRole } from '../models/User';
 
 interface TokenPayload {
   userId: string;
@@ -12,20 +13,13 @@ interface TokenPayload {
 interface UserInfo {
   _id: string;
   email: string;
-  role: UserRole;
+  role: import('../models/User').UserRole;
 }
 
-// Define UserRole enum
-export enum UserRole {
-  Admin = 'Admin',
-  Instructor = 'Instructor',
-  Student = 'Student',
-  Guest = 'Guest'
-}
-
-// Extend the Express Request type
+// Extend the Express Request type to include multer file property
 export interface AuthRequest extends Request {
-  user: UserInfo;
+  user?: UserInfo;
+  file?: Express.Multer.File;
 }
 
 // Create type-safe middleware functions
@@ -102,7 +96,11 @@ export const isAdmin = (
   next: NextFunction
 ): void => {
   const authReq = req as AuthRequest;
-  if (authReq.user.role === UserRole.Admin) {
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role === UserRole.ADMIN) {
     next();
   } else {
     res.status(403).json({ message: 'Access denied. Admin role required.' });
@@ -115,7 +113,11 @@ export const isAdminOrInstructor = (
   next: NextFunction
 ): void => {
   const authReq = req as AuthRequest;
-  if (authReq.user.role === UserRole.Admin || authReq.user.role === UserRole.Instructor) {
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role === UserRole.ADMIN || authReq.user.role === UserRole.INSTRUCTOR) {
     next();
   } else {
     res.status(403).json({ message: 'Access denied. Admin or instructor role required.' });
@@ -129,7 +131,12 @@ export const isAdminOrCourseInstructor = async (
 ): Promise<void> => {
   try {
     const authReq = req as AuthRequest;
-    if (authReq.user.role === UserRole.Admin) {
+    if (!authReq.user) {
+      res.status(401).json({ message: 'Authentication required' });
+      return;
+    }
+    
+    if (authReq.user.role === UserRole.ADMIN) {
       next();
       return;
     }
@@ -185,11 +192,7 @@ export const optionalAuthToken = async (
 
     (req as AuthRequest).user = {
       _id: user._id.toString(),
-<<<<<<< HEAD
-      email: user.email, // Add email property
-=======
       email: user.email,
->>>>>>> version1.1.0
       role: user.role
     };
     next();

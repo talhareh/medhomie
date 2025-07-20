@@ -1,4 +1,4 @@
-import { Header } from '../components/common/Header';
+import MedicMenu from './medicMaterial/MedicMenu';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faBook, 
@@ -29,7 +29,7 @@ export const PublicHomePage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <MedicMenu />
       <main className="container mx-auto px-4 py-8 space-y-8">
         {/* Welcome Section */}
         <div className="card bg-gradient-to-r from-primary to-primary/80 text-white">

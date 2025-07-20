@@ -2,21 +2,14 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Category from '../models/categoryModel';
 import { UserRole } from '../models/User';
-
-// Extend the Request type to include user property
-interface AuthRequest extends Request {
-  user?: {
-    _id: string;
-    email: string;
-    role: UserRole;
-  };
-}
+import { AuthRequest } from '../middleware/auth';
 
 // Create a new category
-export const createCategory = async (req: AuthRequest, res: Response): Promise<void> => {
+export const createCategory = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     // Only admin can create categories
-    if (req.user?.role !== UserRole.ADMIN) {
+    if (authReq.user?.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Only administrators can create categories' });
       return;
     }
@@ -49,8 +42,9 @@ export const createCategory = async (req: AuthRequest, res: Response): Promise<v
 };
 
 // Get all categories
-export const getAllCategories = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getAllCategories = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthRequest;
     const categories = await Category.find().populate('parent');
     res.status(200).json(categories);
   } catch (error) {
@@ -59,8 +53,9 @@ export const getAllCategories = async (req: AuthRequest, res: Response): Promise
 };
 
 // Get category by ID
-export const getCategoryById = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getCategoryById = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthRequest;
     const { id } = req.params;
 
     // Validate ID
@@ -83,16 +78,16 @@ export const getCategoryById = async (req: AuthRequest, res: Response): Promise<
 };
 
 // Update category
-export const updateCategory = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateCategory = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
-    const { id } = req.params;
-    const { name, description, parent } = req.body;
-
     // Only admin can update categories
-    if (req.user?.role !== UserRole.ADMIN) {
+    if (authReq.user?.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Only administrators can update categories' });
       return;
     }
+    const { id } = req.params;
+    const { name, description, parent } = req.body;
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -164,15 +159,15 @@ export const updateCategory = async (req: AuthRequest, res: Response): Promise<v
 };
 
 // Delete category
-export const deleteCategory = async (req: AuthRequest, res: Response): Promise<void> => {
+export const deleteCategory = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
-    const { id } = req.params;
-
     // Only admin can delete categories
-    if (req.user?.role !== UserRole.ADMIN) {
+    if (authReq.user?.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Only administrators can delete categories' });
       return;
     }
+    const { id } = req.params;
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {

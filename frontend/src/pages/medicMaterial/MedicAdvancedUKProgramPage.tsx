@@ -19,7 +19,7 @@ import {
 
 /**
  * MedicAdvancedUKProgramPage component - Advanced UK Membership/Fellowship Program page for MedHome
- * Based on the StudyMedic advanced UK membership fellowship program page but with MedHome branding and content
+ * Based on the MedHome advanced UK membership fellowship program page but with MedHome branding and content
  */
 const MedicAdvancedUKProgramPage: React.FC = () => {
   // Program courses data
@@ -389,7 +389,7 @@ const MedicAdvancedUKProgramPage: React.FC = () => {
 
       {/* Footer */}
       <MedicFooter />
-      <MedicalAIBot />
+      {/* <MedicalAIBot /> */}
     </div>
   );
 };

@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import { Course } from '../types/course';
 import Modal from 'react-modal';
-import { Header } from '../components/common/Header';
+import MedicMenu from './medicMaterial/MedicMenu';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faTimes, faUpload, faCreditCard } from '@fortawesome/free-solid-svg-icons';
 
@@ -184,7 +184,7 @@ export const PublicCoursesPage: React.FC = () => {
   if (isLoadingCourses) {
     return (
       <div className="min-h-screen bg-background">
-        <Header />
+        <MedicMenu />
         <div className="flex justify-center items-center min-h-[60vh]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
@@ -194,7 +194,7 @@ export const PublicCoursesPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <MedicMenu />
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Course Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

@@ -126,7 +126,7 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent triggering the parent button's onClick
                             // Navigate to the lesson and open the attachment directly
-                            navigateToLesson(section.id, lesson.id, 0); // Pass 0 as the attachment index
+                            navigateToLesson(section.id, lesson.id, 0);
                           }}
                         >
                           <FontAwesomeIcon icon={faFile} className="mr-1 text-xs" />

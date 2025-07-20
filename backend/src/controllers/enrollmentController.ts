@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import mongoose, { Types } from 'mongoose';
 import { Course } from '../models/Course';
 import { Enrollment, EnrollmentStatus } from '../models/Enrollment';
@@ -207,12 +207,21 @@ export const getMyEnrollments = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
+    // Populate 'state' so we can filter by it
     const enrollments = await Enrollment.find({ student: req.user._id })
-      .populate('course', 'title description price image')  
+      .populate('course', 'title description price image state')
       .populate('student', 'name email')
       .sort({ enrollmentDate: -1 });
 
-    res.status(200).json(enrollments);
+    // Only return enrollments where course exists and is ACTIVE
+    const activeEnrollments = enrollments.filter(enrollment => {
+      // If course is not populated (deleted), skip
+      if (!enrollment.course || typeof enrollment.course !== 'object') return false;
+      // @ts-ignore
+      return enrollment.course.state === 'ACTIVE';
+    });
+
+    res.status(200).json(activeEnrollments);
   } catch (error) {
     console.error('Error in getMyEnrollments:', error);
     res.status(500).json({ 

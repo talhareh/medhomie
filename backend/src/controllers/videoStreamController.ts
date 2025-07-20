@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { Course, ICourseDocument, IModuleDocument, ILessonDocument } from '../models/Course';
 import { Enrollment, EnrollmentStatus } from '../models/Enrollment';
 import { AuthRequest } from '../middleware/auth';
@@ -13,7 +13,9 @@ export const getSignedVideoUrl = async (req: AuthRequest, res: Response): Promis
   try {
     const { courseId, moduleId, lessonId } = req.params;
 
-    if (!req.user) {
+    const authReq = req as AuthRequest;
+
+    if (!authReq.user) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
@@ -39,7 +41,7 @@ export const getSignedVideoUrl = async (req: AuthRequest, res: Response): Promis
     }
 
     // Check if user has access to the video
-    const hasAccess = await checkVideoAccess(req.user._id, course, lesson.isPreview, req.user.role);
+    const hasAccess = await checkVideoAccess(req.user!._id, course, lesson.isPreview, req.user!.role);
     if (!hasAccess) {
       res.status(403).json({ message: 'Access denied' });
       return;
@@ -48,7 +50,7 @@ export const getSignedVideoUrl = async (req: AuthRequest, res: Response): Promis
     // Generate a signed token for the video
     const videoToken = jwt.sign(
       { 
-        userId: req.user._id,
+        userId: req.user!._id,
         courseId,
         moduleId,
         lessonId,
@@ -116,7 +118,7 @@ export const streamCourseVideo = async (req: AuthRequest, res: Response): Promis
     }
 
     // Check if user has access to the video
-    const hasAccess = await checkVideoAccess(req.user._id, course, lesson.isPreview, req.user.role);
+    const hasAccess = await checkVideoAccess(req.user!._id, course, lesson.isPreview, req.user!.role);
     if (!hasAccess) {
       res.status(403).json({ message: 'Access denied' });
       return;

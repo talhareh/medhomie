@@ -1,8 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { faSignOutAlt, faUser } from '@fortawesome/free-solid-svg-icons';
+import logo from '../../assets/logo.png';
 
 /**
  * MedicMenu component - Navigation menu for the MedicHomePage
@@ -39,7 +42,9 @@ const MedicMenu: React.FC = () => {
     <header className="bg-white shadow-md relative z-50">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center">
-          <Link to="/medicHomePage" className="text-2xl font-bold text-primary">MedHome</Link>
+          <Link to="/medicHomePage" className="flex items-center">
+            <img src={logo} alt="MedHome Logo" className="h-10 w-auto" />
+          </Link>
         </div>
         <nav className="hidden md:flex space-x-6">
           <Link to="/medicHomePage" className="text-neutral-700 hover:text-primary py-2">Home</Link>
@@ -164,9 +169,47 @@ const MedicMenu: React.FC = () => {
           </a>
         </nav>
         <div className="flex space-x-4 items-center">
-          <Link to="/auth" className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90">
-            Login
-          </Link>
+          {(() => {
+            const { user, logout } = useAuth();
+            const navigate = useNavigate();
+            if (user) {
+              return (
+                <div className="flex items-center gap-4">
+                  <div className="text-neutral-700">
+                    <span className="font-bold">{user.fullName}</span>
+                    <span className="text-sm text-neutral-500 ml-2">({user.role})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="p-2 text-neutral-500 hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
+                      title="Profile"
+                      onClick={() => {
+                        if (user.role === 'admin') {
+                          navigate('/admin');
+                        } else {
+                          navigate('/dashboard');
+                        }
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faUser} />
+                    </button>
+                    <button
+                      onClick={logout}
+                      className="p-2 text-neutral-500 hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
+                      title="Logout"
+                    >
+                      <FontAwesomeIcon icon={faSignOutAlt} />
+                    </button>
+                  </div>
+                </div>
+              );
+            } else {
+              return <>
+                <Link to="/auth" className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90">Login</Link>
+                <Link to="/auth?mode=register" className="bg-secondary text-white px-4 py-2 rounded hover:bg-secondary/90">Register</Link>
+              </>;
+            }
+          })()}
           {/* WhatsApp Button for mobile */}
           <a
             href={whatsappLink}

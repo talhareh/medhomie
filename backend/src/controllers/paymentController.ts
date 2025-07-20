@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import { Payment, PaymentStatus } from '../models/Payment';

@@ -15,7 +15,7 @@ import {
 
 /**
  * MedicOSCEAppPage component - OSCE Exam Application page for MedHome
- * Based on the StudyMedic OSCE Exam App page but with MedHome branding and content
+ * Based on the MedHomeMedic OSCE Exam App page but with MedHome branding and content
  */
 const MedicOSCEAppPage: React.FC = () => {
   // OSCE App features data

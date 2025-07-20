@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getBlogBySlug } from '../../services/blogService';
-import BlogHeader from '../../components/blog/BlogHeader';
+import MedicMenu from '../medicMaterial/MedicMenu';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCalendarAlt, faClock, faUser, faTag, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
@@ -49,7 +49,7 @@ const BlogDetailPage: React.FC = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <BlogHeader />
+      <MedicMenu />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <Link 

@@ -12,7 +12,7 @@ interface LessonContentProps {
   videoLoading: Record<string, boolean>;
   videoErrors: Record<string, string>;
   selectedAttachment: {index: number, url: string, filename?: string} | null;
-  handleAttachmentClick: (index: number) => void;
+  handleAttachmentClick: (lesson: Lesson) => void;
 }
 
 export const LessonContent: React.FC<LessonContentProps> = ({
@@ -56,34 +56,17 @@ export const LessonContent: React.FC<LessonContentProps> = ({
       
       {/* PDF Viewer or Video Player */}
       {selectedAttachment ? (
-        <>
-          {console.log('PDF RENDER - Using attachment URL:', selectedAttachment.url)}
-          <PDFViewer 
-            src={selectedAttachment.url} 
-            title={selectedAttachment.filename || 
-                  (lesson.attachments?.[selectedAttachment.index]?.filename) || 
-                  (typeof lesson.attachments?.[selectedAttachment.index] === 'string' ? 
-                    lesson.attachments?.[selectedAttachment.index]?.split('/').pop() : 
-                    `Attachment ${selectedAttachment.index + 1}`)} 
-          />
-        </>
+        <PDFViewer 
+          src={selectedAttachment.url} 
+          title={selectedAttachment.filename || `Attachment`}
+        />
       ) : lesson.type === 'video' ? (
-        <>
-          {console.log('VIDEO PLAYER RENDER - Lesson:', lesson.id, 'Type:', lesson.type)}
-          {console.log('VIDEO PLAYER PROPS:', {
-            src: videoBlobs[lesson.id] || '',
-            hasBlob: !!videoBlobs[lesson.id],
-            isLoading: videoLoading[lesson.id],
-            hasError: !!videoErrors[lesson.id],
-            error: videoErrors[lesson.id]
-          })}
-          <CustomVideoPlayer 
-            src={videoBlobs[lesson.id] || ''} 
-            isLoading={videoLoading[lesson.id]} 
-            error={videoErrors[lesson.id]} 
-            title={lesson.title} 
-          />
-        </>
+        <CustomVideoPlayer 
+          src={videoBlobs[lesson.id] || ''} 
+          isLoading={videoLoading[lesson.id]} 
+          error={videoErrors[lesson.id]} 
+          title={lesson.title} 
+        />
       ) : null}
       
       {/* Lesson Content */}

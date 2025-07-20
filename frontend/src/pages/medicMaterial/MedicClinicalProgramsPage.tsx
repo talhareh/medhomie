@@ -17,7 +17,7 @@ import {
 
 /**
  * MedicClinicalProgramsPage component - Clinical Programs page for MedHome
- * Based on the StudyMedic clinical programs page but with MedHome branding and content
+ * Based on the MedHome clinical programs page but with MedHome branding and content
  */
 const MedicClinicalProgramsPage: React.FC = () => {
   // Clinical programs data

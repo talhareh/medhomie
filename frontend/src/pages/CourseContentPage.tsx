@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
-import { Header } from '../components/common/Header';
+import MedicMenu from './medicMaterial/MedicMenu';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/axios';
 import { useQuery } from '@tanstack/react-query';
@@ -84,6 +84,13 @@ export const CourseContentPage: React.FC = () => {
       }
     }
   }, [apiCourse, moduleId, lessonId]);
+
+  // After course is loaded and moduleId is available, expand the selected module in the sidebar
+  useEffect(() => {
+    if (course && moduleId) {
+      setExpandedSections({ [moduleId]: true });
+    }
+  }, [course, moduleId]);
 
   // Load video when lesson changes
   useEffect(() => {
@@ -244,7 +251,7 @@ export const CourseContentPage: React.FC = () => {
         if (attachmentIndex !== undefined && lesson.attachments && lesson.attachments.length > attachmentIndex) {
           // Use setTimeout to ensure the lesson data is fully loaded before trying to open the attachment
           setTimeout(() => {
-            handleAttachmentClick(attachmentIndex);
+            handleAttachmentClick(lesson);
           }, 100);
         }
       }
@@ -280,29 +287,20 @@ export const CourseContentPage: React.FC = () => {
   };
   
   // Function to handle attachment selection
-  const handleAttachmentClick = (index: number) => {
-    if (!currentLessonData || !courseId) return;
-    
+  const handleAttachmentClick = (lesson: Lesson) => {
+    if (!lesson || !courseId) return;
     // Get the current module ID
-    const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, currentLessonData.id));
-    
+    const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, lesson.id));
     if (!currentModuleId) {
       console.error('Could not determine module ID for this lesson');
       return;
     }
-    
     // Construct the URL for the public PDF attachment endpoint
-    // Note: We're using /course-content/public/... format to match the backend route
-    // The /api prefix will be added by the axios instance
-    const attachmentUrl = `/course-content/public/${courseId}/modules/${currentModuleId}/lessons/${currentLessonData.id}/attachments/${index}`;
-    
-    console.log('Setting attachment URL:', attachmentUrl);
-    
-    // Update the selected attachment state
+    const attachmentUrl = `/course-content/public/${courseId}/modules/${currentModuleId}/lessons/${lesson.id}/attachment`;
     setSelectedAttachment({
-      index,
+      index: 0,
       url: attachmentUrl,
-      filename: currentLessonData.attachments?.[index]?.filename || `Attachment ${index + 1}`
+      filename: lesson.attachments?.[0]?.filename || `Attachment.pdf`
     });
   };
 
@@ -314,7 +312,7 @@ export const CourseContentPage: React.FC = () => {
   if (isLoading || !course) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        <Header />
+        <MedicMenu />
         <div className="flex justify-center items-center flex-1">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
@@ -325,7 +323,7 @@ export const CourseContentPage: React.FC = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        <Header />
+        <MedicMenu />
         <div className="flex justify-center items-center flex-1">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
             <strong className="font-bold">Error!</strong>
@@ -338,7 +336,7 @@ export const CourseContentPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header />
+      <MedicMenu />
       
       {/* Top navigation bar */}
       <div className="bg-neutral-900 text-white py-3 px-4 flex items-center justify-between">

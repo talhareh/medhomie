@@ -14,7 +14,7 @@ import {
 
 /**
  * MedicScholarshipPage component - Scholarship page for MedHome
- * Based on the StudyMedic scholarship page but with MedHome branding and content
+ * Based on the MedHomeMedic scholarship page but with MedHome branding and content
  */
 const MedicScholarshipPage: React.FC = () => {
   // Eligibility criteria
@@ -52,7 +52,7 @@ const MedicScholarshipPage: React.FC = () => {
     },
     {
       id: 2,
-      text: "I have cleared my EBCOG PART 1 September 2024. I had enrolled in 1 month StudyEFOG course from MedHome. About the course, First, the mentors-each one is a gem. They push you to stay on track and guide you in the right approach to preparing for the exam. Second, the study materials are curated to perfection. You will find yourself revising the core EBCOG books as you solve the question banks. Third, the revision resources are incredibly valuable. The presentations from the classes, available in PDF format are one of the best resources. The guidance, resources, and support provided will definitely make your entire journey towards part 1 EBCOG much easier.",
+      text: "I have cleared my EBCOG PART 1 September 2024. I had enrolled in 1 month crash course from MedHome. About the course, First, the mentors-each one is a gem. They push you to stay on track and guide you in the right approach to preparing for the exam. Second, the study materials are curated to perfection. You will find yourself revising the core EBCOG books as you solve the question banks. Third, the revision resources are incredibly valuable. The presentations from the classes, available in PDF format are one of the best resources. The guidance, resources, and support provided will definitely make your entire journey towards part 1 EBCOG much easier.",
       author: "Dr. Samantha K",
       role: ""
     },

@@ -298,7 +298,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <ToastContainer position="bottom-right" />
-          <PublicMedicalAIBot />
+          {/* <PublicMedicalAIBot /> */}
         </BrowserRouter>
       </AuthProvider>
       <ReactQueryDevtools initialIsOpen={false} />

@@ -15,7 +15,7 @@ import {
 
 /**
  * MedicLMSPage component - Learning Management System page for MedHome
- * Based on the StudyMedic LMS page but with MedHome branding and content
+ * Based on the MedHome LMS page but with MedHome branding and content
  */
 const MedicLMSPage: React.FC = () => {
   // LMS features data
