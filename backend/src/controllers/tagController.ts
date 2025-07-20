@@ -2,21 +2,14 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Tag from '../models/tagModel';
 import { UserRole } from '../models/User';
-
-// Extend the Request type to include user property
-interface AuthRequest extends Request {
-  user?: {
-    _id: string;
-    email: string;
-    role: UserRole;
-  };
-}
+import { AuthRequest } from '../middleware/auth';
 
 // Create a new tag
-export const createTag = async (req: AuthRequest, res: Response): Promise<void> => {
+export const createTag = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     // Only admin can create tags
-    if (req.user?.role !== UserRole.ADMIN) {
+    if (authReq.user?.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Only administrators can create tags' });
       return;
     }
@@ -47,8 +40,9 @@ export const createTag = async (req: AuthRequest, res: Response): Promise<void> 
 };
 
 // Get all tags
-export const getAllTags = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getAllTags = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthRequest;
     const tags = await Tag.find();
     res.status(200).json(tags);
   } catch (error) {
@@ -57,8 +51,9 @@ export const getAllTags = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 // Get tag by ID
-export const getTagById = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getTagById = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthRequest;
     const { id } = req.params;
 
     // Validate ID
@@ -81,16 +76,16 @@ export const getTagById = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 // Update tag
-export const updateTag = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateTag = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
-    const { id } = req.params;
-    const { name } = req.body;
-
     // Only admin can update tags
-    if (req.user?.role !== UserRole.ADMIN) {
+    if (authReq.user?.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Only administrators can update tags' });
       return;
     }
+    const { id } = req.params;
+    const { name } = req.body;
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -135,15 +130,15 @@ export const updateTag = async (req: AuthRequest, res: Response): Promise<void> 
 };
 
 // Delete tag
-export const deleteTag = async (req: AuthRequest, res: Response): Promise<void> => {
+export const deleteTag = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
-    const { id } = req.params;
-
     // Only admin can delete tags
-    if (req.user?.role !== UserRole.ADMIN) {
+    if (authReq.user?.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Only administrators can delete tags' });
       return;
     }
+    const { id } = req.params;
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {

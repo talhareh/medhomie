@@ -61,13 +61,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ src, onError }) => {
     }
   }, [src, onError]);
   
-  // Add a button in the UI to use this function
-  const openInNewTab = () => {
-    if (directPdfUrl) {
-      window.open(directPdfUrl, '_blank');
-    }
-  };
-  
   return (
     <div 
       className="bg-neutral-900 relative"
@@ -76,20 +69,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ src, onError }) => {
         return false;
       }}
     >
-      {/* Add a button to open in new tab */}
-      {directPdfUrl && !loading && !error && (
-        <div className="absolute top-4 right-4 z-10">
-          <button
-            onClick={openInNewTab}
-            className="bg-primary text-white px-4 py-2 rounded-md hover:bg-opacity-80 transition-colors flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-            </svg>
-            Open in New Tab
-          </button>
-        </div>
-      )}
       
       <div className="aspect-video flex items-center justify-center bg-neutral-800" style={{ minHeight: '500px' }}>
         {loading && (

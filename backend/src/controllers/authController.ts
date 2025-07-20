@@ -251,9 +251,10 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 };
 
 // Get current user
-export const getCurrentUser = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getCurrentUser = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
-    const user = await User.findById(req.user?._id)
+    const user = await User.findById(authReq.user?._id)
       .select('-password -refreshToken');
 
     if (!user) {
@@ -270,10 +271,11 @@ export const getCurrentUser = async (req: AuthRequest, res: Response): Promise<v
 };
 
 // Logout
-export const logout = async (req: AuthRequest, res: Response): Promise<void> => {
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
-    if (req.user?._id) {
-      await User.findByIdAndUpdate(req.user._id, { $unset: { refreshToken: 1 } });
+    if (authReq.user?._id) {
+      await User.findByIdAndUpdate(authReq.user._id, { $unset: { refreshToken: 1 } });
     }
     res.status(200).json({ message: 'Logged out successfully' });
     return Promise.resolve();

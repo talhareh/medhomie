@@ -13,7 +13,7 @@ import {
 
 /**
  * MedicAccreditationsPage component - Accreditations page for MedHome
- * Based on the StudyMedic accreditations page but with MedHome branding and content
+ * Based on the MedHomeMedic accreditations page but with MedHome branding and content
  */
 const MedicAccreditationsPage: React.FC = () => {
   // Accreditations data

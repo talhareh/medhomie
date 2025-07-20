@@ -19,8 +19,8 @@ export const PDFViewerPage: React.FC = () => {
   
   // Construct the PDF URL based on environment
   const pdfSrc = isDevelopment
-    ? `/course-content/public/${courseId}/modules/${moduleId}/lessons/${lessonId}/attachments/${attachmentIndex || 0}`
-    : `/api/course-content/public/${courseId}/modules/${moduleId}/lessons/${lessonId}/attachments/${attachmentIndex || 0}`;
+    ? `/course-content/public/${courseId}/modules/${moduleId}/lessons/${lessonId}/attachment`
+    : `/api/course-content/public/${courseId}/modules/${moduleId}/lessons/${lessonId}/attachment`;
   
   // Function to handle PDF load errors
   const handlePdfError = () => {
@@ -33,7 +33,7 @@ export const PDFViewerPage: React.FC = () => {
     // Set a timeout to check if the PDF has loaded
     const timeoutId = setTimeout(() => {
       // If we're still on this page after 5 seconds, check the console for errors
-      fetch(`/api/course-content/public/${courseId}/modules/${moduleId}/lessons/${lessonId}/attachments/${attachmentIndex || 0}`, { method: 'HEAD' })
+      fetch(`/api/course-content/public/${courseId}/modules/${moduleId}/lessons/${lessonId}/attachment`, { method: 'HEAD' })
         .then(response => {
           if (!response.ok) {
             handlePdfError();

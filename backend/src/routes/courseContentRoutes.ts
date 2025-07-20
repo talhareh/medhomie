@@ -15,7 +15,6 @@ import {
   getLesson,
   addNotice,
   removeNotice,
-  downloadAttachment,
   viewPdfAttachment
 } from '../controllers/courseContentController';
 
@@ -59,11 +58,8 @@ router.get(
 );
 
 // Attachment routes
-router.get(
-  '/:courseId/modules/:moduleId/lessons/:lessonId/attachments/:attachmentIndex',
-  authenticateToken,
-  downloadAttachment
-);
+// Remove 'downloadAttachment' from the import list at the top
+// Remove any route that uses downloadAttachment
 
 // Debug middleware for public routes
 const debugPublicRoute = (req: Request, res: Response, next: NextFunction) => {
@@ -75,7 +71,7 @@ const debugPublicRoute = (req: Request, res: Response, next: NextFunction) => {
 
 // Public attachment route (for enrolled students)
 router.get(
-  '/public/:courseId/modules/:moduleId/lessons/:lessonId/attachments/:attachmentIndex',
+  '/public/:courseId/modules/:moduleId/lessons/:lessonId/attachment',
   debugPublicRoute,
   viewPdfAttachment
 );

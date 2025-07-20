@@ -14,40 +14,41 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import MedicMenu from './MedicMenu';
 import MedicFooter from './MedicFooter';
+import heroImage from '../../assets/9.png';
 
 /**
- * MedicHomePage component - Clone of StudyMedic homepage
+ * MedicHomePage component - Clone of MedHome homepage
  * This is a standalone component that mimics the layout and functionality
- * of the StudyMedic homepage but uses MedHome branding and colors.
+ * of the MedHome homepage but uses MedHome branding and colors.
  */
 const MedicHomePage: React.FC = () => {
   // State for testimonial carousel
   const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('text');
   
-  // Testimonial data - exact from StudyMedic
+  // Testimonial data - exact from MedHome
   const testimonials = [
     {
       id: 1,
-      text: "Dear Colleagues, This is Dr Yogesh. I am writing to share my experience with StudyMEDIC EBCOG-1. The mentors are knowledgeable & excellent in their approach towards coaching for this exam. The online platform is intuitive, easy to use, and fabulous. They are the official coaching centre for EBCOG exam. They are always there to assist, help & solve any query that the candidate has, including solving online glitches promptly. The overall experience of the One Month Crash Course and the Two-Day College Course was impressive. I wholeheartedly recommend Study-Medic for this competitive exam. Thank you, Study-Medic",
+      text: "Dear Colleagues, This is Dr Yogesh. I am writing to share my experience with MedHome EBCOG-1. The mentors are knowledgeable & excellent in their approach towards coaching for this exam. The online platform is intuitive, easy to use, and fabulous. They are the official coaching centre for EBCOG exam. They are always there to assist, help & solve any query that the candidate has, including solving online glitches promptly. The overall experience of the One Month Crash Course and the Two-Day College Course was impressive. I wholeheartedly recommend MedHome for this competitive exam. Thank you, MedHome",
       author: "Dr. Yogesh",
       role: ""
     },
     {
       id: 2,
-      text: "I have cleared my EBCOG PART 1 September 2024. I had enrolled in 1 month StudyEFOG course from study medic. About the course, First, the mentors-each one is a gem. They push you to stay on track and guide you in the right approach to preparing for the exam. Second, the study materials are curated to perfection. You will find yourself revising the core EBCOG books as you solve the question banks. Third, the revision resources are incredibly valuable. The presentations from the classes, available in PDF format are one of the best resources The guidance, resources, and support provided by Study EBCOG will definitely make your entire journey towards part 1 EBCOG much easier. First and foremost, I want to express my deepest gratitude to the Almighty for this success. I would like to extend my heartfelt thanks to the entire StudyMEDIC team, particularly Dr. Sowmya, Dr. Chitra, and Dr. Preethi, for your unwavering support, expert guidance, and encouragement throughout this journey. The IT team is really great, supporting in all aspects of technical issues even at odd times, the study materials are curated very precisely for easy revision, Thank you StudyMEDIC.",
+      text: "I have cleared my EBCOG PART 1 September 2024. I had enrolled in 1 month course from MedHome. About the course, First, the mentors-each one is a gem. They push you to stay on track and guide you in the right approach to preparing for the exam. Second, the study materials are curated to perfection. You will find yourself revising the core EBCOG books as you solve the question banks. Third, the revision resources are incredibly valuable. The presentations from the classes, available in PDF format are one of the best resources The guidance, resources, and support provided by MedHome will definitely make your entire journey towards part 1 EBCOG much easier. First and foremost, I want to express my deepest gratitude to the Almighty for this success. I would like to extend my heartfelt thanks to the entire MedHome team, particularly Dr. Sowmya, Dr. Chitra, and Dr. Preethi, for your unwavering support, expert guidance, and encouragement throughout this journey. The IT team is really great, supporting in all aspects of technical issues even at odd times, the study materials are curated very precisely for easy revision, Thank you MedHome.",
       author: "Dr. Ashika KM",
       role: ""
     },
     {
       id: 3,
-      text: "I am grateful to Dr. Sowmya and her team at StudyMEDIC for providing me with an excellent platform that enabled me to successfully clear my part 1 EBCOG exam. It would not have been possible without their assistance. Thank you.",
+      text: "I am grateful to Dr. Sowmya and her team at MedHome for providing me with an excellent platform that enabled me to successfully clear my part 1 EBCOG exam. It would not have been possible without their assistance. Thank you.",
       author: "Dr. Ujjwala Sameer",
       role: ""
     }
   ];
 
-  // Course data - exact from StudyMedic
+  // Course data - exact from MedHome
   const courses = [
     { id: 1, title: "Royal College Membership in Obstetrics and Gynaecology", shortName: "MRCOG", url: "#" },
     { id: 2, title: "Royal College Membership in Surgery", shortName: "MRCS", url: "#" },
@@ -72,12 +73,12 @@ const MedicHomePage: React.FC = () => {
     { id: 21, title: "Bachelor of Medicine and Bachelor of Surgery", shortName: "MBBS", url: "#" }
   ];
 
-  // Programs data - exact from StudyMedic
+  // Programs data - exact from MedHome
   const programs = [
     {
       id: 1,
-      title: "StudyMEDIC Two Years Advanced Clinical Training Program",
-      description: "Welcome to StudyMEDIC Advanced Clinical Training Program- Your perfect path for the UK medical career. By partnering with premier super-specialty hospitals, StudyMEDIC provides hands-on clinical training for medical aspirants preparing for esteemed Royal College Memberships and Fellowships.",
+      title: "MedHome Two Years Advanced Clinical Training Program",
+      description: "Welcome to MedHome Advanced Clinical Training Program- Your perfect path for the UK medical career. By partnering with premier super-specialty hospitals, MedHome provides hands-on clinical training for medical aspirants preparing for esteemed Royal College Memberships and Fellowships.",
       url: "#"
     },
     {
@@ -89,7 +90,7 @@ const MedicHomePage: React.FC = () => {
     {
       id: 3,
       title: "Live Circuit Courses",
-      description: "StudyMEDIC offers both one-day and two-day live circuit courses for medical aspirants preparing for their final round of OSCE examination. Here, aspirants get an opportunity to practice their clinical skills and communication abilities in a real-like exam format, thereby helping them to achieve their dream medical membership or fellowship in one go.",
+      description: "MedHome offers both one-day and two-day live circuit courses for medical aspirants preparing for their final round of OSCE examination. Here, aspirants get an opportunity to practice their clinical skills and communication abilities in a real-like exam format, thereby helping them to achieve their dream medical membership or fellowship in one go.",
       url: "#"
     }
   ];
@@ -132,9 +133,13 @@ const MedicHomePage: React.FC = () => {
             </div>
             <div className="md:w-1/2">
               <div 
-                className="rounded-lg shadow-lg w-full h-64 md:h-80 bg-primary/80 flex items-center justify-center text-white text-xl font-semibold"
+                className="shadow-lg w-full h-64 md:h-80 flex items-center justify-center overflow-hidden"
               >
-                Medical Education Excellence
+                <img 
+                  src={heroImage} 
+                  alt="Medical Education Excellence" 
+                  className="w-full h-full object-contain rounded-[15px]" 
+                />
               </div>
             </div>
           </div>

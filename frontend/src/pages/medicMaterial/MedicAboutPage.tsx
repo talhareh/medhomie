@@ -10,7 +10,7 @@ import MedicFooter from './MedicFooter';
 
 /**
  * MedicAboutPage component - About Us page for MedHome
- * Based on the StudyMedic about page but with MedHome branding and content
+ * Based on the MedHome about page but with MedHome branding and content
  */
 const MedicAboutPage: React.FC = () => {
   // Team members data

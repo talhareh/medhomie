@@ -28,6 +28,128 @@ We maintain strict UI/UX consistency throughout the application:
 
 For detailed guidelines, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+### TypeScript Development Guidelines
+
+#### Backend TypeScript Requirements
+
+**CRITICAL**: All backend controller functions must use the correct TypeScript types to avoid compilation errors.
+
+##### 1. Controller Function Signatures
+
+**✅ CORRECT** - Use `AuthRequest` for authenticated routes:
+```typescript
+import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
+
+// For routes with authentication middleware
+export const someFunction = async (req: AuthRequest, res: Response): Promise<void> => {
+  // Access user directly: req.user
+  if (!req.user) {
+    res.status(401).json({ message: 'Unauthorized' });
+    return;
+  }
+  // Use req.user._id, req.user.role, etc.
+};
+```
+
+**❌ INCORRECT** - Don't use generic `Request` type:
+```typescript
+// This will cause TypeScript compilation errors
+export const someFunction = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest; // Avoid this pattern
+  // ...
+};
+```
+
+##### 2. Authentication Middleware Integration
+
+The `AuthRequest` interface extends Express Request with:
+```typescript
+export interface AuthRequest extends Request {
+  user?: UserInfo;  // Optional - added by authenticateToken middleware
+  file?: Express.Multer.File;  // Optional - added by multer middleware
+}
+```
+
+##### 3. Null Safety Requirements
+
+Always check for user existence before accessing properties:
+```typescript
+// ✅ CORRECT - Check for user existence
+if (!req.user) {
+  res.status(401).json({ message: 'Authentication required' });
+  return;
+}
+if (req.user.role !== UserRole.ADMIN) {
+  res.status(403).json({ message: 'Access denied' });
+  return;
+}
+```
+
+##### 4. File Upload Integration
+
+For routes with file uploads, the `file` property is automatically available:
+```typescript
+export const uploadFunction = async (req: AuthRequest, res: Response): Promise<void> => {
+  const file = req.file; // Available when using multer middleware
+  if (!file) {
+    res.status(400).json({ message: 'File is required' });
+    return;
+  }
+  // Process file...
+};
+```
+
+##### 5. Common Patterns
+
+**Role-based Authorization**:
+```typescript
+if (!req.user) {
+  res.status(401).json({ message: 'Authentication required' });
+  return;
+}
+
+if (req.user.role !== UserRole.ADMIN && req.user.role !== UserRole.INSTRUCTOR) {
+  res.status(403).json({ message: 'Access denied' });
+  return;
+}
+```
+
+**User ID Access**:
+```typescript
+// ✅ CORRECT
+const userId = req.user._id;
+
+// ❌ INCORRECT - This was causing errors
+const userId = authReq?._id; // Wrong - _id is on user object
+```
+
+##### 6. Files That Need These Patterns
+
+When creating new controller functions, apply these patterns to:
+- `src/controllers/*.ts` - All controller files
+- `src/middleware/auth.ts` - Authentication middleware
+- Any new route handlers
+
+##### 7. Testing Your Changes
+
+After making changes:
+```bash
+cd backend
+npm run dev
+```
+
+If you see TypeScript errors like:
+- `No overload matches this call`
+- `Property 'user' is missing`
+- `'authReq.user' is possibly 'undefined'`
+
+Then you need to apply the correct type patterns above.
+
+#### Frontend TypeScript
+
+The frontend TypeScript setup remains unchanged. All existing patterns and types continue to work as before.
+
 ## Getting Started
 
 ### Prerequisites

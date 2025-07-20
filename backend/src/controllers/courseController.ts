@@ -124,9 +124,10 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
 };
 
 // Create a new course (admin or instructor)
-export const createCourse = async (req: AuthRequest, res: Response): Promise<void> => {
+export const createCourse = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
-    if (!req.user?._id) {
+    if (!authReq.user?._id) {
       res.status(401).json({ message: 'User not authenticated' });
       return;
     }
@@ -136,7 +137,7 @@ export const createCourse = async (req: AuthRequest, res: Response): Promise<voi
       description: req.body.description,
       price: parseFloat(req.body.price),
       state: CourseState.DRAFT,
-      createdBy: req.user._id,
+      createdBy: authReq.user._id,
       modules: [],
       noticeBoard: [],
       enrollmentCount: 0,
@@ -172,7 +173,8 @@ export const createCourse = async (req: AuthRequest, res: Response): Promise<voi
 };
 
 // Update course state (admin only)
-export const updateCourseState = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateCourseState = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const { state } = req.body;
     const { error } = validateCourseStateUpdate({ state });
@@ -205,7 +207,8 @@ export const updateCourseState = async (req: AuthRequest, res: Response): Promis
 };
 
 // Update a course (admin or instructor)
-export const updateCourse = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateCourse = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const updateData: Partial<ICourseData> = {
       title: req.body.title,
@@ -270,7 +273,8 @@ export const deleteCourse = async (req: Request, res: Response): Promise<void> =
 };
 
 // Add a module to a course (admin or instructor)
-export const addModule = async (req: AuthRequest, res: Response): Promise<void> => {
+export const addModule = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const course = await Course.findById(req.params.courseId);
     if (!course) {
@@ -300,7 +304,8 @@ export const addModule = async (req: AuthRequest, res: Response): Promise<void> 
 };
 
 // Update a module (admin or instructor)
-export const updateModule = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateModule = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const course = await Course.findById(req.params.courseId);
     if (!course) {
@@ -332,7 +337,8 @@ export const updateModule = async (req: AuthRequest, res: Response): Promise<voi
 };
 
 // Delete a module (admin or instructor)
-export const deleteModule = async (req: AuthRequest, res: Response): Promise<void> => {
+export const deleteModule = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const course = await Course.findById(req.params.courseId);
     if (!course) {
@@ -365,7 +371,8 @@ export const deleteModule = async (req: AuthRequest, res: Response): Promise<voi
 };
 
 // Reorder modules (admin or instructor)
-export const reorderModules = async (req: AuthRequest, res: Response): Promise<void> => {
+export const reorderModules = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
   try {
     const course = await Course.findById(req.params.courseId);
     if (!course) {

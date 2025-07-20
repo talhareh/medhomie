@@ -13,7 +13,7 @@ import {
 
 /**
  * MedicPartnersPage component - Partners page for MedHome
- * Based on the StudyMedic partners page but with MedHome branding and content
+ * Based on the MedHomeMedic partners page but with MedHome branding and content
  */
 const MedicPartnersPage: React.FC = () => {
   // Partner categories

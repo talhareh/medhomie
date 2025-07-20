@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Header } from '../components/common/Header';
+import MedicMenu from './medicMaterial/MedicMenu';
 import Modal from 'react-modal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCreditCard, faUpload, faTimes, faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -133,7 +133,7 @@ const RefundPolicyPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <MedicMenu />
       <div className="max-w-3xl mx-auto px-4 py-10">
         <h1 className="text-3xl font-bold text-primary mb-6 text-center">MedHOME Course Refund Policy</h1>
         <div className="bg-white rounded-lg shadow p-6 mb-8 prose max-w-none overflow-y-auto" style={{ maxHeight: '60vh' }}>

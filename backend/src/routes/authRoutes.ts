@@ -13,12 +13,8 @@ router.post('/request-password-reset', authController.requestPasswordReset as Re
 router.post('/reset-password/:token', authController.resetPassword as RequestHandler);
 
 // Protected routes
-// Create typed handlers
-const getCurrentUserHandler = (req: AuthRequest, res: Response, next: NextFunction) => authController.getCurrentUser(req, res, next);
-const logoutHandler = (req: AuthRequest, res: Response, next: NextFunction) => authController.logout(req, res, next);
-
 // Apply middleware and routes
-router.get('/me', authenticateToken, getCurrentUserHandler);
-router.post('/logout', authenticateToken, logoutHandler);
+router.get('/me', authenticateToken, authController.getCurrentUser);
+router.post('/logout', authenticateToken, authController.logout);
 
 export default router;

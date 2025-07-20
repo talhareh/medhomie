@@ -42,7 +42,7 @@ const createUploadDirectories = () => {
     'uploads/course-images',
     'uploads/course-attachments',
     'uploads/payment-receipts',
-    'uploads/blogs'
+    'uploads/blogs',
     'uploads/payment-receipts',
     'uploads/question-images'
   ];

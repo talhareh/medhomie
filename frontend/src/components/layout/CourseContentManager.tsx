@@ -49,12 +49,26 @@ export const CourseContentManager: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['course', courseId]);
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       setNewModule({ title: '', description: '' });
       toast.success('Module added successfully');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Error adding module');
+    },
+  });
+
+  const deleteModuleMutation = useMutation({
+    mutationFn: async (moduleId: string) => {
+      const response = await api.delete(`/courses/${courseId}/modules/${moduleId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      toast.success('Module deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Error deleting module');
     },
   });
 
@@ -64,7 +78,7 @@ export const CourseContentManager: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['course', courseId]);
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       setNewNotice('');
       toast.success('Notice added successfully');
     },
@@ -79,7 +93,7 @@ export const CourseContentManager: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['course', courseId]);
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       toast.success('Notice removed successfully');
     },
     onError: (error: any) => {
@@ -105,6 +119,12 @@ export const CourseContentManager: React.FC = () => {
   const handleRemoveNotice = (noticeId: string) => {
     if (window.confirm('Are you sure you want to remove this notice?')) {
       removeNoticeMutation.mutate(noticeId);
+    }
+  };
+
+  const handleDeleteModule = (moduleId: string) => {
+    if (window.confirm('Are you sure you want to delete this module? All lessons in this module will also be deleted.')) {
+      deleteModuleMutation.mutate(moduleId);
     }
   };
 
@@ -166,9 +186,9 @@ export const CourseContentManager: React.FC = () => {
                     <button
                       type="submit"
                       className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
-                      disabled={addModuleMutation.isLoading}
+                      disabled={addModuleMutation.status === 'pending'}
                     >
-                      {addModuleMutation.isLoading ? 'Adding...' : 'Add Module'}
+                      {addModuleMutation.status === 'pending' ? 'Adding...' : 'Add Module'}
                     </button>
                   </form>
                 </div>
@@ -193,6 +213,13 @@ export const CourseContentManager: React.FC = () => {
                                 className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
                               >
                                 Manage Lessons
+                              </button>
+                              <button
+                                onClick={() => handleDeleteModule(module._id)}
+                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                                disabled={deleteModuleMutation.status === 'pending'}
+                              >
+                                {deleteModuleMutation.status === 'pending' ? 'Deleting...' : 'Delete'}
                               </button>
                             </div>
                           </div>
@@ -237,9 +264,9 @@ export const CourseContentManager: React.FC = () => {
                   <button
                     type="submit"
                     className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
-                    disabled={addNoticeMutation.isLoading}
+                    disabled={addNoticeMutation.status === 'pending'}
                   >
-                    {addNoticeMutation.isLoading ? 'Adding...' : 'Add Notice'}
+                    {addNoticeMutation.status === 'pending' ? 'Adding...' : 'Add Notice'}
                   </button>
                 </form>
 
@@ -255,9 +282,9 @@ export const CourseContentManager: React.FC = () => {
                         <button
                           onClick={() => handleRemoveNotice(index.toString())}
                           className="ml-4 text-red-500 hover:text-red-600"
-                          disabled={removeNoticeMutation.isLoading}
+                          disabled={removeNoticeMutation.status === 'pending'}
                         >
-                          Remove
+                          {removeNoticeMutation.status === 'pending' ? 'Removing...' : 'Remove'}
                         </button>
                       </div>
                     ))

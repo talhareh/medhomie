@@ -4,9 +4,10 @@ import { User, UserRole } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 
 // Get all users (admin only)
-export const getUsers = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user || req.user.role !== UserRole.ADMIN) {
+    const authReq = req as AuthRequest;
+    if (!authReq.user || authReq.user.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }
@@ -22,15 +23,16 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
 };
 
 // Get user by ID
-export const getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user) {
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
 
     // Only allow admins to view other users
-    if (req.user.role !== UserRole.ADMIN && req.user._id !== req.params.id) {
+    if (authReq.user.role !== UserRole.ADMIN && authReq.user._id !== req.params.id) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }
@@ -48,15 +50,16 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
 };
 
 // Update user
-export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user) {
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
 
     // Only allow users to update their own profile or admins to update any profile
-    if (req.user.role !== UserRole.ADMIN && req.user._id !== req.params.id) {
+    if (authReq.user.role !== UserRole.ADMIN && authReq.user._id !== req.params.id) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }
@@ -80,7 +83,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     // Only admins can update role and approval status
-    if (req.user.role === UserRole.ADMIN) {
+    if (authReq.user.role === UserRole.ADMIN) {
       if (req.body.role) user.role = req.body.role;
       if (typeof req.body.isApproved === 'boolean') user.isApproved = req.body.isApproved;
     }
@@ -109,9 +112,10 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 // Delete user (admin only)
-export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user || req.user.role !== UserRole.ADMIN) {
+    const authReq = req as AuthRequest;
+    if (!authReq.user || authReq.user.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }
@@ -129,9 +133,10 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 // Update user status (Admin only)
-export const updateUserStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateUserStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user || req.user.role !== UserRole.ADMIN) {
+    const authReq = req as AuthRequest;
+    if (!authReq.user || authReq.user.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }
@@ -140,7 +145,7 @@ export const updateUserStatus = async (req: AuthRequest, res: Response): Promise
     const userId = req.params.id;
 
     // Don't allow admin to block themselves
-    if (userId === req.user?._id) {
+    if (userId === authReq.user._id) {
       res.status(400).json({ message: 'Cannot modify own account status' });
       return;
     }
@@ -167,9 +172,10 @@ export const updateUserStatus = async (req: AuthRequest, res: Response): Promise
 };
 
 // Update user role (Admin only)
-export const updateUserRole = async (req: AuthRequest, res: Response): Promise<void> => {
+export const updateUserRole = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user || req.user.role !== UserRole.ADMIN) {
+    const authReq = req as AuthRequest;
+    if (!authReq.user || authReq.user.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }
@@ -178,7 +184,7 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
     const userId = req.params.id;
 
     // Don't allow admin to change their own role
-    if (userId === req.user?._id) {
+    if (userId === authReq.user._id) {
       res.status(400).json({ message: 'Cannot modify own role' });
       return;
     }
@@ -211,9 +217,10 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
 };
 
 // Create user (admin only)
-export const createUser = async (req: AuthRequest, res: Response): Promise<void> => {
+export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user || req.user.role !== UserRole.ADMIN) {
+    const authReq = req as AuthRequest;
+    if (!authReq.user || authReq.user.role !== UserRole.ADMIN) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }
@@ -271,15 +278,16 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
 };
 
 // Get available students for enrollment (students not enrolled in a specific course)
-export const getAvailableStudents = async (req: AuthRequest, res: Response): Promise<void> => {
+export const getAvailableStudents = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (!req.user) {
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
 
     // Only allow admins and instructors to access this endpoint
-    if (req.user.role !== UserRole.ADMIN && req.user.role !== UserRole.INSTRUCTOR) {
+    if (authReq.user.role !== UserRole.ADMIN && authReq.user.role !== UserRole.INSTRUCTOR) {
       res.status(403).json({ message: 'Access denied' });
       return;
     }

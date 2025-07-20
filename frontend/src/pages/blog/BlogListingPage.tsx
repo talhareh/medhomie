@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getBlogs, BlogPost } from '../../services/blogService';
 import BlogCard from '../../components/blog/BlogCard';
-import BlogHeader from '../../components/blog/BlogHeader';
+import MedicMenu from '../medicMaterial/MedicMenu';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faSpinner, faTag } from '@fortawesome/free-solid-svg-icons';
 
@@ -46,7 +46,7 @@ const BlogListingPage: React.FC = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      
+      <MedicMenu />
       <div className="bg-blue-600 text-white py-16">
         <div className="container mx-auto px-4">
           <h1 className="text-4xl font-bold mb-4">MedHome Blog</h1>

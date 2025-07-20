@@ -76,3 +76,19 @@ colors: {
 - Use semantic HTML elements appropriately
 
 By following these guidelines, we maintain a consistent user experience throughout the MedHome application.
+
+## Lesson PDF Attachment Integration
+
+### Frontend
+- When a user clicks a lesson's PDF link, the handler now receives the full lesson object (not just an index or relying on state). This ensures the correct PDF always opens, even on the first click.
+- The PDF URL is constructed as `/course-content/public/:courseId/modules/:moduleId/lessons/:lessonId/attachment` and is passed to the PDF viewer, which ensures the `/api` prefix is present for backend requests.
+- See `CourseContentPage.tsx` and `LessonContent.tsx` for the handler logic.
+
+### Backend
+- The backend exposes a public GET route at `/api/course-content/public/:courseId/modules/:moduleId/lessons/:lessonId/attachment` (see `courseContentRoutes.ts`).
+- The controller (`viewPdfAttachment`) serves the first PDF attachment for the lesson, with proper headers for inline viewing and CORS.
+- No authentication is required for this route, but access control should be handled at a higher level (e.g., only enrolled users see the link in the UI).
+
+### Maintenance Notes
+- If you add support for multiple attachments per lesson, update both the frontend handler and backend controller to allow selecting which attachment to serve.
+- Always ensure the frontend and backend URL structures match.
