@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedHome Registration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Hide browser's default password reveal icon */
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear {
+            display: none;
+        }
+        input[type="password"]::-webkit-credentials-auto-fill-button,
+        input[type="password"]::-webkit-caps-lock-indicator {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-white min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+            </div>
+            <span class="text-2xl font-bold text-orange-600">MedHome</span>
+        </div>
+        
+        <!-- Navigation Menu -->
+        <nav class="hidden md:flex items-center gap-8">
+            <a href="#" class="text-gray-700 hover:text-orange-600 font-medium">Home</a>
+            <div class="relative group">
+                <button class="text-gray-700 hover:text-orange-600 font-medium flex items-center gap-1">
+                    About
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="relative group">
+                <button class="text-gray-700 hover:text-orange-600 font-medium flex items-center gap-1">
+                    Programs
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="relative group">
+                <button class="text-gray-700 hover:text-orange-600 font-medium flex items-center gap-1">
+                    Digital Learn Zone
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="relative group">
+                <button class="text-gray-700 hover:text-orange-600 font-medium flex items-center gap-1">
+                    Media
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+        </nav>
+        
+        <!-- Right Side Buttons -->
+        <div class="flex items-center gap-3">
+            <button class="bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2 transition">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"></path>
+                </svg>
+                WhatsApp
+            </button>
+            <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold transition">
+                Login
+            </button>
+            <button class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2.5 rounded-lg font-semibold transition">
+                Register
+            </button>
+        </div>
+    </header>
+
+    <!-- Gray Section with Title -->
+    <div class="bg-gray-100 py-16 text-center">
+        <h1 class="text-4xl font-bold text-gray-800">Create a new account</h1>
+    </div>
+
+    <!-- Form Section -->
+    <div class="bg-white px-6 py-8 max-w-2xl mx-auto">
+        <form id="registrationForm" class="space-y-6">
+            <!-- Full Name -->
+            <div>
+                <label for="fullName" class="block text-gray-800 text-base font-semibold mb-2">
+                    Full Name
+                </label>
+                <input 
+                    type="text" 
+                    id="fullName" 
+                    name="fullName"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                    required
+                >
+            </div>
+
+            <!-- Email Address -->
+            <div>
+                <label for="email" class="block text-gray-800 text-base font-semibold mb-2">
+                    Email Address
+                </label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                    required
+                >
+            </div>
+
+            <!-- WhatsApp Number -->
+            <div>
+                <label for="whatsapp" class="block text-gray-800 text-base font-semibold mb-2">
+                    WhatsApp Number
+                </label>
+                <div class="flex border border-gray-300 rounded-lg overflow-hidden" id="whatsappContainer">
+                    <div class="relative flex items-center bg-white border-r border-gray-300">
+                        <select 
+                            id="countryCode" 
+                            class="px-3 py-3 focus:outline-none appearance-none pr-8 text-base cursor-pointer bg-white w-32"
+                            style="font-family: system-ui, -apple-system, sans-serif;"
+                        >
+                            <option value="+93">🇦🇫 +93</option>
+                            <option value="+355">🇦🇱 +355</option>
+                            <option value="+213">🇩🇿 +213</option>
+                            <option value="+376">🇦🇩 +376</option>
+                            <option value="+244">🇦🇴 +244</option>
+                            <option value="+54">🇦🇷 +54</option>
+                            <option value="+374">🇦🇲 +374</option>
+                            <option value="+61">🇦🇺 +61</option>
+                            <option value="+43">🇦🇹 +43</option>
+                            <option value="+994">🇦🇿 +994</option>
+                            <option value="+973">🇧🇭 +973</option>
+                            <option value="+880">🇧🇩 +880</option>
+                            <option value="+375">🇧🇾 +375</option>
+                            <option value="+32">🇧🇪 +32</option>
+                            <option value="+501">🇧🇿 +501</option>
+                            <option value="+229">🇧🇯 +229</option>
+                            <option value="+975">🇧🇹 +975</option>
+                            <option value="+591">🇧🇴 +591</option>
+                            <option value="+387">🇧🇦 +387</option>
+                            <option value="+267">🇧🇼 +267</option>
+                            <option value="+55">🇧🇷 +55</option>
+                            <option value="+673">🇧🇳 +673</option>
+                            <option value="+359">🇧🇬 +359</option>
+                            <option value="+226">🇧🇫 +226</option>
+                            <option value="+257">🇧🇮 +257</option>
+                            <option value="+855">🇰🇭 +855</option>
+                            <option value="+237">🇨🇲 +237</option>
+                            <option value="+1">🇨🇦 +1</option>
+                            <option value="+238">🇨🇻 +238</option>
+                            <option value="+236">🇨🇫 +236</option>
+                            <option value="+235">🇹🇩 +235</option>
+                            <option value="+56">🇨🇱 +56</option>
+                            <option value="+86">🇨🇳 +86</option>
+                            <option value="+57">🇨🇴 +57</option>
+                            <option value="+269">🇰🇲 +269</option>
+                            <option value="+242">🇨🇬 +242</option>
+                            <option value="+506">🇨🇷 +506</option>
+                            <option value="+385">🇭🇷 +385</option>
+                            <option value="+53">🇨🇺 +53</option>
+                            <option value="+357">🇨🇾 +357</option>
+                            <option value="+420">🇨🇿 +420</option>
+                            <option value="+45">🇩🇰 +45</option>
+                            <option value="+253">🇩🇯 +253</option>
+                            <option value="+593">🇪🇨 +593</option>
+                            <option value="+20">🇪🇬 +20</option>
+                            <option value="+503">🇸🇻 +503</option>
+                            <option value="+240">🇬🇶 +240</option>
+                            <option value="+291">🇪🇷 +291</option>
+                            <option value="+372">🇪🇪 +372</option>
+                            <option value="+251">🇪🇹 +251</option>
+                            <option value="+679">🇫🇯 +679</option>
+                            <option value="+358">🇫🇮 +358</option>
+                            <option value="+33">🇫🇷 +33</option>
+                            <option value="+241">🇬🇦 +241</option>
+                            <option value="+220">🇬🇲 +220</option>
+                            <option value="+995">🇬🇪 +995</option>
+                            <option value="+49">🇩🇪 +49</option>
+                            <option value="+233">🇬🇭 +233</option>
+                            <option value="+30">🇬🇷 +30</option>
+                            <option value="+502">🇬🇹 +502</option>
+                            <option value="+224">🇬🇳 +224</option>
+                            <option value="+245">🇬🇼 +245</option>
+                            <option value="+509">🇭🇹 +509</option>
+                            <option value="+504">🇭🇳 +504</option>
+                            <option value="+852">🇭🇰 +852</option>
+                            <option value="+36">🇭🇺 +36</option>
+                            <option value="+354">🇮🇸 +354</option>
+                            <option value="+91">🇮🇳 +91</option>
+                            <option value="+62">🇮🇩 +62</option>
+                            <option value="+98">🇮🇷 +98</option>
+                            <option value="+964">🇮🇶 +964</option>
+                            <option value="+353">🇮🇪 +353</option>
+                            <option value="+972">🇮🇱 +972</option>
+                            <option value="+39">🇮🇹 +39</option>
+                            <option value="+225">🇨🇮 +225</option>
+                            <option value="+81">🇯🇵 +81</option>
+                            <option value="+962">🇯🇴 +962</option>
+                            <option value="+7">🇰🇿 +7</option>
+                            <option value="+254">🇰🇪 +254</option>
+                            <option value="+965">🇰🇼 +965</option>
+                            <option value="+996">🇰🇬 +996</option>
+                            <option value="+856">🇱🇦 +856</option>
+                            <option value="+371">🇱🇻 +371</option>
+                            <option value="+961">🇱🇧 +961</option>
+                            <option value="+266">🇱🇸 +266</option>
+                            <option value="+231">🇱🇷 +231</option>
+                            <option value="+218">🇱🇾 +218</option>
+                            <option value="+423">🇱🇮 +423</option>
+                            <option value="+370">🇱🇹 +370</option>
+                            <option value="+352">🇱🇺 +352</option>
+                            <option value="+853">🇲🇴 +853</option>
+                            <option value="+389">🇲🇰 +389</option>
+                            <option value="+261">🇲🇬 +261</option>
+                            <option value="+265">🇲🇼 +265</option>
+                            <option value="+60">🇲🇾 +60</option>
+                            <option value="+960">🇲🇻 +960</option>
+                            <option value="+223">🇲🇱 +223</option>
+                            <option value="+356">🇲🇹 +356</option>
+                            <option value="+222">🇲🇷 +222</option>
+                            <option value="+230">🇲🇺 +230</option>
+                            <option value="+52">🇲🇽 +52</option>
+                            <option value="+373">🇲🇩 +373</option>
+                            <option value="+377">🇲🇨 +377</option>
+                            <option value="+976">🇲🇳 +976</option>
+                            <option value="+382">🇲🇪 +382</option>
+                            <option value="+212">🇲🇦 +212</option>
+                            <option value="+258">🇲🇿 +258</option>
+                            <option value="+95">🇲🇲 +95</option>
+                            <option value="+264">🇳🇦 +264</option>
+                            <option value="+977">🇳🇵 +977</option>
+                            <option value="+31">🇳🇱 +31</option>
+                            <option value="+64">🇳🇿 +64</option>
+                            <option value="+505">🇳🇮 +505</option>
+                            <option value="+227">🇳🇪 +227</option>
+                            <option value="+234">🇳🇬 +234</option>
+                            <option value="+850">🇰🇵 +850</option>
+                            <option value="+47">🇳🇴 +47</option>
+                            <option value="+968">🇴🇲 +968</option>
+                            <option value="+92" selected>🇵🇰 +92</option>
+                            <option value="+970">🇵🇸 +970</option>
+                            <option value="+507">🇵🇦 +507</option>
+                            <option value="+675">🇵🇬 +675</option>
+                            <option value="+595">🇵🇾 +595</option>
+                            <option value="+51">🇵🇪 +51</option>
+                            <option value="+63">🇵🇭 +63</option>
+                            <option value="+48">🇵🇱 +48</option>
+                            <option value="+351">🇵🇹 +351</option>
+                            <option value="+974">🇶🇦 +974</option>
+                            <option value="+40">🇷🇴 +40</option>
+                            <option value="+7">🇷🇺 +7</option>
+                            <option value="+250">🇷🇼 +250</option>
+                            <option value="+966">🇸🇦 +966</option>
+                            <option value="+221">🇸🇳 +221</option>
+                            <option value="+381">🇷🇸 +381</option>
+                            <option value="+248">🇸🇨 +248</option>
+                            <option value="+232">🇸🇱 +232</option>
+                            <option value="+65">🇸🇬 +65</option>
+                            <option value="+421">🇸🇰 +421</option>
+                            <option value="+386">🇸🇮 +386</option>
+                            <option value="+677">🇸🇧 +677</option>
+                            <option value="+252">🇸🇴 +252</option>
+                            <option value="+27">🇿🇦 +27</option>
+                            <option value="+82">🇰🇷 +82</option>
+                            <option value="+211">🇸🇸 +211</option>
+                            <option value="+34">🇪🇸 +34</option>
+                            <option value="+94">🇱🇰 +94</option>
+                            <option value="+249">🇸🇩 +249</option>
+                            <option value="+597">🇸🇷 +597</option>
+                            <option value="+268">🇸🇿 +268</option>
+                            <option value="+46">🇸🇪 +46</option>
+                            <option value="+41">🇨🇭 +41</option>
+                            <option value="+963">🇸🇾 +963</option>
+                            <option value="+886">🇹🇼 +886</option>
+                            <option value="+992">🇹🇯 +992</option>
+                            <option value="+255">🇹🇿 +255</option>
+                            <option value="+66">🇹🇭 +66</option>
+                            <option value="+228">🇹🇬 +228</option>
+                            <option value="+676">🇹🇴 +676</option>
+                            <option value="+216">🇹🇳 +216</option>
+                            <option value="+90">🇹🇷 +90</option>
+                            <option value="+993">🇹🇲 +993</option>
+                            <option value="+256">🇺🇬 +256</option>
+                            <option value="+380">🇺🇦 +380</option>
+                            <option value="+971">🇦🇪 +971</option>
+                            <option value="+44">🇬🇧 +44</option>
+                            <option value="+1">🇺🇸 +1</option>
+                            <option value="+598">🇺🇾 +598</option>
+                            <option value="+998">🇺🇿 +998</option>
+                            <option value="+678">🇻🇺 +678</option>
+                            <option value="+58">🇻🇪 +58</option>
+                            <option value="+84">🇻🇳 +84</option>
+                            <option value="+967">🇾🇪 +967</option>
+                            <option value="+260">🇿🇲 +260</option>
+                            <option value="+263">🇿🇼 +263</option>
+                        </select>
+                        <div class="absolute right-2 pointer-events-none">
+                            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <input 
+                        type="tel" 
+                        id="whatsapp" 
+                        name="whatsapp"
+                        placeholder="Phone Number"
+                        class="flex-1 px-4 py-3 focus:outline-none text-base border-none"
+                        required
+                    >
+                </div>
+                <p id="whatsappError" class="text-red-600 text-sm mt-1 hidden"></p>
+                <p id="whatsappHelp" class="text-gray-600 text-sm mt-1">Please enter a 10-digit phone number</p>
+            </div>
+
+            <!-- Password -->
+            <div>
+                <label for="password" class="block text-gray-800 text-base font-semibold mb-2">
+                    Password
+                </label>
+                <div class="relative">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base pr-12"
+                        required
+                    >
+                    <button 
+                        type="button" 
+                        id="togglePassword"
+                        class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                        <svg id="eyeIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Register Button -->
+            <button 
+                type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold py-4 rounded-lg transition duration-200 mt-6"
+            >
+                Register
+            </button>
+
+            <!-- Divider -->
+            <div class="flex items-center gap-4 my-6">
+                <div class="flex-1 border-t border-gray-300"></div>
+                <span class="text-gray-500 text-sm">Or continue with</span>
+                <div class="flex-1 border-t border-gray-300"></div>
+            </div>
+
+            <!-- Google Register Button -->
+            <button 
+                type="button"
+                id="googleBtn"
+                class="w-full bg-orange-600 hover:bg-orange-700 text-white text-lg font-semibold py-4 rounded-lg transition duration-200 flex items-center justify-center gap-3"
+            >
+                <span class="text-2xl font-bold">G</span>
+                Register with Google
+            </button>
+        </form>
+    </div>
+
+    <script>
+        // Country-specific phone number lengths
+        const countryPhoneLengths = {
+            '+1': 10,      // USA, Canada
+            '+7': 10,      // Russia, Kazakhstan
+            '+20': 10,     // Egypt
+            '+27': 9,      // South Africa
+            '+30': 10,     // Greece
+            '+31': 9,      // Netherlands
+            '+32': 9,      // Belgium
+            '+33': 9,      // France
+            '+34': 9,      // Spain
+            '+36': 9,      // Hungary
+            '+39': 10,     // Italy
+            '+40': 10,     // Romania
+            '+41': 9,      // Switzerland
+            '+43': 10,     // Austria
+            '+44': 10,     // UK
+            '+45': 8,      // Denmark
+            '+46': 9,      // Sweden
+            '+47': 8,      // Norway
+            '+48': 9,      // Poland
+            '+49': 10,     // Germany
+            '+51': 9,      // Peru
+            '+52': 10,     // Mexico
+            '+53': 8,      // Cuba
+            '+54': 10,     // Argentina
+            '+55': 11,     // Brazil
+            '+56': 9,      // Chile
+            '+57': 10,     // Colombia
+            '+58': 10,     // Venezuela
+            '+60': 9,      // Malaysia
+            '+61': 9,      // Australia
+            '+62': 10,     // Indonesia
+            '+63': 10,     // Philippines
+            '+64': 9,      // New Zealand
+            '+65': 8,      // Singapore
+            '+66': 9,      // Thailand
+            '+81': 10,     // Japan
+            '+82': 10,     // South Korea
+            '+84': 9,      // Vietnam
+            '+86': 11,     // China
+            '+90': 10,     // Turkey
+            '+91': 10,     // India
+            '+92': 10,     // Pakistan
+            '+93': 9,      // Afghanistan
+            '+94': 9,      // Sri Lanka
+            '+95': 9,      // Myanmar
+            '+98': 10,     // Iran
+            '+212': 9,     // Morocco
+            '+213': 9,     // Algeria
+            '+216': 8,     // Tunisia
+            '+218': 10,    // Libya
+            '+220': 7,     // Gambia
+            '+221': 9,     // Senegal
+            '+222': 8,     // Mauritania
+            '+223': 8,     // Mali
+            '+224': 9,     // Guinea
+            '+225': 10,    // Ivory Coast
+            '+226': 8,     // Burkina Faso
+            '+227': 8,     // Niger
+            '+228': 8,     // Togo
+            '+229': 8,     // Benin
+            '+230': 8,     // Mauritius
+            '+231': 7,     // Liberia
+            '+232': 8,     // Sierra Leone
+            '+233': 9,     // Ghana
+            '+234': 10,    // Nigeria
+            '+235': 8,     // Chad
+            '+236': 8,     // Central African Republic
+            '+237': 9,     // Cameroon
+            '+238': 7,     // Cape Verde
+            '+239': 7,     // Sao Tome
+            '+240': 9,     // Equatorial Guinea
+            '+241': 7,     // Gabon
+            '+242': 9,     // Congo
+            '+243': 9,     // DR Congo
+            '+244': 9,     // Angola
+            '+245': 7,     // Guinea-Bissau
+            '+248': 7,     // Seychelles
+            '+249': 9,     // Sudan
+            '+250': 9,     // Rwanda
+            '+251': 9,     // Ethiopia
+            '+252': 8,     // Somalia
+            '+253': 8,     // Djibouti
+            '+254': 10,    // Kenya
+            '+255': 9,     // Tanzania
+            '+256': 9,     // Uganda
+            '+257': 8,     // Burundi
+            '+258': 9,     // Mozambique
+            '+260': 9,     // Zambia
+            '+261': 9,     // Madagascar
+            '+262': 9,     // Reunion
+            '+263': 9,     // Zimbabwe
+            '+264': 9,     // Namibia
+            '+265': 9,     // Malawi
+            '+266': 8,     // Lesotho
+            '+267': 8,     // Botswana
+            '+268': 8,     // Swaziland
+            '+269': 7,     // Comoros
+            '+290': 4,     // Saint Helena
+            '+291': 7,     // Eritrea
+            '+297': 7,     // Aruba
+            '+298': 6,     // Faroe Islands
+            '+299': 6,     // Greenland
+            '+350': 8,     // Gibraltar
+            '+351': 9,     // Portugal
+            '+352': 9,     // Luxembourg
+            '+353': 9,     // Ireland
+            '+354': 7,     // Iceland
+            '+355': 9,     // Albania
+            '+356': 8,     // Malta
+            '+357': 8,     // Cyprus
+            '+358': 9,     // Finland
+            '+359': 9,     // Bulgaria
+            '+370': 8,     // Lithuania
+            '+371': 8,     // Latvia
+            '+372': 7,     // Estonia
+            '+373': 8,     // Moldova
+            '+374': 8,     // Armenia
+            '+375': 9,     // Belarus
+            '+376': 6,     // Andorra
+            '+377': 8,     // Monaco
+            '+378': 10,    // San Marino
+            '+380': 9,     // Ukraine
+            '+381': 9,     // Serbia
+            '+382': 8,     // Montenegro
+            '+385': 9,     // Croatia
+            '+386': 8,     // Slovenia
+            '+387': 8,     // Bosnia
+            '+389': 8,     // Macedonia
+            '+420': 9,     // Czech Republic
+            '+421': 9,     // Slovakia
+            '+423': 7,     // Liechtenstein
+            '+500': 5,     // Falkland Islands
+            '+501': 7,     // Belize
+            '+502': 8,     // Guatemala
+            '+503': 8,     // El Salvador
+            '+504': 8,     // Honduras
+            '+505': 8,     // Nicaragua
+            '+506': 8,     // Costa Rica
+            '+507': 8,     // Panama
+            '+509': 8,     // Haiti
+            '+591': 8,     // Bolivia
+            '+593': 9,     // Ecuador
+            '+595': 9,     // Paraguay
+            '+597': 7,     // Suriname
+            '+598': 8,     // Uruguay
+            '+673': 7,     // Brunei
+            '+675': 8,     // Papua New Guinea
+            '+676': 5,     // Tonga
+            '+677': 7,     // Solomon Islands
+            '+678': 7,     // Vanuatu
+            '+679': 7,     // Fiji
+            '+852': 8,     // Hong Kong
+            '+853': 8,     // Macau
+            '+855': 9,     // Cambodia
+            '+856': 9,     // Laos
+            '+880': 10,    // Bangladesh
+            '+886': 9,     // Taiwan
+            '+960': 7,     // Maldives
+            '+961': 8,     // Lebanon
+            '+962': 9,     // Jordan
+            '+963': 9,     // Syria
+            '+964': 10,    // Iraq
+            '+965': 8,     // Kuwait
+            '+966': 9,     // Saudi Arabia
+            '+967': 9,     // Yemen
+            '+968': 8,     // Oman
+            '+970': 9,     // Palestine
+            '+971': 9,     // UAE
+            '+972': 9,     // Israel
+            '+973': 8,     // Bahrain
+            '+974': 8,     // Qatar
+            '+975': 8,     // Bhutan
+            '+976': 8,     // Mongolia
+            '+977': 10,    // Nepal
+            '+992': 9,     // Tajikistan
+            '+993': 8,     // Turkmenistan
+            '+994': 9,     // Azerbaijan
+            '+995': 9,     // Georgia
+            '+996': 9,     // Kyrgyzstan
+            '+998': 9      // Uzbekistan
+        };
+
+        // Update WhatsApp input when country code changes
+        const countryCodeSelect = document.getElementById('countryCode');
+        const whatsappInput = document.getElementById('whatsapp');
+        const whatsappError = document.getElementById('whatsappError');
+        const whatsappHelp = document.getElementById('whatsappHelp');
+        const whatsappContainer = document.getElementById('whatsappContainer');
+        
+        function updatePhoneHelp() {
+            const selectedCode = countryCodeSelect.value;
+            const requiredLength = countryPhoneLengths[selectedCode] || 10;
+            whatsappHelp.textContent = `Please enter a ${requiredLength}-digit phone number`;
+        }
+        
+        countryCodeSelect.addEventListener('change', function() {
+            whatsappInput.value = this.value;
+            updatePhoneHelp();
+            whatsappInput.focus();
+            // Clear error when country changes
+            whatsappError.classList.add('hidden');
+            whatsappContainer.classList.remove('border-red-500');
+        });
+        
+        // Initialize with default country code
+        whatsappInput.value = countryCodeSelect.value;
+        updatePhoneHelp();
+        
+        // Real-time validation
+        whatsappInput.addEventListener('input', function() {
+            const selectedCode = countryCodeSelect.value;
+            const phoneNumber = this.value.replace(selectedCode, '').trim();
+            const requiredLength = countryPhoneLengths[selectedCode] || 10;
+            
+            // Clear previous errors
+            whatsappError.classList.add('hidden');
+            whatsappContainer.classList.remove('border-red-500');
+            
+            if (phoneNumber && !/^\d+$/.test(phoneNumber)) {
+                whatsappError.textContent = 'Phone number should contain only digits';
+                whatsappError.classList.remove('hidden');
+                whatsappContainer.classList.add('border-red-500');
+                whatsappHelp.classList.remove('hidden');
+            } else if (phoneNumber.length > 0 && phoneNumber.length !== requiredLength) {
+                // Show help text if number is incomplete
+                whatsappHelp.classList.remove('hidden');
+            } else if (phoneNumber.length === requiredLength) {
+                // Hide help text when correct length is reached
+                whatsappHelp.classList.add('hidden');
+            }
+        });
+
+        // Password toggle functionality
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+        const eyeIcon = document.getElementById('eyeIcon');
+
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.type === 'password' ? 'text' : 'password';
+            passwordInput.type = type;
+            
+            if (type === 'text') {
+                eyeIcon.innerHTML = `
+                    <path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clip-rule="evenodd"></path>
+                    <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z"></path>
+                `;
+            } else {
+                eyeIcon.innerHTML = `
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+                `;
+            }
+        });
+
+        // Form submission with WhatsApp validation
+        const registrationForm = document.getElementById('registrationForm');
+        registrationForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const whatsappValue = whatsappInput.value.trim();
+            const selectedCode = countryCodeSelect.value;
+            const phoneNumber = whatsappValue.replace(selectedCode, '').trim();
+            const requiredLength = countryPhoneLengths[selectedCode] || 10;
+            
+            // Clear previous errors
+            whatsappError.classList.add('hidden');
+            whatsappContainer.classList.remove('border-red-500');
+            
+            // Check if WhatsApp number is empty or only contains the country code
+            if (!phoneNumber || phoneNumber.length === 0) {
+                whatsappError.textContent = 'Please enter your WhatsApp number';
+                whatsappError.classList.remove('hidden');
+                whatsappContainer.classList.add('border-red-500');
+                whatsappInput.focus();
+                return false;
+            }
+            
+            // Check if number contains only digits
+            if (!/^\d+$/.test(phoneNumber)) {
+                whatsappError.textContent = 'Phone number should contain only digits';
+                whatsappError.classList.remove('hidden');
+                whatsappContainer.classList.add('border-red-500');
+                whatsappInput.focus();
+                return false;
+            }
+            
+            // Check if number matches required length for country
+            if (phoneNumber.length !== requiredLength) {
+                whatsappError.textContent = `Please enter a valid ${requiredLength}-digit phone number for this country`;
+                whatsappError.classList.remove('hidden');
+                whatsappContainer.classList.add('border-red-500');
+                whatsappInput.focus();
+                return false;
+            }
+            
+            const formData = {
+                fullName: document.getElementById('fullName').value,
+                email: document.getElementById('email').value,
+                whatsapp: whatsappValue,
+                password: document.getElementById('password').value
+            };
+            
+            console.log('Registration Data:', formData);
+            alert('Registration successful! Check console for data.');
+        });
+
+        // Google registration
+        const googleBtn = document.getElementById('googleBtn');
+        googleBtn.addEventListener('click', function() {
+            alert('Google registration would be initiated here!');
+            console.log('Google registration clicked');
+        });
+    </script>
+</body>
+</html>
