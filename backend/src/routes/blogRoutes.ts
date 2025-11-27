@@ -7,7 +7,7 @@ import {
   deleteBlog,
   uploadBlogImage
 } from '../controllers/blogController';
-import { authenticateToken, authorizeRoles } from '../middleware/auth';
+import { authenticateToken, authorizeRoles, optionalAuthToken } from '../middleware/auth';
 import { UserRole } from '../models/User';
 import multer from 'multer';
 import path from 'path';
@@ -50,14 +50,16 @@ const upload = multer({
   }
 });
 
-// Public routes
-router.get('/', getBlogs);
-router.get('/:slug', getBlogBySlug);
+// Public routes - use optionalAuthToken so admins can see all blogs when authenticated
+router.get('/', optionalAuthToken, getBlogs);
 
-// Admin only routes
+// Admin only routes - must come before /:slug to avoid route conflicts
+router.post('/upload-image', authenticateToken, authorizeRoles(UserRole.ADMIN), upload.single('image'), uploadBlogImage);
 router.post('/', authenticateToken, authorizeRoles(UserRole.ADMIN), createBlog);
 router.put('/:id', authenticateToken, authorizeRoles(UserRole.ADMIN), updateBlog);
 router.delete('/:id', authenticateToken, authorizeRoles(UserRole.ADMIN), deleteBlog);
-router.post('/upload-image', authenticateToken, authorizeRoles(UserRole.ADMIN), upload.single('image'), uploadBlogImage);
+
+// Public route - must come last, use optionalAuthToken so admins can access DRAFT blogs
+router.get('/:slug', optionalAuthToken, getBlogBySlug);
 
 export default router;

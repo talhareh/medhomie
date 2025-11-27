@@ -176,3 +176,130 @@ export const sendPasswordChangeNotification = async (
     throw error;
   }
 };
+
+export const sendAdminCreatedUserEmail = async (
+  to: string,
+  fullName: string,
+  username: string,
+  password: string
+) => {
+  try {
+    console.log('Attempting to send admin-created user email to:', to);
+
+    const html = `
+      <div style="${emailStyles.container}">
+        <h1 style="${emailStyles.heading}">Welcome to MedHome!</h1>
+        <p>Hi ${fullName},</p>
+        <p>Your account has been created by an administrator in MedHome - our medical education platform.</p>
+        <p>Here are your login credentials:</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Username:</strong> ${username}</p>
+          <p><strong>Password:</strong> ${password}</p>
+        </div>
+        <p>Please log in to your account and change your password for security purposes.</p>
+        <a href="${process.env.FRONTEND_URL}/login" style="${emailStyles.button}">Login to MedHome</a>
+        <p>If you have any questions, please contact our support team.</p>
+      </div>
+    `;
+
+    const messageData = {
+      from: fromEmail,
+      to: [to],
+      subject: 'Your MedHome Account - Welcome!',
+      html
+    };
+
+    const result = await mg.messages.create(domain, messageData);
+    console.log('Admin-created user email sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending admin-created user email:', error);
+    throw error;
+  }
+};
+
+export const sendEnrollmentNotification = async (
+  to: string,
+  fullName: string,
+  courseTitle: string,
+  action: 'enrolled' | 'removed'
+) => {
+  try {
+    console.log(`Attempting to send enrollment ${action} notification email to:`, to);
+
+    const actionText = action === 'enrolled' ? 'enrolled in' : 'removed from';
+    const subjectText = action === 'enrolled' ? 'Enrolled' : 'Removed from';
+    const buttonText = action === 'enrolled' ? 'Access Course' : 'Browse Courses';
+
+    const html = `
+      <div style="${emailStyles.container}">
+        <h1 style="${emailStyles.heading}">Course ${subjectText}</h1>
+        <p>Hi ${fullName},</p>
+        <p>You have been ${actionText} the course: <strong>${courseTitle}</strong></p>
+        ${action === 'enrolled' ? 
+          '<p>You can now access all course materials and start learning!</p>' : 
+          '<p>You no longer have access to this course. If this was done in error, please contact our support team.</p>'
+        }
+        <a href="${process.env.FRONTEND_URL}/courses" style="${emailStyles.button}">${buttonText}</a>
+        <p>If you have any questions, please contact our support team.</p>
+      </div>
+    `;
+
+    const messageData = {
+      from: fromEmail,
+      to: [to],
+      subject: `Course ${subjectText} - MedHome`,
+      html
+    };
+
+    const result = await mg.messages.create(domain, messageData);
+    console.log(`Enrollment ${action} notification email sent successfully:`, result);
+    return result;
+  } catch (error) {
+    console.error(`Error sending enrollment ${action} notification email:`, error);
+    throw error;
+  }
+};
+
+export const sendVoucherAppliedEmail = async (
+  to: string,
+  fullName: string,
+  voucherCode: string,
+  courseTitle: string,
+  discountAmount: number,
+  finalPrice: number
+) => {
+  try {
+    console.log('Attempting to send voucher applied email to:', to);
+
+    const html = `
+      <div style="${emailStyles.container}">
+        <h1 style="${emailStyles.heading}">Voucher Applied</h1>
+        <p>Hi ${fullName},</p>
+        <p>A voucher has been applied to your enrollment for the course: <strong>${courseTitle}</strong></p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Voucher Code:</strong> ${voucherCode}</p>
+          <p><strong>Discount Amount:</strong> $${discountAmount.toFixed(2)}</p>
+          <p><strong>Final Price:</strong> $${finalPrice.toFixed(2)}</p>
+        </div>
+        <p>This voucher has been retroactively applied to your enrollment by an administrator.</p>
+        <a href="${process.env.FRONTEND_URL}/courses" style="${emailStyles.button}">View Courses</a>
+        <p>If you have any questions, please contact our support team.</p>
+      </div>
+    `;
+
+    const messageData = {
+      from: fromEmail,
+      to: [to],
+      subject: 'Voucher Applied - MedHome',
+      html
+    };
+
+    const result = await mg.messages.create(domain, messageData);
+    console.log('Voucher applied email sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending voucher applied email:', error);
+    throw error;
+  }
+};

@@ -319,19 +319,31 @@ export const updateModule = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Update module fields
-    if (req.body.title) module.title = req.body.title;
-    if (req.body.description) module.description = req.body.description;
+    // Create update data object with only the fields we want to update
+    const updateData = {
+      title: req.body.title,
+      description: req.body.description,
+      order: req.body.order,
+      lessons: req.body.lessons || []
+    };
 
-    const { error } = validateModule(module);
+    // Validate the update data
+    const { error } = validateModule(updateData);
     if (error) {
       res.status(400).json({ message: error.details[0].message });
       return;
     }
 
+    // Update module fields
+    module.title = updateData.title;
+    module.description = updateData.description;
+    module.order = updateData.order;
+    module.lessons = updateData.lessons;
+
     await course.save();
     res.json(module);
   } catch (error) {
+    console.error('Error updating module:', error);
     res.status(500).json({ message: 'Error updating module' });
   }
 };
@@ -409,5 +421,229 @@ export const reorderModules = async (req: Request, res: Response): Promise<void>
     res.json(course.modules);
   } catch (error) {
     res.status(500).json({ message: 'Error reordering modules' });
+  }
+};
+
+// Clone a course (admin only)
+export const cloneCourse = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
+  try {
+    const originalCourse = await Course.findById(req.params.courseId)
+      .populate('categories')
+      .populate('tags')
+      .lean();
+
+    if (!originalCourse) {
+      res.status(404).json({ message: 'Course not found' });
+      return;
+    }
+
+    // Create a deep copy of the course data
+    const clonedCourseData = {
+      title: `${originalCourse.title} (Copy)`,
+      description: originalCourse.description,
+      price: originalCourse.price,
+      thumbnail: originalCourse.thumbnail,
+      banner: originalCourse.banner,
+      state: 'DRAFT', // Always start as draft
+      modules: originalCourse.modules.map(module => ({
+        title: module.title,
+        description: module.description,
+        order: module.order,
+        lessons: module.lessons.map((lesson: any) => ({
+          title: lesson.title,
+          description: lesson.description,
+          order: lesson.order,
+          duration: lesson.duration,
+          video: lesson.video,
+          attachments: lesson.attachments || [],
+          isPreview: lesson.isPreview
+        }))
+      })),
+      noticeBoard: originalCourse.noticeBoard || [],
+      categories: originalCourse.categories,
+      tags: originalCourse.tags,
+      createdBy: authReq.user!._id,
+      enrollmentCount: 0 // Reset enrollment count for cloned course
+    };
+
+    // Validate the cloned course data
+    const { error } = validateCourse(clonedCourseData);
+    if (error) {
+      console.error('Validation error:', error.details);
+      res.status(400).json({ message: error.details[0].message });
+      return;
+    }
+
+    // Create the new course
+    const clonedCourse = new Course(clonedCourseData);
+    await clonedCourse.save();
+
+    // Populate the response with categories and tags
+    await clonedCourse.populate('categories');
+    await clonedCourse.populate('tags');
+
+    // Clone quizzes associated with the original course
+    await cloneQuizzesForCourse(originalCourse._id.toString(), clonedCourse._id.toString());
+
+    console.log(`Course "${originalCourse.title}" cloned successfully to "${clonedCourse.title}"`);
+
+    res.status(201).json({
+      message: 'Course cloned successfully',
+      course: clonedCourse
+    });
+  } catch (error) {
+    console.error('Error cloning course:', error);
+    res.status(500).json({ message: 'Error cloning course' });
+  }
+};
+
+// Helper function to clone quizzes for a course
+const cloneQuizzesForCourse = async (originalCourseId: string, clonedCourseId: string): Promise<void> => {
+  try {
+    // Import Quiz and Question models
+    const { Quiz } = await import('../models/Quiz');
+    const { Question } = await import('../models/Question');
+
+    // Get the original and cloned courses to map lesson IDs
+    const originalCourse = await Course.findById(originalCourseId).lean();
+    const clonedCourse = await Course.findById(clonedCourseId).lean();
+
+    if (!originalCourse || !clonedCourse) {
+      throw new Error('Course not found for lesson mapping');
+    }
+
+    // Create a mapping of original lesson IDs to cloned lesson IDs
+    const lessonIdMapping = new Map<string, string>();
+    
+    // Map module and lesson IDs
+    for (let moduleIndex = 0; moduleIndex < originalCourse.modules.length; moduleIndex++) {
+      const originalModule = originalCourse.modules[moduleIndex];
+      const clonedModule = clonedCourse.modules[moduleIndex];
+      
+      for (let lessonIndex = 0; lessonIndex < originalModule.lessons.length; lessonIndex++) {
+        const originalLesson = originalModule.lessons[lessonIndex];
+        const clonedLesson = clonedModule.lessons[lessonIndex];
+        
+        if (originalLesson._id && clonedLesson._id) {
+          lessonIdMapping.set(
+            originalLesson._id.toString(), 
+            clonedLesson._id.toString()
+          );
+        }
+      }
+    }
+
+    // Find all quizzes for the original course
+    const originalQuizzes = await Quiz.find({ course: originalCourseId }).lean();
+
+    for (const originalQuiz of originalQuizzes) {
+      // Map the lesson ID if it exists
+      let mappedLessonId = originalQuiz.lesson;
+      if (originalQuiz.lesson && lessonIdMapping.has(originalQuiz.lesson.toString())) {
+        const mappedId = lessonIdMapping.get(originalQuiz.lesson.toString());
+        if (mappedId) {
+          mappedLessonId = mappedId as any;
+        }
+      }
+
+      // Create cloned quiz data
+      const clonedQuizData = {
+        title: `${originalQuiz.title} (Copy)`,
+        description: originalQuiz.description,
+        course: clonedCourseId,
+        lesson: mappedLessonId, // Use mapped lesson ID
+        timeLimit: originalQuiz.timeLimit,
+        passingScore: originalQuiz.passingScore,
+        maxAttempts: originalQuiz.maxAttempts,
+        isActive: originalQuiz.isActive,
+        shuffleQuestions: originalQuiz.shuffleQuestions,
+        showCorrectAnswers: originalQuiz.showCorrectAnswers,
+        allowReview: originalQuiz.allowReview
+      };
+
+      // Create the cloned quiz
+      const clonedQuiz = new Quiz(clonedQuizData);
+      const savedQuiz = await clonedQuiz.save();
+
+      // Clone questions for this quiz
+      await cloneQuestionsForQuiz(originalQuiz._id.toString(), savedQuiz._id?.toString() || '');
+
+      console.log(`Quiz "${originalQuiz.title}" cloned successfully`);
+    }
+
+    console.log(`All quizzes cloned for course ${originalCourseId} -> ${clonedCourseId}`);
+  } catch (error) {
+    console.error('Error cloning quizzes:', error);
+    throw error;
+  }
+};
+
+// Helper function to clone questions for a quiz
+const cloneQuestionsForQuiz = async (originalQuizId: string, clonedQuizId: string): Promise<void> => {
+  try {
+    // Import Question model
+    const { Question } = await import('../models/Question');
+
+    // Find all questions for the original quiz
+    const originalQuestions = await Question.find({ quiz: originalQuizId }).lean();
+
+    for (const originalQuestion of originalQuestions) {
+      // Create cloned question data
+      const clonedQuestionData = {
+        quiz: clonedQuizId,
+        question: originalQuestion.question,
+        type: originalQuestion.type,
+        options: originalQuestion.options,
+        correctAnswer: originalQuestion.correctAnswer,
+        explanation: originalQuestion.explanation,
+        points: originalQuestion.points,
+        order: originalQuestion.order,
+        isActive: originalQuestion.isActive
+      };
+
+      // Create the cloned question
+      const clonedQuestion = new Question(clonedQuestionData);
+      await clonedQuestion.save();
+
+      console.log(`Question "${originalQuestion.question.substring(0, 50)}..." cloned successfully`);
+    }
+
+    console.log(`All questions cloned for quiz ${originalQuizId} -> ${clonedQuizId}`);
+  } catch (error) {
+    console.error('Error cloning questions:', error);
+    throw error;
+  }
+};
+
+// Get quizzes for a course
+export const getCourseQuizzes = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { courseId } = req.params;
+    
+    // Import Quiz model
+    const { Quiz } = await import('../models/Quiz');
+    
+    const quizzes = await Quiz.find({ course: courseId, isActive: true })
+      .populate('questions')
+      .sort({ createdAt: -1 });
+
+    console.log(`Found ${quizzes.length} quizzes for course ${courseId}:`, 
+      quizzes.map(q => ({ id: q._id, title: q.title, lesson: q.lesson, course: q.course }))
+    );
+
+    res.json({
+      success: true,
+      data: {
+        quizzes,
+        count: quizzes.length
+      }
+    });
+  } catch (error) {
+    console.error('Error getting course quizzes:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error getting course quizzes' 
+    });
   }
 };

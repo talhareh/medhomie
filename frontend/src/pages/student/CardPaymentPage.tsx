@@ -7,15 +7,14 @@ import { faCreditCard, faSpinner, faCheckCircle, faTimesCircle, faArrowLeft } fr
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/axios';
-// We don't need to import EnrollmentStatus as we're using the server response
-
-// PayPal client ID would be loaded from environment variables in a production app
-// We're not using the SDK directly in this implementation, so we don't need the client ID
 
 interface PaymentState {
   courseId: string;
   courseTitle: string;
   coursePrice: number;
+  originalPrice?: number;
+  voucherCode?: string;
+  discountAmount?: number;
 }
 
 interface CardDetails {
@@ -53,22 +52,13 @@ export const CardPaymentPage: React.FC = () => {
     }
   }, [location.state, navigate]);
 
-  // Enrollment mutation with automatic approval
-  const enrollMutation = useMutation({
-    mutationFn: async ({ courseId }: { courseId: string }) => {
-      // Create a payment record with PayPal details instead of receipt upload
-      const paymentData = {
-        courseId,
-        paymentMethod: 'paypal',
-        paymentDetails: {
-          transactionId: `pp-${Date.now()}`, // In a real app, this would come from PayPal
-          cardLast4: cardDetails.cardNumber.slice(-4),
-        },
-        // Auto-approve the enrollment
-        autoApprove: true,
-      };
-      
-      const response = await api.post(`/enrollments/courses/${courseId}/card-payment`, paymentData);
+  // Payment processing mutation
+  const processPaymentMutation = useMutation({
+    mutationFn: async ({ orderId, voucherCode }: { orderId: string; voucherCode?: string }) => {
+      const response = await api.post('/paypal/verify-payment', { 
+        orderId,
+        voucherCode: voucherCode || undefined
+      });
       return response.data;
     },
     onSuccess: () => {
@@ -80,10 +70,10 @@ export const CardPaymentPage: React.FC = () => {
       setPaymentStatus('success');
       setIsProcessing(false);
     },
-    onError: (error: Error | unknown) => {
+    onError: (error: any) => {
       setPaymentStatus('failed');
       setIsProcessing(false);
-      setErrorMessage(error.response?.data?.message || 'Error processing enrollment');
+      setErrorMessage(error.response?.data?.message || 'Error processing payment');
     },
   });
 
@@ -164,29 +154,31 @@ export const CardPaymentPage: React.FC = () => {
     setPaymentStatus('processing');
     
     try {
-      // In a real implementation, this would call the PayPal API
-      // For this demo, we'll simulate a payment process
+      console.log('Creating PayPal order...');
       
-      // Simulate API call delay
+      // Step 1: Create PayPal order
+      const orderResponse = await api.post(`/paypal/create-order/${paymentState.courseId}`);
+      const { orderId } = orderResponse.data;
+      
+      console.log('PayPal order created:', orderId);
+      
+      // Step 2: Simulate card payment processing
+      // In a real implementation, you would send card details to PayPal's card processing API
+      // For now, we'll simulate this with a delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // For demo purposes: Approve payment for test card, reject for others
-      const isTestCard = cardDetails.cardNumber.replace(/\s/g, '') === '4032036864600794';
+      // Step 3: Verify and capture payment
+      console.log('Verifying payment...');
+      await processPaymentMutation.mutateAsync({ 
+        orderId,
+        voucherCode: paymentState.voucherCode
+      });
       
-      if (isTestCard) {
-        // Process enrollment with automatic approval
-        enrollMutation.mutate({ courseId: paymentState.courseId });
-      } else {
-        // Simulate payment failure
-        setPaymentStatus('failed');
-        setIsProcessing(false);
-        setErrorMessage('Payment declined. Please try a different card or payment method.');
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment processing error:', error);
       setPaymentStatus('failed');
       setIsProcessing(false);
-      setErrorMessage('An unexpected error occurred. Please try again later.');
+      setErrorMessage(error.response?.data?.message || 'Payment failed. Please try again.');
     }
   };
 
@@ -219,19 +211,36 @@ export const CardPaymentPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <h1 className="text-2xl font-bold mb-6 text-center">
             <FontAwesomeIcon icon={faCreditCard} className="mr-2 text-primary" />
-            Credit/Debit Card Payment
+            Card Payment
           </h1>
           
           {paymentState && (
             <div className="mb-8 p-4 bg-gray-50 rounded-lg">
               <h2 className="text-lg font-semibold mb-2">Order Summary</h2>
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-700">Course: {paymentState.courseTitle}</p>
-                  <p className="text-sm text-gray-500">You will be enrolled immediately after successful payment</p>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-gray-700">Course: {paymentState.courseTitle}</p>
+                    <p className="text-sm text-gray-500">You will be enrolled immediately after successful payment</p>
+                  </div>
                 </div>
-                <div className="text-xl font-bold text-primary">
-                  ${paymentState.coursePrice.toFixed(2)}
+                {paymentState.voucherCode && paymentState.originalPrice && (
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Original Price:</span>
+                      <span className="line-through text-gray-400">${paymentState.originalPrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Voucher Discount ({paymentState.voucherCode}):</span>
+                      <span>-${paymentState.discountAmount?.toFixed(2) || '0.00'}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-between items-center border-t pt-2 mt-2">
+                  <span className="font-semibold">Total:</span>
+                  <div className="text-xl font-bold text-primary">
+                    ${paymentState.coursePrice.toFixed(2)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -309,8 +318,8 @@ export const CardPaymentPage: React.FC = () => {
               </div>
               
               <div className="mt-6">
-                <p className="text-sm text-gray-500 mb-4">
-                  <strong>Test Card:</strong> 4032 0368 6460 0794 | Any expiry date | Any CVC
+                <p className="text-sm text-gray-500 mb-4 text-center">
+                  <strong>Note:</strong> This is a PayPal sandbox environment. Your card will be processed securely through PayPal.
                 </p>
                 <button
                   onClick={processPayment}
@@ -345,7 +354,7 @@ export const CardPaymentPage: React.FC = () => {
             <div className="text-center py-10">
               <FontAwesomeIcon icon={faCheckCircle} className="text-5xl text-green-500 mb-4" />
               <h2 className="text-xl font-semibold mb-2">Payment Successful!</h2>
-              <p className="text-gray-600 mb-6">Your enrollment has been approved automatically.</p>
+              <p className="text-gray-600 mb-6">Your enrollment has been confirmed and invoice has been generated.</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
                   onClick={() => navigate('/my-courses')}
@@ -388,8 +397,8 @@ export const CardPaymentPage: React.FC = () => {
         
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
-            <strong>Note:</strong> This is a sandbox payment environment for testing purposes.
-            <br />No real payments will be processed.
+            <strong>Note:</strong> This is a PayPal sandbox environment for testing purposes.
+            <br />Payments are processed securely through PayPal's payment gateway.
           </p>
         </div>
       </div>

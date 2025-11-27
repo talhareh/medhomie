@@ -2,28 +2,22 @@ import { Request, Response } from 'express';
 import { Course, IModuleDocument, ILessonDocument, ILessonData } from '../models/Course';
 import { AuthRequest } from '../middleware/auth';
 import { validateLesson } from '../validators/courseValidator';
-import path from 'path';
-import fs from 'fs';
+
+// Helper function to validate BunnyCDN Video IDs
+const validateBunnyCDNVideoId = (videoId: string): boolean => {
+  // Bunny CDN video IDs are GUIDs in the format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const bunnyVideoIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return bunnyVideoIdPattern.test(videoId);
+};
 
 // Add lesson to a module
 export const addLesson = async (req: Request, res: Response): Promise<void> => {
   const authReq = req as AuthRequest;
   try {
     const { courseId, moduleId } = req.params;
-    const file = req.file;
-    
-    console.log('Request file:', file);
+    // Remove file upload logic for video
     console.log('Request body:', req.body);
     console.log('Request files:', req.files);
-    
-    // Log more details about the files
-    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
-      console.log('Files object keys:', Object.keys(req.files));
-      const videoFiles = req.files['video'];
-      if (videoFiles && Array.isArray(videoFiles) && videoFiles.length > 0) {
-        console.log('Video file details:', videoFiles[0]);
-      }
-    }
 
     const course = await Course.findById(courseId);
     if (!course) {
@@ -37,54 +31,61 @@ export const addLesson = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Get the video file from the files object
-    let videoPath = undefined;
-    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
-      const videoFiles = req.files['video'];
-      if (videoFiles && Array.isArray(videoFiles) && videoFiles.length > 0) {
-        videoPath = videoFiles[0].path;
-        console.log('Setting video path to:', videoPath);
-      }
-    } else if (file) {
-      // Fallback to single file upload
-      videoPath = file.path;
-      console.log('Setting video path from single file to:', videoPath);
-    }
-    
     // Create lesson data object with basic fields
     const lessonData: ILessonData = {
       title: req.body.title,
-      description: req.body.description,
-      order: module.lessons.length,
+      description: '', // Default empty description
+      order: req.body.order ? parseInt(req.body.order) : module.lessons.length + 1,
       duration: req.body.duration ? parseInt(req.body.duration) : undefined,
-      attachments: [],
+      attachments: [], // Keep empty array for compatibility
       isPreview: req.body.isPreview === 'true'
     };
-    
-    // Handle video file upload
-    if (videoPath) {
-      lessonData.video = videoPath;
+
+    // Accept video source and video ID/URL
+    if (req.body.videoSource) {
+      lessonData.videoSource = req.body.videoSource;
     }
-    
-    // Handle attachment files upload
-    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
-      const attachmentFiles = req.files['attachments'];
-      if (attachmentFiles && Array.isArray(attachmentFiles) && attachmentFiles.length > 0) {
-        // Add each attachment path to the lesson data
-        attachmentFiles.forEach(file => {
-          lessonData.attachments.push(file.path);
-          console.log('Added attachment path:', file.path);
+    if (req.body.video) {
+      lessonData.video = req.body.video;
+    }
+
+    // Validate video source and video ID format - REJECT full URLs
+    if (lessonData.video && lessonData.videoSource) {
+      // Reject any video that looks like a URL (contains slashes or dots)
+      if (lessonData.video.includes('/') || lessonData.video.includes('.')) {
+        res.status(400).json({ 
+          message: 'Invalid video format. Only video IDs are allowed, not full URLs. Please use the video ID from your CDN dashboard.' 
         });
+        return;
+      }
+
+      if (lessonData.videoSource === 'bunnycdn') {
+        if (!validateBunnyCDNVideoId(lessonData.video)) {
+          res.status(400).json({ 
+            message: 'Invalid BunnyCDN video ID format. Should be a valid GUID (e.g., 9b7d3c2a-4e5f-6a7b-8c9d-0e1f2a3b4c5d).' 
+          });
+          return;
+        }
       }
     }
-    
-    // Validate that at least one of video or attachments is provided
-    if (!videoPath && lessonData.attachments.length === 0) {
-      res.status(400).json({ message: 'Either a video or at least one attachment is required' });
+
+    // Accept PDF URL
+    if (req.body.pdfUrl) {
+      lessonData.pdfUrl = req.body.pdfUrl;
+    }
+
+    // Accept ebook name
+    if (req.body.ebookName) {
+      lessonData.ebookName = req.body.ebookName;
+    }
+
+    // Validate that at least one of video or pdfUrl is provided
+    if (!lessonData.video && !lessonData.pdfUrl) {
+      res.status(400).json({ message: 'Either a video or PDF URL is required' });
       return;
     }
-    
-    console.log('Created lesson data with video path:', lessonData.video);
+
+    console.log('Created lesson data with video ID:', lessonData.video);
     console.log('Created lesson data with attachments:', lessonData.attachments);
     console.log('Full lesson data:', lessonData);
 
@@ -150,9 +151,7 @@ export const removeLesson = async (req: Request, res: Response): Promise<void> =
 export const updateLesson = async (req: Request, res: Response): Promise<void> => {
   try {
     const { courseId, moduleId, lessonId } = req.params;
-    const file = req.file;
-    
-    console.log('Update lesson request file:', file);
+    // Remove file upload logic for video
     console.log('Update lesson request body:', req.body);
     console.log('Update lesson request files:', req.files);
 
@@ -168,45 +167,66 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
-    if (!lesson) {
+    const existingLesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    if (!existingLesson) {
       res.status(404).json({ message: 'Lesson not found' });
       return;
     }
 
-    // Update lesson fields
-    if (req.body.title) lesson.title = req.body.title;
-    if (req.body.description) lesson.description = req.body.description;
-    if (req.body.duration) {
-      lesson.duration = parseInt(req.body.duration);
-    }
-    
-    // Handle traditional video file upload
-    if (req.files && typeof req.files === 'object' && !Array.isArray(req.files)) {
-      const videoFiles = req.files['video'];
-      if (videoFiles && Array.isArray(videoFiles) && videoFiles.length > 0) {
-        const videoPath = videoFiles[0].path;
-        console.log('Setting video path to:', videoPath);
-        lesson.video = videoPath;
+    // Create a new lesson object with updated fields
+    const updatedLessonData = {
+      title: req.body.title || existingLesson.title,
+      description: existingLesson.description, // Keep existing description (not editable)
+      order: req.body.order ? parseInt(req.body.order) : existingLesson.order,
+      duration: req.body.duration ? parseInt(req.body.duration) : existingLesson.duration,
+      video: req.body.video || existingLesson.video,
+      videoSource: req.body.videoSource || existingLesson.videoSource,
+      attachments: [...(existingLesson.attachments || [])],
+      pdfUrl: req.body.pdfUrl !== undefined ? req.body.pdfUrl : existingLesson.pdfUrl,
+      ebookName: req.body.ebookName !== undefined ? req.body.ebookName : existingLesson.ebookName,
+      isPreview: typeof req.body.isPreview === 'boolean' ? req.body.isPreview : existingLesson.isPreview
+    };
+
+    // Validate video source and video ID format for updates - REJECT full URLs
+    if (updatedLessonData.video && updatedLessonData.videoSource) {
+      // Reject any video that looks like a URL (contains slashes or dots)
+      if (updatedLessonData.video.includes('/') || updatedLessonData.video.includes('.')) {
+        res.status(400).json({ 
+          message: 'Invalid video format. Only video IDs are allowed, not full URLs. Please use the video ID from your CDN dashboard.' 
+        });
+        return;
       }
-    } else if (file) {
-      // Fallback to single file upload
-      console.log('Setting video path from single file to:', file.path);
-      lesson.video = file.path;
-    }
-    
-    if (typeof req.body.isPreview === 'boolean') {
-      lesson.isPreview = req.body.isPreview;
+
+      if (updatedLessonData.videoSource === 'bunnycdn') {
+        if (!validateBunnyCDNVideoId(updatedLessonData.video)) {
+          res.status(400).json({ 
+            message: 'Invalid BunnyCDN video ID format. Should be a valid GUID (e.g., 9b7d3c2a-4e5f-6a7b-8c9d-0e1f2a3b4c5d).' 
+          });
+          return;
+        }
+      }
     }
 
-    const { error } = validateLesson(lesson);
+    // Handle PDF URL - replace existing PDF if new one is provided
+    if (req.body.pdfUrl !== undefined) {
+      updatedLessonData.pdfUrl = req.body.pdfUrl;
+    }
+
+    const { error } = validateLesson(updatedLessonData);
     if (error) {
       res.status(400).json({ message: error.details[0].message });
       return;
     }
 
+    // Remove the old lesson and add the updated one
+    const lessonIndex = module.lessons.findIndex(l => l._id?.toString() === lessonId);
+    if (lessonIndex !== -1) {
+      module.lessons.splice(lessonIndex, 1, updatedLessonData);
+    }
+
     await course.save();
-    res.status(200).json({ message: 'Lesson updated successfully', lesson });
+    
+    res.status(200).json({ message: 'Lesson updated successfully', lesson: updatedLessonData });
   } catch (error) {
     console.error('Error updating lesson:', error);
     res.status(500).json({ message: 'Error updating lesson', error });
@@ -304,95 +324,180 @@ export const removeNotice = async (req: Request, res: Response): Promise<void> =
 
 // View PDF lesson attachment in browser (for enrolled students)
 export const viewPdfAttachment = async (req: Request, res: Response): Promise<void> => {
-  console.log("Request received to view PDF");
+  const requestId = Math.random().toString(36).substr(2, 9);
+  console.log(`🔍 BACKEND DEBUG [${requestId}] - PDF attachment request received`);
+  
   try {
     const { courseId, moduleId, lessonId } = req.params;
     
-    console.log(`Attempting to view PDF: courseId=${courseId}, moduleId=${moduleId}, lessonId=${lessonId}`);
-
+    console.log(`🔍 BACKEND DEBUG [${requestId}] - Request details:`, {
+      params: { courseId, moduleId, lessonId },
+      method: req.method,
+      url: req.originalUrl,
+      headers: {
+        userAgent: req.headers['user-agent'],
+        accept: req.headers.accept,
+        referer: req.headers.referer,
+        contentType: req.headers['content-type']
+      },
+      query: req.query
+    });
+    
+    console.log(`🔍 BACKEND DEBUG [${requestId}] - Attempting to find course: ${courseId}`);
     const course = await Course.findById(courseId);
+    
     if (!course) {
-      console.log(`Course not found: ${courseId}`);
+      console.error(`❌ BACKEND DEBUG [${requestId}] - Course not found:`, {
+        courseId,
+        courseIdType: typeof courseId,
+        courseIdLength: courseId?.length
+      });
       res.status(404).json({ message: 'Course not found' });
       return;
     }
+    
+    console.log(`✅ BACKEND DEBUG [${requestId}] - Course found:`, {
+      courseId: course._id,
+      courseTitle: course.title,
+      moduleCount: course.modules?.length || 0,
+      moduleIds: course.modules?.map(m => m._id?.toString()) || []
+    });
 
+    console.log(`🔍 BACKEND DEBUG [${requestId}] - Attempting to find module: ${moduleId}`);
     const module = course.modules.id(moduleId) as IModuleDocument | null;
+    
     if (!module) {
-      console.log(`Module not found: ${moduleId}`);
+      console.error(`❌ BACKEND DEBUG [${requestId}] - Module not found:`, {
+        moduleId,
+        moduleIdType: typeof moduleId,
+        moduleIdLength: moduleId?.length,
+        availableModules: course.modules?.map(m => ({
+          id: m._id?.toString(),
+          title: m.title
+        })) || []
+      });
       res.status(404).json({ message: 'Module not found' });
       return;
     }
+    
+    console.log(`✅ BACKEND DEBUG [${requestId}] - Module found:`, {
+      moduleId: module._id,
+      moduleTitle: module.title,
+      lessonCount: module.lessons?.length || 0,
+      lessonIds: module.lessons?.map(l => l._id?.toString()) || []
+    });
 
+    console.log(`🔍 BACKEND DEBUG [${requestId}] - Attempting to find lesson: ${lessonId}`);
     const lesson = module.lessons.id(lessonId) as ILessonDocument | null;
+    
     if (!lesson) {
-      console.log(`Lesson not found: ${lessonId}`);
+      console.error(`❌ BACKEND DEBUG [${requestId}] - Lesson not found:`, {
+        lessonId,
+        lessonIdType: typeof lessonId,
+        lessonIdLength: lessonId?.length,
+        availableLessons: module.lessons?.map(l => ({
+          id: l._id?.toString(),
+          title: l.title
+        })) || []
+      });
       res.status(404).json({ message: 'Lesson not found' });
       return;
     }
+    
+    console.log(`✅ BACKEND DEBUG [${requestId}] - Lesson found:`, {
+      lessonId: lesson._id,
+      lessonTitle: lesson.title,
+      pdfUrl: lesson.pdfUrl
+    });
 
-    console.log(`Lesson found. Attachments: ${JSON.stringify(lesson.attachments)}`);
-
-    if (!lesson.attachments || lesson.attachments.length === 0) {
-      console.log('No attachments found for this lesson');
-      res.status(404).json({ message: 'No attachments found for this lesson' });
+    if (!lesson.pdfUrl) {
+      console.error(`❌ BACKEND DEBUG [${requestId}] - No PDF URL found:`, {
+        lessonId: lesson._id,
+        lessonTitle: lesson.title
+      });
+      res.status(404).json({ message: 'No PDF URL found for this lesson' });
       return;
     }
 
-    // Always use the first attachment
-    const attachmentPath = lesson.attachments[0];
-    console.log(`Attachment path: ${attachmentPath}`);
-    // Make sure we have the full path
-    const fullPath = path.isAbsolute(attachmentPath) 
-      ? attachmentPath 
-      : path.join(__dirname, '../../', attachmentPath);
-    
-    console.log(`Full attachment path: ${fullPath}`);
-    
-    if (!fs.existsSync(fullPath)) {
-      console.log(`Attachment file not found at path: ${fullPath}`);
-      res.status(404).json({ message: 'Attachment file not found' });
-      return;
-    }
-
-    const filename = path.basename(fullPath);
-    const fileExtension = path.extname(fullPath).toLowerCase();
-    
-    // Check if the file is a PDF
-    if (fileExtension !== '.pdf') {
-      console.log(`File is not a PDF: ${fileExtension}`);
-      res.status(400).json({ message: 'This endpoint is only for viewing PDF files' });
-      return;
-    }
-    
-    console.log(`Serving PDF file: ${filename} for inline viewing`);
-    
-    // Set headers for inline viewing in browser
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    res.setHeader('Content-Type', 'application/pdf');
-    
-    // Add cache control headers for better performance
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-    
-    // Add CORS headers to allow embedding in iframe
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    
-    // Add Content-Security-Policy to help hide PDF viewer controls
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'none'; object-src 'self'");
-    
-    const fileStream = fs.createReadStream(fullPath);
-    fileStream.on('error', (err) => {
-      console.error(`Error reading file stream: ${err.message}`);
-      if (!res.headersSent) {
-        res.status(500).json({ message: 'Error streaming file' });
-      }
+    const pdfUrl = lesson.pdfUrl;
+    console.log(`🔍 BACKEND DEBUG [${requestId}] - Processing PDF URL:`, {
+      url: pdfUrl,
+      urlType: typeof pdfUrl,
+      isHttpsUrl: pdfUrl.startsWith('https://'),
+      isHttpUrl: pdfUrl.startsWith('http://')
     });
     
-    fileStream.pipe(res);
+    // Check if this is an HTTPS URL (Bunny CDN or other CDN)
+    if (pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) {
+      console.log(`🔍 BACKEND DEBUG [${requestId}] - HTTPS URL detected, redirecting:`, {
+        url: pdfUrl
+      });
+      
+      // Redirect to the URL
+      res.redirect(pdfUrl);
+      return;
+    }
+    
+    // Only HTTPS URLs are supported
+    console.error(`❌ BACKEND DEBUG [${requestId}] - Non-HTTPS URL detected (local files no longer supported):`, {
+      pdfUrl,
+      message: 'Only HTTPS URLs are supported'
+    });
+    
+    res.status(400).json({ 
+      message: 'Invalid PDF URL - only HTTPS URLs are supported',
+      receivedUrl: pdfUrl 
+    });
+    return;
+
   } catch (error) {
-    console.error('Error viewing PDF attachment:', error);
+    console.error(`❌ BACKEND DEBUG [${requestId}] - Server error:`, {
+      error,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error'
+    });
     res.status(500).json({ message: 'Error viewing PDF attachment', error });
   }
 };
+
+// Proxy PDF endpoint - serves PDF without exposing the actual URL
+export const proxyPdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const pdfUrl = req.query.url as string;
+    
+    if (!pdfUrl) {
+      res.status(400).json({ message: 'PDF URL is required' });
+      return;
+    }
+
+    // Validate URL is HTTPS
+    if (!pdfUrl.startsWith('https://')) {
+      res.status(400).json({ message: 'Only HTTPS URLs are allowed' });
+      return;
+    }
+
+    // Fetch the PDF from the URL
+    const response = await fetch(pdfUrl);
+    
+    if (!response.ok) {
+      res.status(response.status).json({ message: 'Failed to fetch PDF' });
+      return;
+    }
+
+    // Set appropriate headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    
+    // Stream the PDF to the client
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Error proxying PDF:', error);
+    res.status(500).json({ message: 'Error proxying PDF', error });
+  }
+};
+
+// Note: Cloudflare R2 upload function removed - using Bunny CDN for all media

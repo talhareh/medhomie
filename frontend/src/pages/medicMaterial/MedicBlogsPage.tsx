@@ -11,7 +11,7 @@ const MedicBlogsPage: React.FC = () => {
   return (
     <div className="bg-background min-h-screen">
       {/* Header/Navigation */}
-      <MedicMenu />
+    
       
       {/* Blog Listing Component */}
       <BlogListingPage />

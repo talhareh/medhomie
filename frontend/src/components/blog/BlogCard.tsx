@@ -4,6 +4,7 @@ import { BlogPost } from '../../services/blogService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faClock, faUser, faCalendarAlt, faTag } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
+import { getImageUrl } from '../../utils/imageUtils';
 
 interface BlogCardProps {
   blog: BlogPost;
@@ -32,13 +33,18 @@ const BlogCard: React.FC<BlogCardProps> = ({ blog, isAdmin = false }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform hover:shadow-lg">
-      <Link to={isAdmin ? `/admin/blogs/${_id}` : `/blogs/${slug}`}>
+      <Link to={isAdmin ? `/admin/blogs/${slug}` : `/blogs/${slug}`}>
         <div className="relative h-48 w-full overflow-hidden">
           {featuredImage ? (
             <img 
-              src={featuredImage} 
+              src={getImageUrl(featuredImage)} 
               alt={title} 
               className="w-full h-full object-cover transition-transform hover:scale-105"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.onerror = null;
+                target.style.display = 'none';
+              }}
             />
           ) : (
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -72,7 +78,7 @@ const BlogCard: React.FC<BlogCardProps> = ({ blog, isAdmin = false }) => {
           )}
         </div>
 
-        <Link to={isAdmin ? `/admin/blogs/${_id}` : `/blogs/${slug}`}>
+        <Link to={isAdmin ? `/admin/blogs/${slug}` : `/blogs/${slug}`}>
           <h3 className="text-lg font-semibold text-gray-900 mb-2 hover:text-blue-600">
             {title}
           </h3>

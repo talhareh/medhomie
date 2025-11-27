@@ -1,8 +1,8 @@
 // CourseContentPage.tsx - Main page for viewing course content
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faExclamationTriangle, faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
 import MedicMenu from './medicMaterial/MedicMenu';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/axios';
@@ -13,6 +13,7 @@ import { CourseSidebar } from '../components/course/CourseSidebar';
 import { LessonContent } from '../components/course/LessonContent';
 import { EnrollmentModal } from '../components/course/EnrollmentModal';
 import CourseAIBot from '../components/common/CourseAIBot';
+import { useCourseQuizzes, useUserQuizAttempts } from '../hooks/useQuizzes';
 
 export const CourseContentPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -20,26 +21,13 @@ export const CourseContentPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [currentLessonData, setCurrentLessonData] = useState<Lesson | null>(null);
-  const [videoBlobs, setVideoBlobs] = useState<Record<string, string>>({});
-  const [videoLoading, setVideoLoading] = useState<Record<string, boolean>>({});
+  const [preferredContentType, setPreferredContentType] = useState<'video' | 'quiz' | null>(null);
+  // Removed videoBlobs and videoLoading - no longer needed with Cloudflare Player embed
   const [videoErrors, setVideoErrors] = useState<Record<string, string>>({});
-  const [selectedAttachment, setSelectedAttachment] = useState<{index: number, url: string, filename?: string} | null>(null);
   
-  // Debug selectedAttachment changes
-  React.useEffect(() => {
-    if (selectedAttachment) {
-      console.log('ATTACHMENT STATE - Selected attachment:', selectedAttachment);
-    }
-  }, [selectedAttachment]);
-  
-  // Debug currentLessonData changes to inspect attachments
-  React.useEffect(() => {
-    if (currentLessonData && currentLessonData.attachments && currentLessonData.attachments.length > 0) {
-      console.log('ATTACHMENT DEBUG - Current lesson attachments:', currentLessonData.attachments);
-    }
-  }, [currentLessonData]);
   
   // Extract moduleId and lessonId from location state
   const moduleId = location.state?.moduleId;
@@ -56,6 +44,10 @@ export const CourseContentPage: React.FC = () => {
     enabled: !!courseId,
   });
 
+  // Fetch course quizzes
+  const { data: quizzesData, error: quizzesError, isLoading: quizzesLoading } = useCourseQuizzes(courseId!);
+  const quizzes = quizzesData?.data?.quizzes || [];
+  
   // Create a derived state for the transformed course
   const [course, setCourse] = useState<MedicalCourse | null>(null);
 
@@ -63,8 +55,12 @@ export const CourseContentPage: React.FC = () => {
   useEffect(() => {
     if (apiCourse) {
       console.log('API Course data received:', apiCourse);
-      const transformedCourse = transformCourse(apiCourse);
+      console.log('🔍 DEBUG: Checking videoSource in API data for Test Bunny 1:', 
+        apiCourse.modules?.[0]?.lessons?.find(l => l.title === 'Test Bunny 1')?.videoSource);
+      const transformedCourse = transformCourse(apiCourse, quizzes);
       console.log('Transformed course data:', transformedCourse);
+      console.log('🔍 DEBUG: Checking videoSource in transformed data for Test Bunny 1:', 
+        transformedCourse.sections?.[0]?.lessons?.find(l => l.title === 'Test Bunny 1')?.videoSource);
       setCourse(transformedCourse);
       
       // Find the current lesson if moduleId and lessonId are provided
@@ -73,17 +69,33 @@ export const CourseContentPage: React.FC = () => {
         if (module) {
           const lesson = module.lessons.find(lesson => lesson.id === lessonId);
           if (lesson) {
+            console.log('🔍 DEBUG: Setting lesson data for:', lesson.title, {
+              lessonId: lesson.id,
+              videoUrl: lesson.videoUrl,
+              videoSource: lesson.videoSource,
+              hasVideoSource: !!lesson.videoSource
+            });
             setCurrentLessonData(lesson);
-           
+            
+            // Auto-detect and open appropriate content based on lesson type
+            // This handles the case when user clicks from course detail page
+            console.log('Auto-detecting content for lesson:', lesson.title, {
+              type: lesson.type,
+              hasVideo: !!lesson.videoUrl,
+              hasAttachments: lesson.attachments && lesson.attachments.length > 0
+            });
+            
+            // If lesson has video, it will auto-play
+            // PDFs are only accessible via sidebar links (opening in new tab)
           }
         }
       } else if (transformedCourse.sections.length > 0 && transformedCourse.sections[0].lessons.length > 0) {
-        // Default to the first lesson of the first section
+        // Default to the first lesson of the first section if no specific lesson is provided
         setCurrentLessonData(transformedCourse.sections[0].lessons[0]);
-        
       }
     }
-  }, [apiCourse, moduleId, lessonId]);
+  }, [apiCourse, quizzes, moduleId, lessonId]); // Add quizzes to dependency array
+
 
   // After course is loaded and moduleId is available, expand the selected module in the sidebar
   useEffect(() => {
@@ -92,82 +104,13 @@ export const CourseContentPage: React.FC = () => {
     }
   }, [course, moduleId]);
 
-  // Load video when lesson changes
-  useEffect(() => {
-    if (currentLessonData && currentLessonData.type === 'video') {
-      console.log('[DEBUG] Video useEffect triggered for lesson:', {
-        lessonId: currentLessonData.id,
-        lessonTitle: currentLessonData.title,
-        videoUrl: currentLessonData.videoUrl
-      });
-      
-      // For backend videos, get a signed URL that doesn't require auth headers
-      const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, currentLessonData.id));
-      console.log('[DEBUG] Getting signed URL for video streaming', {
-        moduleId: currentModuleId,
-        courseId,
-        lessonId: currentLessonData.id
-      });
-      
-      if (!currentModuleId) return;
-      
-      // Set loading state
-      setVideoLoading(prev => ({
-        ...prev,
-        [currentLessonData.id]: true
-      }));
-      
-      // Get a signed URL for the video
-      const getSignedUrl = async () => {
-        try {
-          // Get the auth token from localStorage
-          const token = localStorage.getItem('token');
-          if (!token) {
-            throw new Error('Authentication token not found');
-          }
-          
-          const signedUrlEndpoint = `/api/stream/${courseId}/modules/${currentModuleId}/lessons/${currentLessonData.id}/signed-url`;
-          console.log('[DEBUG] Fetching signed URL from:', signedUrlEndpoint);
-          
-          const response = await fetch(signedUrlEndpoint, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to get signed URL: ${response.status} ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          console.log('[DEBUG] Received signed URL:', data.url);
-          
-          // Set the signed URL as the video source
-          setVideoBlobs(prev => ({
-            ...prev,
-            [currentLessonData.id]: data.url
-          }));
-          
-          setVideoLoading(prev => ({
-            ...prev,
-            [currentLessonData.id]: false
-          }));
-        } catch (error) {
-          console.error('Error getting signed URL:', error);
-          setVideoErrors(prev => ({
-            ...prev,
-            [currentLessonData.id]: error instanceof Error ? error.message : 'Unknown error'
-          }));
-          setVideoLoading(prev => ({
-            ...prev,
-            [currentLessonData.id]: false
-          }));
-        }
-      };
-      
-      getSignedUrl();
-    }
-  }, [currentLessonData, course, moduleId, courseId]);
+  // Load video when lesson changes - REMOVED: No longer needed with Cloudflare Player embed
+  // The videoUrl is already set correctly in courseTransformations.ts
+  // useEffect(() => {
+  //   if (currentLessonData && currentLessonData.type === 'video') {
+  //     // Old logic removed - we now use Cloudflare Player embed URLs directly
+  //   }
+  // }, [currentLessonData, course, moduleId, courseId]);
 
   // Add event listener to prevent video downloading
   useEffect(() => {
@@ -185,10 +128,59 @@ export const CourseContentPage: React.FC = () => {
     };
   }, []);
 
+  // Handle responsive sidebar behavior
+  useEffect(() => {
+    const handleResize = () => {
+      // Close mobile sidebar when screen becomes larger
+      if (window.innerWidth >= 768) { // md breakpoint
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  // Handle body scroll lock when mobile sidebar is open
+  useEffect(() => {
+    if (isMobileSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileSidebarOpen]);
+
+  // Handle escape key to close mobile sidebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileSidebarOpen]);
+
   // Check if user has access to the course
   const hasAccess = Boolean(user && course?.enrollmentStatus === 'approved');
 
-  const navigateToLesson = (sectionId: string, lessonId: string, attachmentIndex?: number) => {
+  const navigateToLesson = (
+    sectionId: string,
+    lessonId: string,
+    options?: { contentType?: 'video' | 'quiz' }
+  ) => {
     console.log('navigateToLesson called with:', { sectionId, lessonId });
     if (!hasAccess) {
       setIsModalOpen(true);
@@ -206,26 +198,20 @@ export const CourseContentPage: React.FC = () => {
           title: lesson.title, 
           type: lesson.type, 
           videoUrl: lesson.videoUrl,
-          hasVideo: !!lesson.videoUrl
+          hasVideo: !!lesson.videoUrl,
+        });
+        console.log('🔍 DEBUG: navigateToLesson - lesson videoSource:', {
+          title: lesson.title,
+          videoSource: lesson.videoSource,
+          hasVideoSource: !!lesson.videoSource
         });
         // If we're changing lessons and the current lesson has a video blob, 
         // we need to revoke the object URL to prevent memory leaks
         if (currentLessonData?.id !== lesson.id && 
-            currentLessonData?.type === 'video' && 
-            videoBlobs[currentLessonData.id]) {
-          // Revoke the previous blob URL
-          // URL.revokeObjectURL(videoBlobs[currentLessonData.id]);
-          
-          // Remove the blob from state
-          setVideoBlobs(prev => {
-            const newBlobs = { ...prev };
-            delete newBlobs[currentLessonData.id];
-            return newBlobs;
-          });
+            currentLessonData?.type === 'video') {
+          // No longer needed with Cloudflare Player embed
         }
         
-        // Reset any selected attachment when changing lessons
-        setSelectedAttachment(null);
         
         // Clear any video errors for the new lesson
         setVideoErrors(prev => {
@@ -245,15 +231,11 @@ export const CourseContentPage: React.FC = () => {
         );
         // Then set the current lesson data to trigger the useEffect
         setCurrentLessonData(lesson);
+        setPreferredContentType(options?.contentType ?? null);
         console.log('URL updated, currentLessonData has been set to:', lesson.id);
         
-        // If an attachment index was provided, automatically open that attachment
-        if (attachmentIndex !== undefined && lesson.attachments && lesson.attachments.length > attachmentIndex) {
-          // Use setTimeout to ensure the lesson data is fully loaded before trying to open the attachment
-          setTimeout(() => {
-            handleAttachmentClick(lesson);
-          }, 100);
-        }
+        // Close mobile sidebar when lesson is selected
+        setIsMobileSidebarOpen(false);
       }
     }
   };
@@ -265,44 +247,76 @@ export const CourseContentPage: React.FC = () => {
     }));
   };
 
-  // Function to fetch the actual filename from the backend
-  const fetchAttachmentFilename = async (attachmentUrl: string) => {
-    try {
-      // Make a HEAD request to get the Content-Disposition header
-      const response = await api.head(attachmentUrl);
-      const contentDisposition = response.headers['content-disposition'];
-      
-      if (contentDisposition) {
-        // Extract filename from Content-Disposition header
-        const filenameMatch = contentDisposition.match(/filename="(.+?)"/i);
-        if (filenameMatch && filenameMatch[1]) {
-          return filenameMatch[1];
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error('Error fetching attachment filename:', error);
-      return null;
-    }
-  };
-  
-  // Function to handle attachment selection
-  const handleAttachmentClick = (lesson: Lesson) => {
-    if (!lesson || !courseId) return;
-    // Get the current module ID
-    const currentModuleId = moduleId || (course && findModuleIdForLesson(course.sections, lesson.id));
-    if (!currentModuleId) {
-      console.error('Could not determine module ID for this lesson');
+  const navigateToQuiz = (sectionId: string, lessonId: string) => {
+    if (!hasAccess) {
+      setIsModalOpen(true);
       return;
     }
-    // Construct the URL for the public PDF attachment endpoint
-    const attachmentUrl = `/course-content/public/${courseId}/modules/${currentModuleId}/lessons/${lesson.id}/attachment`;
-    setSelectedAttachment({
-      index: 0,
-      url: attachmentUrl,
-      filename: lesson.attachments?.[0]?.filename || `Attachment.pdf`
-    });
+    // Close mobile sidebar when navigating to quiz
+    setIsMobileSidebarOpen(false);
+    navigateToLesson(sectionId, lessonId, { contentType: 'quiz' });
   };
+
+
+  
+
+  // Function to open PDF in new tab with security protections
+  const openPDFInNewTab = (lesson: Lesson, attachmentIndex: number = 0) => {
+    console.log('🔄 PDF SIDEBAR - Opening PDF in protected viewer for lesson:', {
+      lessonId: lesson.id,
+      lessonTitle: lesson.title,
+      hasPdfUrl: !!lesson.pdfUrl,
+      hasAttachments: lesson.attachments && lesson.attachments.length > 0
+    });
+    
+    // Use pdfUrl if available, otherwise fall back to attachments
+    let pdfUrl: string | undefined;
+    let filename: string;
+    
+    if (lesson.pdfUrl) {
+      pdfUrl = lesson.pdfUrl;
+      filename = lesson.ebookName || `${lesson.title}.pdf`;
+    } else if (lesson.attachments && lesson.attachments.length > 0) {
+      const attachment = lesson.attachments[attachmentIndex];
+      if (!attachment) {
+        console.log('🔄 PDF SIDEBAR - Attachment index out of range');
+        return;
+      }
+      pdfUrl = typeof attachment === 'string' ? attachment : attachment.path;
+      filename = typeof attachment === 'string' ? 'Attachment.pdf' : attachment.filename || `${lesson.title}.pdf`;
+    } else {
+      console.log('🔄 PDF SIDEBAR - No PDF URL or attachments to open');
+      return;
+    }
+    
+    if (!pdfUrl || !pdfUrl.startsWith('https://')) {
+      console.error('❌ PDF SIDEBAR - Invalid PDF URL:', pdfUrl);
+      return;
+    }
+    
+    try {
+      // Open PDF in new tab with protected viewer
+      console.log('📄 PDF SIDEBAR - Opening PDF in protected viewer (new tab):', pdfUrl);
+      
+      // Encode URL and title for query parameters
+      const encodedUrl = encodeURIComponent(pdfUrl);
+      const encodedTitle = encodeURIComponent(filename);
+      
+      // Open in new tab with simple PDF viewer that has security protections
+      const viewerUrl = `${window.location.origin}/pdf-simple?url=${encodedUrl}&title=${encodedTitle}`;
+      const newWindow = window.open(viewerUrl, '_blank');
+      
+      if (!newWindow) {
+        throw new Error('Failed to open new tab. Please allow popups for this site.');
+      }
+      
+      console.log('✅ PDF SIDEBAR - PDF opened in protected viewer (new tab) successfully');
+      
+    } catch (error) {
+      console.error('❌ PDF SIDEBAR - Error opening PDF in protected viewer:', error);
+    }
+  };
+
 
   // Calculate overall progress
   const totalLessons = course?.sections.reduce((acc, section) => acc + section.totalLessons, 0) || 0;
@@ -311,7 +325,7 @@ export const CourseContentPage: React.FC = () => {
 
   if (isLoading || !course) {
     return (
-      <div className="min-h-screen bg-white flex flex-col">
+      <div className="h-screen bg-white flex flex-col">
         <MedicMenu />
         <div className="flex justify-center items-center flex-1">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -322,7 +336,7 @@ export const CourseContentPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex flex-col">
+      <div className="h-screen bg-white flex flex-col">
         <MedicMenu />
         <div className="flex justify-center items-center flex-1">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -335,12 +349,21 @@ export const CourseContentPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="h-screen bg-white flex flex-col">
       <MedicMenu />
       
       {/* Top navigation bar */}
       <div className="bg-neutral-900 text-white py-3 px-4 flex items-center justify-between">
         <div className="flex items-center">
+          {/* Mobile sidebar toggle button */}
+          <button 
+            onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            className="mr-4 hover:text-gray-300 md:hidden"
+            aria-label="Toggle course menu"
+          >
+            <FontAwesomeIcon icon={isMobileSidebarOpen ? faTimes : faBars} />
+          </button>
+          
           <button 
             onClick={() => navigate(`/student/courses`)}
             className="mr-4 hover:text-gray-300"
@@ -356,7 +379,7 @@ export const CourseContentPage: React.FC = () => {
             </span>
             <span className="mx-2">/</span>
             <span 
-              className="cursor-pointer hover:text-gray-300"
+              className="cursor-pointer hover:text-gray-300 truncate max-w-xs"
               onClick={() => navigate(`/courses/${courseId}`)}
             >
               {course.title}
@@ -365,30 +388,49 @@ export const CourseContentPage: React.FC = () => {
         </div>
       </div>
       
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile Sidebar Overlay */}
+        {isMobileSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+        
         {/* Course Sidebar */}
-        <CourseSidebar 
-          sections={course.sections}
-          expandedSections={expandedSections}
-          currentLessonId={currentLessonData?.id || null}
-          hasAccess={hasAccess}
-          completedLessons={completedLessons}
-          totalLessons={totalLessons}
-          totalHours={course.totalHours}
-          progressPercentage={progressPercentage}
-          toggleSection={toggleSection}
-          navigateToLesson={navigateToLesson}
-        />
+        <div className={`
+          ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0
+          transform transition-transform duration-300 ease-in-out
+          fixed md:relative
+          z-50 md:z-auto
+          h-full
+          w-full sm:w-80 md:w-60 lg:w-64
+        `}>
+          <CourseSidebar 
+            sections={course.sections}
+            expandedSections={expandedSections}
+            currentLessonId={currentLessonData?.id || null}
+            hasAccess={hasAccess}
+            completedLessons={completedLessons}
+            totalLessons={totalLessons}
+            totalHours={course.totalHours}
+            progressPercentage={progressPercentage}
+            toggleSection={toggleSection}
+            navigateToLesson={navigateToLesson}
+            navigateToQuiz={navigateToQuiz}
+            openPDFInNewTab={openPDFInNewTab}
+            onMobileClose={() => setIsMobileSidebarOpen(false)}
+          />
+        </div>
         
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto bg-white">
+        <div className="flex-1 overflow-y-auto bg-white min-w-0 flex flex-col">
           <LessonContent 
             lesson={currentLessonData}
-            videoBlobs={videoBlobs}
-            videoLoading={videoLoading}
             videoErrors={videoErrors}
-            selectedAttachment={selectedAttachment}
-            handleAttachmentClick={handleAttachmentClick}
+            preferredContentType={preferredContentType}
+            onPreferredContentTypeHandled={() => setPreferredContentType(null)}
           />
         </div>
       </div>
@@ -400,8 +442,8 @@ export const CourseContentPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
       />
 
-      {/* Course AI Bot - Only show for enrolled students */}
-      {hasAccess && <CourseAIBot />}
+      {/* Course AI Bot - Only show for enrolled students
+      {hasAccess && <CourseAIBot />} */}
     </div>
   );
 };

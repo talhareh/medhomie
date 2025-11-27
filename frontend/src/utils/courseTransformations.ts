@@ -4,7 +4,7 @@ import { ApiCourse, MedicalCourse, Section, Attachment } from '../types/courseTy
 /**
  * Transforms API course data to the internal format used by the UI
  */
-export const transformCourse = (apiCourse: ApiCourse): MedicalCourse => {
+export const transformCourse = (apiCourse: ApiCourse, quizzes: any[] = []): MedicalCourse => {
   // Calculate total duration in hours
   const totalMinutes = apiCourse.modules.reduce((acc, module) => {
     return acc + module.lessons.reduce((sum, lesson) => sum + (lesson.duration || 0), 0);
@@ -16,72 +16,100 @@ export const transformCourse = (apiCourse: ApiCourse): MedicalCourse => {
   const sections = apiCourse.modules
     .sort((a, b) => a.order - b.order)
     .map(module => {
-      // Store the course ID in each section for correct PDF URL construction
       const lessons = module.lessons
         .sort((a, b) => a.order - b.order)
         .map(lesson => {
-          // Process attachments to include filenames
+          // Process PDF URL - convert to attachment format for compatibility
           let processedAttachments: Attachment[] = [];
-          if (lesson.attachments && lesson.attachments.length > 0) {
-            // Map the attachments to include both the API path and the filename
-            processedAttachments = lesson.attachments.map((path, index) => {
-              let filename;
-              let apiPath = path;
-              
-              // Check if the path is already an API path (which is what we're receiving from the backend)
-              if (path.includes('/attachments/')) {
-                // For API paths, we need to make a separate request to get the filename
-                // For now, use a placeholder filename
-                filename = `Attachment ${index + 1}.pdf`;
-                
-                // Remove /api prefix if it exists since axios already adds it
-                if (path.startsWith('/api/')) {
-                  apiPath = path.substring(4);
-                }
-              } else {
-                // For direct file paths (which we're not currently receiving)
-                // Extract filename from the original path stored in the database
-                filename = path.split('/').pop() || `Attachment ${index + 1}`;
-                // Create API path for the attachment
-                apiPath = `/api/course-content/public/${apiCourse._id}/modules/${module._id}/lessons/${lesson._id}/attachments/${index}`;
+          
+          if (lesson.pdfUrl) {
+            // Extract filename from URL
+            const extractFilename = (url: string): string => {
+              // If ebookName is provided, use it
+              if (lesson.ebookName) {
+                return lesson.ebookName;
               }
               
-              console.log(`ATTACHMENT CHECK - Lesson: ${lesson.title}, Path: ${path}, Filename: ${filename}, API Path: ${apiPath}`);
-              
-              // Return the API path with metadata
-              return {
-                path: apiPath,
-                filename: filename,
-                originalPath: path
-              };
-            });
+              try {
+                // Try to extract filename from URL path
+                const urlPath = new URL(url).pathname;
+                const filename = urlPath.split('/').pop();
+                
+                // If we found a filename with extension, use it
+                if (filename && filename.includes('.')) {
+                  return filename;
+                }
+                
+                // Fallback to generic name
+                return 'Lesson PDF.pdf';
+              } catch (error) {
+                // If URL parsing fails, use fallback
+                return 'Lesson PDF.pdf';
+              }
+            };
+            
+            processedAttachments = [{
+              path: lesson.pdfUrl,
+              filename: extractFilename(lesson.pdfUrl),
+              originalPath: lesson.pdfUrl
+            }];
           }
           
-          // Debug info for video paths
-          console.log(`Processing lesson ${lesson.title}:`, {
-            hasVideo: !!lesson.video,
-            videoPath: lesson.video
+          // For video URLs, pass them directly to the HLS player
+          // The video field now contains either Cloudflare HLS URLs or BunnyCDN HLS URLs
+          
+          // Find quiz for this lesson
+          const lessonQuiz = quizzes.find(quiz => {
+            if (!quiz.lesson) return false; // Skip quizzes without lesson assignment
+            
+            // Handle different possible formats for lesson ID comparison
+            const quizLessonId = typeof quiz.lesson === 'object' ? quiz.lesson._id || quiz.lesson.toString() : quiz.lesson.toString();
+            const currentLessonId = lesson._id.toString();
+            
+            return quizLessonId === currentLessonId;
           });
           
-          // Determine the video URL
-          let videoUrl = '';
-          if (lesson.video) {
-            videoUrl = `/stream/${apiCourse._id}/modules/${module._id}/lessons/${lesson._id}/stream`;
-          }
+          // Determine lesson type with quiz support
+          const lessonType: 'video' | 'file' | 'quiz' = (() => {
+            // If lesson has a quiz and no other primary content, it's a quiz lesson
+            if (lessonQuiz && !lesson.video && !lesson.pdfUrl) {
+              return 'quiz';
+            }
+            // Preserve existing logic: video takes priority, then file
+            if (lesson.video) {
+              return 'video';
+            }
+            // Default to file for lessons with PDF or no content
+            return 'file';
+          })();
           
-          // TEMPORARY FIX: For testing purposes, assume all lessons have videos
-          // In production, this should be fixed on the backend
+          // Debug logging for videoSource
+          if (lesson.title === 'Test Bunny 1') {
+            console.log('🔍 DEBUG: Processing Test Bunny 1 lesson in transformation:', {
+              lessonId: lesson._id,
+              title: lesson.title,
+              video: lesson.video,
+              videoSource: lesson.videoSource,
+              hasVideoSource: !!lesson.videoSource
+            });
+          }
+
           return {
             id: lesson._id,
             title: lesson.title,
             duration: `${lesson.duration || 0}min`,
             completed: false, // We'll need to fetch this from user progress
-            type: (lesson.video ? 'video' : 'file') as 'video' | 'file',
+            type: lessonType, // Use the determined type
             content: lesson.description,
-            videoUrl: videoUrl,
+            videoUrl: lesson.video || undefined, // Video ID or full URL
+            videoSource: lesson.videoSource, // CDN provider: 'bunnycdn'
             description: lesson.description,
             isPreview: lesson.isPreview,
-            attachments: processedAttachments
+            attachments: processedAttachments, // Contains PDF from pdfUrl if available
+            pdfUrl: lesson.pdfUrl, // Also include pdfUrl directly for easy access
+            quiz: lessonQuiz ? (lessonQuiz._id || lessonQuiz.id) : undefined, // Handle both _id and id fields
+            quizCompleted: false, // TODO: Fetch from user progress
+            quizScore: undefined // TODO: Fetch from user progress
           };
         });
       

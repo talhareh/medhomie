@@ -29,6 +29,7 @@ yarn-error.log*
 /backend/.env
 /backend/dist
 /backend/build
+/backend/coverage
 
 # Frontend specific
 /frontend/.env

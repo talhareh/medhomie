@@ -2,7 +2,14 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlay, faClock, faCheck, faChevronRight, faChevronDown, faLock } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faPlay, 
+  faLock, 
+  faChevronRight, 
+  faChevronDown, 
+  faCheck,
+  faFile
+} from '@fortawesome/free-solid-svg-icons';
 import MedicMenu from './medicMaterial/MedicMenu';
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,6 +44,9 @@ interface Lesson {
   order: number;
   duration?: number;
   isPreview: boolean;
+  isAccessible?: boolean;
+  video?: boolean; // Added video property
+  attachments?: string[]; // Added attachments property for PDFs
 }
 
 interface Module {
@@ -96,7 +106,11 @@ export const CourseDetailPage: React.FC = () => {
   const hasAccess = user && course?.enrollmentStatus === 'approved';
 
   const handleLessonClick = (moduleId: string, lessonId: string) => {
-    if (hasAccess) {
+    const lesson = course?.modules
+      .find(m => m._id === moduleId)
+      ?.lessons.find(l => l._id === lessonId);
+    
+    if (lesson?.isAccessible) {
       navigate(`/courses/${courseId}/learn`, { 
         state: { 
           moduleId, 
@@ -110,6 +124,29 @@ export const CourseDetailPage: React.FC = () => {
 
   const closeModal = () => {
     setIsModalOpen(false);
+  };
+
+  // Function to open PDF in new tab with security protections
+  const openPDFInNewTab = (pdfUrl: string, filename: string) => {
+    try {
+      console.log('Opening PDF in protected viewer (new tab):', { pdfUrl, filename });
+      
+      // Encode URL and title for query parameters
+      const encodedUrl = encodeURIComponent(pdfUrl);
+      const encodedTitle = encodeURIComponent(filename);
+      
+      // Open in new tab with simple PDF viewer that has security protections
+      const viewerUrl = `${window.location.origin}/pdf-simple?url=${encodedUrl}&title=${encodedTitle}`;
+      const newWindow = window.open(viewerUrl, '_blank');
+      
+      if (!newWindow) {
+        throw new Error('Failed to open new tab. Please allow popups for this site.');
+      }
+      
+      console.log('PDF opened in protected viewer (new tab) successfully');
+    } catch (error) {
+      console.error('Error opening PDF in protected viewer:', error);
+    }
   };
 
   if (isLoading) {
@@ -176,9 +213,9 @@ export const CourseDetailPage: React.FC = () => {
                   <FontAwesomeIcon icon={faPlay} className="mr-2" />
                   <span>{totalLessons} lessons</span>
                 </div>
-                <div>
+                {/* <div>
                   <span>{course.enrollmentCount} students enrolled</span>
-                </div>
+                </div> */}
               </div>
 
               {/* Enrollment Status */}
@@ -312,26 +349,84 @@ export const CourseDetailPage: React.FC = () => {
                         .map((lesson) => (
                           <div
                             key={lesson._id}
-                            className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors cursor-pointer"
-                            onClick={() => handleLessonClick(module._id, lesson._id)}
+                            className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors"
                           >
-                            <div className="flex items-center space-x-3">
-                              {hasAccess || lesson.isPreview ? (
-                                <FontAwesomeIcon 
-                                  icon={faPlay} 
-                                  className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'} 
-                                />
+                            <div className="flex items-center space-x-3 flex-1">
+                              {lesson.isAccessible ? (
+                                <div className="flex items-center space-x-2">
+                                  {lesson.video && (
+                                    <div 
+                                      className="cursor-pointer hover:bg-neutral-100 p-1 rounded"
+                                      onClick={() => handleLessonClick(module._id, lesson._id)}
+                                      title="Click to view video lesson"
+                                    >
+                                      <FontAwesomeIcon 
+                                        icon={faPlay} 
+                                        className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'} 
+                                      />
+                                    </div>
+                                  )}
+                                  {lesson.attachments && lesson.attachments.length > 0 && (
+                                    <div 
+                                      className="cursor-pointer hover:bg-neutral-100 p-1 rounded"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Open the first PDF attachment in new tab
+                                        const firstAttachment = lesson.attachments![0];
+                                        const filename = `Lesson ${lesson.title}.pdf`;
+                                        openPDFInNewTab(firstAttachment, filename);
+                                      }}
+                                      title="Click to open PDF in new tab"
+                                    >
+                                      <FontAwesomeIcon 
+                                        icon={faFile} 
+                                        className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'} 
+                                      />
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <FontAwesomeIcon icon={faLock} className="text-neutral-400" />
                               )}
-                              <div>
-                                <h4 className={`font-medium ${hasAccess || lesson.isPreview ? 'text-neutral-800' : 'text-neutral-400'}`}>
+                              <div className="flex-1">
+                                <h4 className={`font-medium ${lesson.isAccessible ? 'text-neutral-800' : 'text-neutral-400'}`}>
                                   {lesson.title}
                                 </h4>
                                 {lesson.isPreview && (
                                   <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded-full">
                                     Preview
                                   </span>
+                                )}
+                                {/* Show lesson type indicators */}
+                                {lesson.isAccessible && (
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    {lesson.video && (
+                                      <span 
+                                        className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded cursor-pointer hover:bg-blue-100"
+                                        onClick={() => handleLessonClick(module._id, lesson._id)}
+                                        title="Click to view video lesson"
+                                      >
+                                        Video
+                                      </span>
+                                    )}
+                                    {(lesson.pdfUrl || (lesson.attachments && lesson.attachments.length > 0)) && (
+                                      <span 
+                                        className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded cursor-pointer hover:bg-green-100"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // Open PDF in new tab
+                                          const pdfUrl = lesson.pdfUrl || (lesson.attachments && typeof lesson.attachments[0] === 'string' ? lesson.attachments[0] : lesson.attachments?.[0]?.path);
+                                          const filename = lesson.ebookName || `Lesson ${lesson.title}.pdf`;
+                                          if (pdfUrl) {
+                                            openPDFInNewTab(pdfUrl, filename);
+                                          }
+                                        }}
+                                        title="Click to open PDF in new tab"
+                                      >
+                                        PDF
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>

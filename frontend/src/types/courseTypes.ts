@@ -1,12 +1,16 @@
 // courseTypes.ts - Type definitions for course-related components
+export type VideoCDNProvider = 'bunnycdn';
+
 export interface ApiLesson {
   _id: string;
   title: string;
   description: string;
   order: number;
   duration?: number;
-  video?: string;
+  video?: string; // Video ID from Bunny CDN
+  videoSource?: VideoCDNProvider; // CDN provider: 'bunnycdn'
   attachments: string[];
+  ebookName?: string;
   isPreview: boolean;
 }
 
@@ -45,10 +49,17 @@ export interface Lesson {
   completed: boolean;
   type: 'video' | 'file' | 'quiz';
   content?: string;
-  videoUrl?: string;
+  videoUrl?: string; // Video ID from Bunny CDN
+  videoSource?: VideoCDNProvider; // CDN provider: 'bunnycdn'
   description: string;
   isPreview: boolean;
-  attachments?: Attachment[];
+  attachments?: Attachment[]; // For PDF from pdfUrl (kept for compatibility)
+  pdfUrl?: string; // PDF URL from Bunny CDN
+  ebookName?: string; // Custom name for the PDF
+  // Quiz-related fields
+  quiz?: string; // Quiz ID if this lesson has an associated quiz
+  quizCompleted?: boolean; // Whether the quiz has been completed
+  quizScore?: number; // Quiz score if completed
 }
 
 export interface Section {

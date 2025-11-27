@@ -6,6 +6,10 @@ import { Enrollment, EnrollmentStatus } from '../models/Enrollment';
 import { UserRole } from '../models/User';
 import { Course, ICourseDocument } from '../models/Course';
 import { sendNotification } from '../utils/notification';
+import { Voucher } from '../models/Voucher';
+import { VoucherUsage } from '../models/VoucherUsage';
+import fs from 'fs';
+import path from 'path';
 
 // Create a new payment
 export const createPayment = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -49,11 +53,34 @@ export const createPayment = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    // Check if enrollment has a voucher code and get voucher details
+    let voucherData = null;
+    let finalAmount = amount;
+    let originalAmount = amount;
+    let discountAmount = 0;
+
+    if (enrollment.voucherCode) {
+      const voucher = await Voucher.findOne({ code: enrollment.voucherCode.toUpperCase() });
+      if (voucher) {
+        // Calculate discount based on course price
+        const course = await Course.findById(enrollment.course._id);
+        if (course) {
+          originalAmount = course.price;
+          discountAmount = (originalAmount * voucher.discountPercentage) / 100;
+          finalAmount = originalAmount - discountAmount;
+          voucherData = voucher;
+        }
+      }
+    }
+
     const payment = new Payment({
       enrollment: enrollmentId,
       student: req.user._id,
       course: enrollment.course._id,
-      amount,
+      amount: finalAmount,
+      originalAmount: voucherData ? originalAmount : undefined,
+      discountAmount: voucherData ? discountAmount : undefined,
+      voucher: voucherData ? voucherData._id : undefined,
       paymentDate,
       paymentMethod,
       bankName,
@@ -68,6 +95,36 @@ export const createPayment = async (req: AuthRequest, res: Response): Promise<vo
     });
 
     await payment.save();
+
+    // Create voucher usage record if voucher was applied
+    if (voucherData && enrollment.voucherCode) {
+      // Check if voucher usage already exists (shouldn't, but just in case)
+      const existingUsage = await VoucherUsage.findOne({
+        voucher: voucherData._id,
+        student: req.user._id,
+        enrollment: enrollmentId
+      });
+
+      if (!existingUsage) {
+        const voucherUsage = new VoucherUsage({
+          voucher: voucherData._id,
+          student: req.user._id,
+          course: enrollment.course._id,
+          enrollment: enrollmentId,
+          payment: payment._id,
+          discountAmount: discountAmount,
+          originalPrice: originalAmount,
+          finalPrice: finalAmount,
+          appliedBy: req.user._id
+        });
+
+        await voucherUsage.save();
+
+        // Update voucher used count
+        voucherData.usedCount += 1;
+        await voucherData.save();
+      }
+    }
 
     // Notify createdBy about new payment
     const course = await Course.findById(enrollment.course._id)
@@ -318,5 +375,48 @@ export const reuploadPaymentReceipt = async (req: AuthRequest, res: Response): P
     res.status(200).json(payment);
   } catch (error) {
     res.status(500).json({ message: 'Error reuploading payment receipt', error });
+  }
+};
+
+// Get invoice PDF
+export const getInvoicePDF = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { paymentId } = req.params;
+    
+    if (!req.user) {
+      res.status(401).json({ message: 'Unauthorized' });
+      return;
+    }
+
+    const payment = await Payment.findById(paymentId)
+      .populate('student')
+      .populate('course');
+    
+    if (!payment) {
+      res.status(404).json({ message: 'Payment not found' });
+      return;
+    }
+    
+    // Check authorization
+    if (req.user.role !== UserRole.ADMIN && 
+        payment.student.toString() !== req.user._id.toString()) {
+      res.status(403).json({ message: 'Not authorized to view this invoice' });
+      return;
+    }
+    
+    // Check if invoice file exists
+    if (!payment.receiptPath || !fs.existsSync(payment.receiptPath)) {
+      res.status(404).json({ message: 'Invoice not found' });
+      return;
+    }
+    
+    // Send PDF file
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="invoice-${paymentId}.pdf"`);
+    res.sendFile(path.resolve(payment.receiptPath));
+    
+  } catch (error) {
+    console.error('Error serving invoice PDF:', error);
+    res.status(500).json({ message: 'Error serving invoice' });
   }
 };

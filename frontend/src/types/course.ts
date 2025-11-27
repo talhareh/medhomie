@@ -60,6 +60,8 @@ export interface Course {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  // Quiz-related fields (optional for backward compatibility)
+  quizzes?: string[]; // Array of quiz IDs
 }
 
 export interface Filters {

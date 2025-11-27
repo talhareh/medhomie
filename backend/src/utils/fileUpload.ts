@@ -15,7 +15,8 @@ const createUploadDirectories = () => {
     'uploads/course-videos',
     'uploads/course-attachments',
     'uploads/course-images',
-    'uploads/payment-receipts'
+    'uploads/payment-receipts',
+    'uploads/payment-invoices'
   ];
   dirs.forEach(dir => {
     if (!fs.existsSync(dir)) {
@@ -144,6 +145,36 @@ export const uploadAttachment = multer({
 export const uploadPaymentReceipt = multer({
   storage: paymentReceiptStorage,
   fileFilter: paymentReceiptFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB max file size
+  }
+});
+
+// Configure storage for payment invoices
+const paymentInvoiceStorage = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb) => {
+    cb(null, 'uploads/payment-invoices');
+  },
+  filename: (req: Request, file: Express.Multer.File, cb) => {
+    // Use payment ID for consistent naming
+    const paymentId = req.params.paymentId || 'temp';
+    cb(null, `invoice-${paymentId}.pdf`);
+  }
+});
+
+// File filter for payment invoices
+const paymentInvoiceFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedTypes = ['application/pdf'];
+  if (!allowedTypes.includes(file.mimetype)) {
+    cb(new Error('Only PDF files are allowed for invoices.'));
+    return;
+  }
+  cb(null, true);
+};
+
+export const uploadPaymentInvoice = multer({
+  storage: paymentInvoiceStorage,
+  fileFilter: paymentInvoiceFilter,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB max file size
   }

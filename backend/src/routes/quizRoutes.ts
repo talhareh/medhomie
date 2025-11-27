@@ -9,6 +9,8 @@ const router = express.Router();
 // Type the request handlers properly
 const createQuizHandler = (req: Request, res: Response, next: NextFunction) => quizController.createQuiz(req, res, next);
 const getQuizHandler = (req: Request, res: Response, next: NextFunction) => quizController.getQuiz(req, res, next);
+const getAllQuizzesHandler = (req: Request, res: Response, next: NextFunction) => quizController.getAllQuizzes(req, res, next);
+const getQuizzesByCourseHandler = (req: Request, res: Response, next: NextFunction) => quizController.getQuizzesByCourse(req, res, next);
 const updateQuizHandler = (req: Request, res: Response, next: NextFunction) => quizController.updateQuiz(req, res, next);
 const deleteQuizHandler = (req: Request, res: Response, next: NextFunction) => quizController.deleteQuiz(req, res, next);
 
@@ -20,10 +22,17 @@ const startAttemptHandler = (req: Request, res: Response, next: NextFunction) =>
 const submitAttemptHandler = (req: Request, res: Response, next: NextFunction) => quizController.submitAttempt(req, res, next);
 
 const getQuizStatisticsHandler = (req: Request, res: Response, next: NextFunction) => quizController.getQuizStatistics(req, res, next);
+const checkQuizEligibilityHandler = (req: Request, res: Response, next: NextFunction) => quizController.checkQuizEligibility(req, res, next);
 
-// Quiz Routes
-router.post('/:id', authenticateToken, authorizeRoles(UserRole.ADMIN, UserRole.INSTRUCTOR), createQuizHandler);
-router.get('/:id', getQuizHandler);
+// Course-specific Quiz Routes (must come before /:id routes)
+router.post('/courses/:courseId', authenticateToken, authorizeRoles(UserRole.ADMIN, UserRole.INSTRUCTOR), createQuizHandler);
+router.get('/courses/:courseId/quizzes', authenticateToken, getQuizzesByCourseHandler); // Get all quizzes for a course
+
+// Get all quizzes (with pagination and filters) - must come before /:id routes
+router.get('/', authenticateToken, authorizeRoles(UserRole.ADMIN, UserRole.INSTRUCTOR), getAllQuizzesHandler);
+
+// Individual Quiz Routes
+router.get('/:id', authenticateToken, getQuizHandler);
 router.put('/:id', authenticateToken, authorizeRoles(UserRole.ADMIN, UserRole.INSTRUCTOR), updateQuizHandler);
 router.delete('/:id', authenticateToken, authorizeRoles(UserRole.ADMIN), deleteQuizHandler);
 
@@ -37,6 +46,7 @@ router.post('/:quizId/attempts', authenticateToken, startAttemptHandler);
 router.put('/attempts/:attemptId', authenticateToken, submitAttemptHandler);
 
 // Analytics Routes
+router.get('/:quizId/eligibility', authenticateToken, checkQuizEligibilityHandler);
 router.get('/:quizId/statistics', authenticateToken, getQuizStatisticsHandler);
 
 export default router;

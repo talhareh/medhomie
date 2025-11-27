@@ -211,7 +211,7 @@ const MedicOSCEAppPage: React.FC = () => {
       </section>
 
       {/* Demo Request Section */}
-      <section className="py-16 bg-white">
+      {/* <section className="py-16 bg-white">
         <div className="container mx-auto px-4 max-w-3xl">
           <h2 className="text-3xl font-bold text-center mb-8">Request a Demo</h2>
           <p className="text-center text-lg text-neutral-700 mb-8">
@@ -285,7 +285,7 @@ const MedicOSCEAppPage: React.FC = () => {
             </form>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Footer */}
       <MedicFooter />

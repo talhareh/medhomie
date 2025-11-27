@@ -17,38 +17,67 @@ const MedicAboutPage: React.FC = () => {
   const teamMembers = [
     {
       id: 1,
-      name: "Dr. Sophia N. M.",
-      role: "Chief Medical Officer",
+      name: "Dr. Mahjabeen Hira",
+      role: "CEO",
       description: "Dr. Sophia is a highly experienced Obstetrician and Gynaecologist with over 11 years of clinical and surgical experience. She specializes in women's health issues including abdominal and vaginal hysterectomies, laparotomies, vaginal repairs, and obstetrical care. Currently based in Abu Dhabi, she practices with a leading hospital chain in the Middle East. Her mentoring style has earned her great respect among students worldwide, and she has vast experience in academic training, helping candidates excel in their MRCOG and MRCPI exams."
     },
     {
       id: 2,
-      name: "Alex Krishnan",
-      role: "Chief Operations Officer",
+      name: "Dr. Tayabba Khan",
+      role: "",
       description: "Alex is passionate about delivering quality-driven education in the most effective way possible. He spearheads commercial efforts to create a balanced and integrated MedHome experience. With over 10 years of experience in operations management and analysis at multiple established organizations, Alex brings diverse expertise to address each client's unique business needs. He manages a team of operations officers and coordinators, maintaining smooth client relationships and driving the adoption of best practices in planning, training, and new technologies."
     },
     {
       id: 3,
-      name: "Dr. Tanya",
-      role: "Academic Director",
+      name: "Dr. Maria Saleem",
+      role: "",
       description: "Dr. Tanya brings over 15 years of experience in medical education and curriculum development. She has designed comprehensive training programs for various medical specialties and has been instrumental in establishing MedHome's reputation for academic excellence. Her innovative teaching methodologies have helped thousands of students achieve success in their medical examinations."
     },
     {
       id: 4,
-      name: "Dr. Clara Diwan",
-      role: "Director of Clinical Training",
+      name: "Dr. Arooj Akram",
+      role: "",
       description: "Dr. Clara specializes in clinical skills training and assessment. With extensive experience in both hospital settings and academic institutions, she bridges the gap between theoretical knowledge and practical application. Her workshops on clinical examination techniques are highly regarded in the medical education community."
     },
     {
       id: 5,
-      name: "Dr. Gavin Walsh",
-      role: "Research Director",
+      name: "Dr. Hina Shahid",
+      role: "",
       description: "Dr. Gavin leads MedHome's research initiatives, focusing on evidence-based medical education. His work has been published in several international journals, and he regularly presents at medical education conferences worldwide. Under his guidance, MedHome continues to evolve its teaching methodologies based on the latest research findings."
     },
     {
       id: 6,
-      name: "Ryan Vijayan",
-      role: "Head of Human Resources",
+      name: "Dr. Aqsa Mandvia",
+      role: "",
+      description: "Ryan is a dynamic HR leader with over a decade of experience in strategic human resources management. He oversees global HR operations, aligning strategies with organizational goals to foster a culture of growth, productivity, and employee well-being. A strong advocate for diversity and inclusion, Ryan is dedicated to building a positive, ethical workplace that prioritizes both employee satisfaction and business success."
+    },    {
+      id: 6,
+      name: "Dr. Saba",
+      role: "",
+      description: "Ryan is a dynamic HR leader with over a decade of experience in strategic human resources management. He oversees global HR operations, aligning strategies with organizational goals to foster a culture of growth, productivity, and employee well-being. A strong advocate for diversity and inclusion, Ryan is dedicated to building a positive, ethical workplace that prioritizes both employee satisfaction and business success."
+    } ,
+       {
+      id: 6,
+      name: "Dr. Memona ",
+      role: "",
+      description: "Ryan is a dynamic HR leader with over a decade of experience in strategic human resources management. He oversees global HR operations, aligning strategies with organizational goals to foster a culture of growth, productivity, and employee well-being. A strong advocate for diversity and inclusion, Ryan is dedicated to building a positive, ethical workplace that prioritizes both employee satisfaction and business success."
+    },
+    {
+      id: 6,
+      name: "Dr. Sadia Tabassum ",
+      role: "Course Director",
+      description: "Ryan is a dynamic HR leader with over a decade of experience in strategic human resources management. He oversees global HR operations, aligning strategies with organizational goals to foster a culture of growth, productivity, and employee well-being. A strong advocate for diversity and inclusion, Ryan is dedicated to building a positive, ethical workplace that prioritizes both employee satisfaction and business success."
+    },
+    {
+      id: 6,
+      name: "Ayesha Faryal ",
+      role: "Manager",
+      description: "Ryan is a dynamic HR leader with over a decade of experience in strategic human resources management. He oversees global HR operations, aligning strategies with organizational goals to foster a culture of growth, productivity, and employee well-being. A strong advocate for diversity and inclusion, Ryan is dedicated to building a positive, ethical workplace that prioritizes both employee satisfaction and business success."
+    },
+    {
+      id: 6,
+      name: "Nabira Ahmed",
+      role: "Human Resources",
       description: "Ryan is a dynamic HR leader with over a decade of experience in strategic human resources management. He oversees global HR operations, aligning strategies with organizational goals to foster a culture of growth, productivity, and employee well-being. A strong advocate for diversity and inclusion, Ryan is dedicated to building a positive, ethical workplace that prioritizes both employee satisfaction and business success."
     }
   ];
@@ -176,7 +205,7 @@ const MedicAboutPage: React.FC = () => {
       </section>
 
       {/* Awards Section */}
-      <section className="py-16 bg-white">
+      {/* <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-8">Awards & Recognitions</h2>
           <p className="text-lg text-neutral-700 text-center max-w-4xl mx-auto mb-12">
@@ -209,7 +238,7 @@ const MedicAboutPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Team Section */}
       <section className="py-16 bg-neutral-100">
@@ -232,7 +261,7 @@ const MedicAboutPage: React.FC = () => {
       </section>
 
       {/* Offices Section */}
-      <section className="py-16 bg-white">
+      {/* <section className="py-16 bg-white">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-8">Our Global Presence</h2>
           
@@ -263,7 +292,7 @@ const MedicAboutPage: React.FC = () => {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Newsletter Section */}
       <section className="py-16 bg-neutral-100">

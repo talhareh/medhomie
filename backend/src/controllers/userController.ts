@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { User, UserRole } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
+import { sendAdminCreatedUserEmail } from '../services/emailService';
 
 // Get all users (admin only)
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
@@ -252,6 +253,19 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     });
 
     await user.save();
+
+    // Send welcome email to the user
+    try {
+      await sendAdminCreatedUserEmail(
+        user.email,
+        user.fullName || 'User',
+        user.email, // Using email as username
+        password // Send the original password before hashing
+      );
+    } catch (emailError) {
+      console.error('Error sending admin-created user email:', emailError);
+      // Don't fail the user creation if email fails
+    }
 
     // Convert to plain object and remove sensitive fields
     const userDoc = user.toObject();

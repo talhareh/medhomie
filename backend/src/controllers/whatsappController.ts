@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
 import WhatsappConversation from '../models/WhatsappConversation';
+import { generateSupportResponse } from '../services/aiService';
 
 // GET /webhook - Verification
 export const verifyWebhook = (req: Request, res: Response) => {
@@ -62,44 +63,42 @@ export const handleWebhook = async (req: Request, res: Response) => {
       const text = message.text?.body?.trim();
       const messageId = message.id;
 
+      if (!text) {
+        console.log(`Received non-text message from ${from}. Skipping.`);
+        res.sendStatus(200);
+        return;
+      }
+
       console.log(`Incoming message from ${from}: "${text}" (ID: ${messageId})`);
 
-      // Save inbound message
-      await WhatsappConversation.findOneAndUpdate(
-        { phoneNumber: from },
-        {
-          $push: {
-            messages: {
-              direction: 'inbound',
-              message: text,
-              timestamp: new Date(),
-              messageId,
-              raw: message,
-            },
-          },
-        },
-        { upsert: true, new: true }
-      );
+      // Find or create conversation
+      let conversation = await WhatsappConversation.findOne({ phoneNumber: from });
+      if (!conversation) {
+        conversation = new WhatsappConversation({ phoneNumber: from, messages: [] });
+      }
 
-      // Always reply with the same message
-      const reply = "Hello, How can I help you?";
-      console.log(`Sending reply to ${from}: "${reply}"`);
-      await sendWhatsAppMessage(from, reply);
+      // Add inbound message
+      conversation.messages.push({
+        direction: 'inbound',
+        message: text,
+        timestamp: new Date(),
+        messageId,
+        raw: message,
+      });
+
+      // Generate AI response
+      const aiReply = await generateSupportResponse(conversation.messages, text);
+      console.log(`Sending AI reply to ${from}: "${aiReply}"`);
+      await sendWhatsAppMessage(from, aiReply);
 
       // Save outbound message
-      await WhatsappConversation.findOneAndUpdate(
-        { phoneNumber: from },
-        {
-          $push: {
-            messages: {
-              direction: 'outbound',
-              message: reply,
-              timestamp: new Date(),
-              // Optionally, add a messageId if you get it from WhatsApp API response
-            },
-          },
-        }
-      );
+      conversation.messages.push({
+        direction: 'outbound',
+        message: aiReply,
+        timestamp: new Date(),
+      });
+      
+      await conversation.save();
     }
 
     res.sendStatus(200);

@@ -6,6 +6,7 @@ import MedicMenu from '../medicMaterial/MedicMenu';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCalendarAlt, faClock, faUser, faTag, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
+import { getImageUrl } from '../../utils/imageUtils';
 
 const BlogDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -65,9 +66,14 @@ const BlogDetailPage: React.FC = () => {
           {blog.featuredImage && (
             <div className="w-full h-96 overflow-hidden">
               <img 
-                src={blog.featuredImage} 
+                src={getImageUrl(blog.featuredImage)} 
                 alt={blog.title} 
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.style.display = 'none';
+                }}
               />
             </div>
           )}

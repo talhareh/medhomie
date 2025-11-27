@@ -11,5 +11,11 @@ export const courseService = {
       }
     });
     return response.data;
+  },
+
+  // Get a single course by ID
+  getCourse: async (courseId: string) => {
+    const response = await api.get(`/courses/${courseId}`);
+    return response.data;
   }
 };

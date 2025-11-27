@@ -1,29 +1,40 @@
 import { Schema, model, Document } from 'mongoose';
 
 interface IQuiz extends Document {
-  courseId: Schema.Types.ObjectId;
   title: string;
   description?: string;
-  passingScore: number;
-  maxAttempts: number;
-  timeLimit?: number;
-  isPublished: boolean;
+  course: Schema.Types.ObjectId; // Reference to Course
+  lesson?: Schema.Types.ObjectId; // Reference to Lesson ID (optional, embedded in Course)
   questions: Schema.Types.ObjectId[];
-  categories: Schema.Types.ObjectId[];
-  tags: Schema.Types.ObjectId[];
+  timeLimit?: number; // Time limit in minutes
+  passingScore: number; // Minimum score to pass (percentage)
+  maxAttempts: number;
+  isActive: boolean;
+  shuffleQuestions: boolean;
+  showCorrectAnswers: boolean;
+  allowReview: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const quizSchema = new Schema<IQuiz>({
-  courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
   title: { type: String, required: true },
   description: { type: String },
-  passingScore: { type: Number, required: true },
-  maxAttempts: { type: Number, required: true, default: 1 },
-  timeLimit: { type: Number },
-  isPublished: { type: Boolean, default: false },
+  course: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
+  lesson: { type: Schema.Types.ObjectId }, // Optional - for lesson-specific quizzes (embedded in Course)
   questions: [{ type: Schema.Types.ObjectId, ref: 'Question' }],
-  categories: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
-  tags: [{ type: Schema.Types.ObjectId, ref: 'Tag' }]
+  timeLimit: { type: Number }, // Time limit in minutes
+  passingScore: { type: Number, required: true, min: 0, max: 100 },
+  maxAttempts: { type: Number, required: true, default: 1, min: 1 },
+  isActive: { type: Boolean, default: true },
+  shuffleQuestions: { type: Boolean, default: false },
+  showCorrectAnswers: { type: Boolean, default: false },
+  allowReview: { type: Boolean, default: true }
 }, { timestamps: true });
+
+// Indexes for better query performance
+quizSchema.index({ course: 1 });
+quizSchema.index({ lesson: 1 });
+quizSchema.index({ isActive: 1 });
 
 export const Quiz = model<IQuiz>('Quiz', quizSchema);

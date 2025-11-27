@@ -6,10 +6,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0', // Listen on all available network interfaces
-    allowedHosts: [
-      'localhost',
-      'uat.medhome.courses',
-      ],
+    port: 5173,
+    strictPort: true,
+    allowedHosts: true, // Allow all hosts for development
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

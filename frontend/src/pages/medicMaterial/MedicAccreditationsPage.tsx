@@ -160,7 +160,7 @@ const MedicAccreditationsPage: React.FC = () => {
       </section>
 
       {/* Enquiry Section */}
-      <section className="py-16 bg-neutral-100">
+      {/* <section className="py-16 bg-neutral-100">
         <div className="container mx-auto px-4 max-w-3xl">
           <h2 className="text-3xl font-bold text-center mb-8">Make an Enquiry</h2>
           <div className="bg-white p-8 rounded-lg shadow-md">
@@ -212,7 +212,7 @@ const MedicAccreditationsPage: React.FC = () => {
             </form>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Why Choose Accredited Education Section */}
       <section className="py-16 bg-white">
