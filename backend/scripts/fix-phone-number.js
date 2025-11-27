@@ -4,14 +4,32 @@
  *
  * Run with: node scripts/fix-phone-number.js
  */
+require('dotenv').config();
 const mysql = require('mysql');
 const util = require('util');
 
+// Load database credentials from environment variables
+const {
+    DB_HOST,
+    DB_PORT,
+    DB_USER,
+    DB_PASSWORD,
+    DB_NAME
+} = process.env;
+
+if (!DB_HOST || !DB_PORT || !DB_USER || !DB_PASSWORD || !DB_NAME) {
+    console.error('❌ Missing required database environment variables!');
+    console.error('Required: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME');
+    console.error('Please check your .env file.');
+    process.exit(1);
+}
+
 const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'medhome'
+    host: DB_HOST,
+    port: parseInt(DB_PORT, 10),
+    user: DB_USER,
+    password: DB_PASSWORD,
+    database: DB_NAME
 });
 
 const query = util.promisify(connection.query).bind(connection);
