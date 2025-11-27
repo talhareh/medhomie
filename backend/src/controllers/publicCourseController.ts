@@ -103,16 +103,18 @@ interface PublicCourseDetailResponse {
     title: string;
     description: string;
     order: number;
-    lessons: {
-      _id: Types.ObjectId;
-      title: string;
-      description: string;
-      order: number;
-      duration?: number;
-      isPreview: boolean;
-      video?: string;
-      attachments?: string[];
-    }[];
+          lessons: {
+        _id: Types.ObjectId;
+        title: string;
+        description: string;
+        order: number;
+        duration?: number;
+        isPreview: boolean;
+        video?: string;
+        isAccessible: boolean;
+        pdfUrl?: string;
+        ebookName?: string;
+      }[];
   }[];
   enrollmentStatus?: string | null;
   noticeBoard: string[];
@@ -134,7 +136,7 @@ export const getPublicCourseDetails = async (
       select: 'title description order',
       populate: {
         path: 'lessons',
-        select: 'title description order duration isPreview video'
+        select: 'title description order duration isPreview video pdfUrl ebookName'
       }
     });
 
@@ -170,20 +172,18 @@ export const getPublicCourseDetails = async (
         title: module.title,
         description: module.description,
         order: module.order,
-        lessons: module.lessons
-          .filter(lesson => lesson.isPreview || enrollmentStatus === 'approved')
-          .map(lesson => ({
-            _id: lesson._id,
-            title: lesson.title,
-            description: lesson.description,
-            order: lesson.order,
-            duration: lesson.duration,
-            isPreview: lesson.isPreview,
-            video: lesson.video,
-            attachments: lesson.attachments && lesson.attachments.length > 0 ? 
-              lesson.attachments.map((path, index) => `/api/public/${course._id}/modules/${module._id}/lessons/${lesson._id}/attachments/${index}`) : 
-              []
-          }))
+        lessons: module.lessons.map(lesson => ({
+          _id: lesson._id,
+          title: lesson.title,
+          description: lesson.description,
+          order: lesson.order,
+          duration: lesson.duration,
+          isPreview: lesson.isPreview,
+          video: lesson.video,
+          isAccessible: lesson.isPreview || enrollmentStatus === 'approved',
+          pdfUrl: lesson.pdfUrl,
+          ebookName: lesson.ebookName
+        }))
       })),
       enrollmentStatus,
       noticeBoard: course.noticeBoard

@@ -11,7 +11,8 @@ import {
   updatePaymentStatus,
   getPayments,
   getPaymentById,
-  reuploadPaymentReceipt
+  reuploadPaymentReceipt,
+  getInvoicePDF
 } from '../controllers/paymentController';
 
 const router = express.Router();
@@ -50,6 +51,12 @@ router.post(
   uploadPaymentReceipt.single('paymentReceipt'),
   validatePaymentReupload,
   reuploadPaymentReceipt
+);
+
+router.get(
+  '/:paymentId/invoice',
+  authenticateToken,
+  getInvoicePDF
 );
 
 export default router;

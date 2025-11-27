@@ -13,9 +13,7 @@ export const getSignedVideoUrl = async (req: AuthRequest, res: Response): Promis
   try {
     const { courseId, moduleId, lessonId } = req.params;
 
-    const authReq = req as AuthRequest;
-
-    if (!authReq.user) {
+    if (!req.user) {
       res.status(401).json({ message: 'Unauthorized' });
       return;
     }
@@ -41,23 +39,31 @@ export const getSignedVideoUrl = async (req: AuthRequest, res: Response): Promis
     }
 
     // Check if user has access to the video
-    const hasAccess = await checkVideoAccess(req.user!._id, course, lesson.isPreview, req.user!.role);
+    const hasAccess = await checkVideoAccess(req.user._id, course, lesson.isPreview, req.user.role);
     if (!hasAccess) {
       res.status(403).json({ message: 'Access denied' });
+      return;
+    }
+    
+    // Handle Bunny CDN video source
+    if (lesson.video && lesson.videoSource === 'bunnycdn') {
+      // Return the video ID - the frontend will construct the iframe URL
+      console.log('Returning Bunny CDN video ID:', lesson.video);
+      res.json({ url: lesson.video, videoSource: 'bunnycdn' });
       return;
     }
 
     // Generate a signed token for the video
     const videoToken = jwt.sign(
       { 
-        userId: req.user!._id,
+        userId: req.user._id,
         courseId,
         moduleId,
         lessonId,
         timestamp: Date.now()
       },
-      process.env.JWT_SECRET || 'your_jwt_secret_key',
-      { expiresIn: '1h' } // Token expires in 1 hour
+      process.env.JWT_SECRET || 'your_jwt_secret_key'
+      // Token never expires (removed expiresIn parameter)
     );
 
     // Return the signed URL
@@ -166,13 +172,8 @@ export const streamVideoWithToken = async (req: any, res: Response): Promise<voi
       return;
     }
     
-    // Check if token is expired (optional additional check)
-    const now = Date.now();
-    const tokenAge = now - decoded.timestamp;
-    if (tokenAge > 3600000) { // 1 hour in milliseconds
-      res.status(401).json({ message: 'Token expired' });
-      return;
-    }
+    // Token expiration check removed - tokens now never expire
+    // The timestamp is still included in the token for tracking purposes only
     
     // Find the course
     const course = await Course.findById(decoded.courseId);

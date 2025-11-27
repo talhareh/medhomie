@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/axios';
+import { useCourseQuizzes } from '../../hooks/useQuizzes';
 
 interface Course {
   _id: string;
@@ -59,13 +60,17 @@ export const CourseDetailPage: React.FC = () => {
     },
   });
 
+  // Fetch course quizzes
+  const { data: quizzesData } = useCourseQuizzes(courseId!);
+  const quizzes = quizzesData?.data?.quizzes || [];
+
   const addNoticeMutation = useMutation({
     mutationFn: async (notice: string) => {
       const response = await api.post(`/courses/${courseId}/notice`, { notice });
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['course', courseId]);
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       setNewNotice('');
       toast.success('Notice added successfully');
     },
@@ -79,11 +84,27 @@ export const CourseDetailPage: React.FC = () => {
       await api.delete(`/courses/${courseId}/content/${contentId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['course', courseId]);
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
       toast.success('Content deleted successfully');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Error deleting content');
+    },
+  });
+
+  const cloneMutation = useMutation({
+    mutationFn: async (courseId: string) => {
+      const response = await api.post(`/courses/${courseId}/clone`);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      toast.success('Course cloned successfully');
+      // Navigate to the cloned course edit page
+      navigate(`/admin/courses/${data.course._id}/edit`);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Error cloning course');
     },
   });
 
@@ -99,6 +120,12 @@ export const CourseDetailPage: React.FC = () => {
   const handleDeleteContent = (contentId: string) => {
     if (window.confirm('Are you sure you want to delete this content?')) {
       deleteContentMutation.mutate(contentId);
+    }
+  };
+
+  const handleClone = () => {
+    if (window.confirm('Are you sure you want to clone this course? This will create a copy with all modules and lessons.')) {
+      cloneMutation.mutate(courseId!);
     }
   };
 
@@ -152,6 +179,13 @@ export const CourseDetailPage: React.FC = () => {
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
             >
               Manage Content
+            </button>
+            <button
+              onClick={handleClone}
+              className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+              disabled={cloneMutation.isPending}
+            >
+              {cloneMutation.isPending ? 'Cloning...' : 'Clone Course'}
             </button>
             <button
               onClick={() => navigate('/admin/courses')}
@@ -209,6 +243,75 @@ export const CourseDetailPage: React.FC = () => {
                           <p className="text-sm text-gray-500 mt-1">
                             {module.lessons?.length || 0} Lessons
                           </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Course Quizzes */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Course Quizzes</h2>
+                <button
+                  onClick={() => navigate(`/admin/quizzes/new?courseId=${courseId}`)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Create Quiz
+                </button>
+              </div>
+              
+              {quizzes.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-4">No quizzes created yet.</p>
+                  <button
+                    onClick={() => navigate(`/admin/quizzes/new?courseId=${courseId}`)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                  >
+                    Create Your First Quiz
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {quizzes.map((quiz) => (
+                    <div key={quiz._id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h3 className="font-semibold">{quiz.title}</h3>
+                          {quiz.description && (
+                            <p className="text-gray-600 text-sm mt-1">{quiz.description}</p>
+                          )}
+                          <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                            <span>{quiz.questions.length} Questions</span>
+                            <span>{quiz.timeLimit ? `${quiz.timeLimit} min` : 'No time limit'}</span>
+                            <span>{quiz.passingScore}% passing score</span>
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              quiz.isActive 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {quiz.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2 ml-4">
+                          <button
+                            onClick={() => navigate(`/admin/quizzes/${quiz._id}`)}
+                            className="text-blue-600 hover:text-blue-900 text-sm"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => navigate(`/admin/quizzes/${quiz._id}/edit`)}
+                            className="text-green-600 hover:text-green-900 text-sm"
+                          >
+                            Edit
+                          </button>
                         </div>
                       </div>
                     </div>

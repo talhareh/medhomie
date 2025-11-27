@@ -15,7 +15,10 @@ export interface ILessonData {
   order: number;
   duration?: number;
   video?: string;
+  videoSource?: 'bunnycdn';
   attachments: string[];
+  pdfUrl?: string;
+  ebookName?: string;
   isPreview: boolean;
 }
 
@@ -68,7 +71,14 @@ const lessonSchema = new Schema<ILessonDocument>({
   order: { type: Number, required: true },
   duration: { type: Number },
   video: { type: String },
+  videoSource: { 
+    type: String, 
+    enum: ['bunnycdn']
+    // No default - must be explicitly set
+  },
   attachments: [{ type: String }],
+  pdfUrl: { type: String },
+  ebookName: { type: String },
   isPreview: { type: Boolean, default: false }
 }, { _id: true });
 

@@ -21,7 +21,6 @@ router.post(
 router.put(
   '/:courseId/modules/:moduleId/lessons/:lessonId',
   authenticateToken,
-  uploadVideo.single('video'),
   updateLesson
 );
 

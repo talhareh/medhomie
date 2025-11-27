@@ -177,8 +177,13 @@ export const PaymentsPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">My Payments</h1>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">My Payments</h1>
+          <div className="text-sm text-gray-600">
+            {payments.length} payment{payments.length !== 1 ? 's' : ''}
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
@@ -189,83 +194,148 @@ export const PaymentsPage: React.FC = () => {
             <p className="text-gray-500 text-lg">No payment history found.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Course
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Method
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {payments.map((payment) => (
-                  <tr key={payment._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {format(new Date(payment.enrollmentDate), 'MMM dd, yyyy')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {payment.course?.title || 'Course unavailable'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${payment.course?.price || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {payment.paymentMethod === 'paypal' ? (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          Card Payment
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Course
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Method
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {payments.map((payment) => (
+                    <tr key={payment._id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {format(new Date(payment.enrollmentDate), 'MMM dd, yyyy')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {payment.course?.title || 'Course unavailable'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${payment.course?.price || 0}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {payment.paymentMethod === 'paypal' ? (
+                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            Card Payment
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                            Manual
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(payment.status)}`}>
+                          {getStatusIcon(payment.status)}
+                          <span className="ml-1">{payment.status}</span>
                         </span>
-                      ) : (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                          Manual
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(payment.status)}`}>
+                        {payment.status === EnrollmentStatus.REJECTED && payment.rejectionReason && (
+                          <p className="text-xs text-red-600 mt-1">{payment.rejectionReason}</p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <button
+                          onClick={() => handleViewReceipt(payment)}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                          title="View Receipt"
+                        >
+                          <FontAwesomeIcon icon={faEye} />
+                        </button>
+                        <button
+                          onClick={() => handleDownloadReceipt(payment)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Download Receipt"
+                        >
+                          <FontAwesomeIcon icon={faDownload} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {payments.map((payment) => (
+                <div key={payment._id} className="bg-white rounded-lg shadow-md p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 text-sm line-clamp-2">
+                        {payment.course?.title || 'Course unavailable'}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {format(new Date(payment.enrollmentDate), 'MMM dd, yyyy')}
+                      </p>
+                    </div>
+                    <div className="flex items-center ml-3">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(payment.status)}`}>
                         {getStatusIcon(payment.status)}
                         <span className="ml-1">{payment.status}</span>
                       </span>
-                      {payment.status === EnrollmentStatus.REJECTED && payment.rejectionReason && (
-                        <p className="text-xs text-red-600 mt-1">{payment.rejectionReason}</p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => handleViewReceipt(payment)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                        title="View Receipt"
-                      >
-                        <FontAwesomeIcon icon={faEye} />
-                      </button>
-                      <button
-                        onClick={() => handleDownloadReceipt(payment)}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Download Receipt"
-                      >
-                        <FontAwesomeIcon icon={faDownload} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Amount</p>
+                      <p className="font-semibold text-gray-900">${payment.course?.price || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Payment Method</p>
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        payment.paymentMethod === 'paypal' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {payment.paymentMethod === 'paypal' ? 'Card Payment' : 'Manual'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {payment.status === EnrollmentStatus.REJECTED && payment.rejectionReason && (
+                    <div className="mb-3 p-2 bg-red-50 rounded">
+                      <p className="text-xs text-red-600">{payment.rejectionReason}</p>
+                    </div>
+                  )}
+
+                  <div className="flex space-x-3 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={() => handleViewReceipt(payment)}
+                      className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-50 text-blue-600 rounded text-sm hover:bg-blue-100 transition-colors"
+                    >
+                      <FontAwesomeIcon icon={faEye} className="w-4 h-4 mr-2" />
+                      View Receipt
+                    </button>
+                    <button
+                      onClick={() => handleDownloadReceipt(payment)}
+                      className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-50 text-gray-600 rounded text-sm hover:bg-gray-100 transition-colors"
+                    >
+                      <FontAwesomeIcon icon={faDownload} className="w-4 h-4 mr-2" />
+                      Download
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Receipt Viewer Modal */}

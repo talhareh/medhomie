@@ -141,9 +141,9 @@ export const LessonForm: React.FC<LessonFormProps> = ({
         return false;
       }
 
-      // Validate file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`File too large: ${file.name}`);
+      // Validate file size (200MB limit)
+      if (file.size > 200 * 1024 * 1024) {
+        toast.error(`File too large: ${file.name} (max 200MB)`);
         return false;
       }
 
@@ -278,7 +278,7 @@ export const LessonForm: React.FC<LessonFormProps> = ({
           className="w-full"
         />
         <p className="mt-1 text-sm text-gray-500">
-          Supported formats: PDF, DOC, DOCX, PPT, PPTX (max 10MB each)
+          Supported formats: PDF, DOC, DOCX, PPT, PPTX (max 200MB each)
         </p>
         
         {attachmentFiles.length > 0 && (

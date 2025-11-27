@@ -21,6 +21,9 @@ import blogRoutes from './routes/blogRoutes';
 import whatsappRoutes from './routes/whatsappRoutes';
 import aiChatRoutes from './routes/aiChatRoutes';
 import quizRoutes from './routes/quizRoutes';
+// Cloudflare routes removed - using Bunny CDN for all media
+import paypalRoutes from './routes/paypalRoutes';
+import voucherRoutes from './routes/voucherRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
 config();
@@ -77,6 +80,9 @@ app.use('/api/webhook/whatsapp', whatsappRoutes);
 app.use('/api', whatsappRoutes);
 app.use('/api', aiChatRoutes);
 app.use('/api/quizzes', quizRoutes);
+// app.use('/api/cloudflare', cloudflareRoutes); // Removed - using Bunny CDN
+app.use('/api/paypal', paypalRoutes);
+app.use('/api/vouchers', voucherRoutes);
 
 // Basic route for testing
 app.get('/', (req: Request, res: Response) => {

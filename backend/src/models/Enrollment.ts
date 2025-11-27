@@ -12,6 +12,7 @@ export interface IEnrollment extends Document {
   paymentReceipt?: string;
   paymentMethod?: string;
   paymentDetails?: Record<string, any>;
+  voucherCode?: string; // Voucher code used (for reference)
   status: EnrollmentStatus;
   enrollmentDate: Date;
   approvalDate?: Date;
@@ -40,6 +41,11 @@ const enrollmentSchema = new Schema<IEnrollment>({
   paymentDetails: {
     type: Schema.Types.Mixed,
     required: false
+  },
+  voucherCode: {
+    type: String,
+    trim: true,
+    uppercase: true
   },
   status: {
     type: String,

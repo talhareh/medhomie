@@ -5,6 +5,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
+import PageTransition from './components/common/PageTransition';
 import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { PublicHomePage } from './pages/PublicHomePage';
@@ -26,13 +27,21 @@ import { MyCoursesPage } from './pages/student/MyCoursesPage';
 import { StudentCoursesPage } from './pages/student/StudentCoursesPage';
 import { PaymentsPage } from './pages/student/PaymentsPage';
 import { CardPaymentPage } from './pages/student/CardPaymentPage';
+import { QuizTakingPage } from './pages/student/QuizTakingPage';
+import { QuizResultsPage } from './pages/student/QuizResultsPage';
 import { UsersListPage } from './pages/admin/UsersListPage';
 import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
 import { CategoriesManagementPage } from './pages/admin/CategoriesManagementPage';
 import { TagsManagementPage } from './pages/admin/TagsManagementPage';
 import { EnrollmentManagement } from './pages/admin/EnrollmentManagement';
+import { VoucherManagementPage } from './pages/admin/VoucherManagementPage';
 import { CourseContentManager } from './components/layout/CourseContentManager';
 import { ModuleLessonsManager } from './components/layout/ModuleLessonsManager';
+import { QuizzesListPage } from './pages/admin/QuizzesListPage';
+import { QuizDetailPage } from './pages/admin/QuizDetailPage';
+import { CreateQuizPage } from './pages/admin/CreateQuizPage';
+import { CreateQuestionPage } from './pages/admin/CreateQuestionPage';
+import { EditQuestionPage } from './pages/admin/EditQuestionPage';
 import MedicHomePage from './pages/medicMaterial/MedicHomePage';
 import MedicAboutPage from './pages/medicMaterial/MedicAboutPage';
 import MedicScholarshipPage from './pages/medicMaterial/MedicScholarshipPage';
@@ -45,6 +54,7 @@ import MedicOSCEAppPage from './pages/medicMaterial/MedicOSCEAppPage';
 import MedicBlogsPage from './pages/medicMaterial/MedicBlogsPage';
 import MedicContactPage from './pages/medicMaterial/MedicContactPage';
 import { PDFViewerPage } from './pages/PDFViewerPage';
+import { SimplePDFViewerPage } from './pages/SimplePDFViewerPage';
 import BlogsListPage from './pages/admin/blog/BlogsListPage';
 import CreateBlogPage from './pages/admin/blog/CreateBlogPage';
 import EditBlogPage from './pages/admin/blog/EditBlogPage';
@@ -95,9 +105,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<MedicHomePage />} />
+          <PageTransition autoDetect={true}>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<MedicHomePage />} />
             <Route path="/landing" element={<Navigate to="/" replace />} />
             <Route path="/home" element={<PublicHomePage />} />
             <Route path="/auth" element={<AuthPage />} />
@@ -134,9 +145,14 @@ function App() {
             } />
             
             {/* PDF Viewer Routes */}
-            <Route path="/pdf/:courseId/modules/:moduleId/lessons/:lessonId/attachments/:attachmentIndex" element={
+            <Route path="/pdf-viewer" element={
               <ProtectedRoute>
                 <PDFViewerPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/pdf-simple" element={
+              <ProtectedRoute>
+                <SimplePDFViewerPage />
               </ProtectedRoute>
             } />
             
@@ -158,6 +174,19 @@ function App() {
             <Route path="/student/courses" element={
               <ProtectedRoute>
                 <StudentCoursesPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Student Quiz Routes */}
+            <Route path="/student/quiz/:quizId" element={
+              <ProtectedRoute>
+                <QuizTakingPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/student/quiz-results/:attemptId" element={
+              <ProtectedRoute>
+                <QuizResultsPage />
               </ProtectedRoute>
             } />
 
@@ -280,6 +309,13 @@ function App() {
               </ProtectedRoute>
             } />
             
+            {/* Admin Voucher Management */}
+            <Route path="/admin/vouchers" element={
+              <ProtectedRoute adminOnly>
+                <VoucherManagementPage />
+              </ProtectedRoute>
+            } />
+            
             {/* Admin WhatsApp Conversations */}
             <Route path="/admin/whatsapp-conversations" element={
               <ProtectedRoute adminOnly>
@@ -293,10 +329,48 @@ function App() {
                 <PublicAIChatConversationsPage />
               </ProtectedRoute>
             } />
+
+            {/* Admin Quiz Management */}
+            <Route path="/admin/quizzes" element={
+              <ProtectedRoute adminOnly>
+                <QuizzesListPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/quizzes/new" element={
+              <ProtectedRoute adminOnly>
+                <CreateQuizPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/quizzes/:quizId" element={
+              <ProtectedRoute adminOnly>
+                <QuizDetailPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/quizzes/:quizId/edit" element={
+              <ProtectedRoute adminOnly>
+                <CreateQuizPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Question Management Routes */}
+            <Route path="/admin/quizzes/:quizId/questions/new" element={
+              <ProtectedRoute adminOnly>
+                <CreateQuestionPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/questions/:questionId/edit" element={
+              <ProtectedRoute adminOnly>
+                <EditQuestionPage />
+              </ProtectedRoute>
+            } />
             
             {/* Fallback route */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </PageTransition>
           <ToastContainer position="bottom-right" />
           {/* <PublicMedicalAIBot /> */}
         </BrowserRouter>

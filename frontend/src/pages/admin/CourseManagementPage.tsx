@@ -25,9 +25,6 @@ export const CourseManagementPage: React.FC = () => {
       const response = await axios.get<Course[]>('/api/courses');
       return response.data;
     },
-    onError: () => {
-      toast.error('Failed to fetch courses');
-    },
   });
 
   const handleCourseSubmit = async (courseData: Partial<Course>) => {
@@ -57,6 +54,18 @@ export const CourseManagementPage: React.FC = () => {
     }
   };
 
+  const handleCourseClone = async (courseId: string) => {
+    try {
+      const response = await axios.post(`/api/courses/${courseId}/clone`);
+      toast.success('Course cloned successfully');
+      refetch(); // Refresh the courses list
+      // Optionally navigate to the cloned course
+      // window.location.href = `/admin/courses/${response.data.course._id}/edit`;
+    } catch (error) {
+      toast.error('Failed to clone course');
+    }
+  };
+
   if (!user || user.role !== 'admin') {
     return null;
   }
@@ -68,7 +77,7 @@ export const CourseManagementPage: React.FC = () => {
 
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Add New Course</h2>
-          <CourseForm onSubmit={handleCourseSubmit} />
+          <CourseForm />
         </div>
 
         <div>
@@ -82,16 +91,22 @@ export const CourseManagementPage: React.FC = () => {
                   <h3 className="text-lg font-semibold mb-2">{course.title}</h3>
                   <p className="text-gray-600 mb-4">{course.description}</p>
                   <p className="text-gray-800 mb-4">Price: ${course.price}</p>
-                  <div className="flex space-x-4">
+                  <div className="flex space-x-2">
                     <button
                       onClick={() => handleCourseSubmit(course)}
-                      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                      className="flex-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
                     >
                       Edit
                     </button>
                     <button
+                      onClick={() => handleCourseClone(course._id)}
+                      className="flex-1 bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+                    >
+                      Clone
+                    </button>
+                    <button
                       onClick={() => handleCourseDelete(course._id)}
-                      className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                      className="flex-1 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
                     >
                       Delete
                     </button>

@@ -25,7 +25,7 @@ export const CoursesListPage: React.FC = () => {
       await api.delete(`/courses/${courseId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['courses']);
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
       toast.success('Course deleted successfully');
     },
     onError: (error: any) => {
@@ -33,9 +33,31 @@ export const CoursesListPage: React.FC = () => {
     },
   });
 
+  const cloneMutation = useMutation({
+    mutationFn: async (courseId: string) => {
+      const response = await api.post(`/courses/${courseId}/clone`);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      toast.success('Course cloned successfully');
+      // Navigate to the cloned course edit page
+      navigate(`/admin/courses/${data.course._id}/edit`);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Error cloning course');
+    },
+  });
+
   const handleDelete = (courseId: string) => {
     if (window.confirm('Are you sure you want to delete this course?')) {
       deleteMutation.mutate(courseId);
+    }
+  };
+
+  const handleClone = (courseId: string) => {
+    if (window.confirm('Are you sure you want to clone this course? This will create a copy with all modules and lessons.')) {
+      cloneMutation.mutate(courseId);
     }
   };
 
@@ -108,7 +130,7 @@ export const CoursesListPage: React.FC = () => {
                       {course.enrollmentCount} enrolled
                     </span>
                   </div>
-                  <div className="flex space-x-3">
+                  <div className="flex space-x-2">
                     <button
                       onClick={() => navigate(`/admin/courses/${course._id}/edit`)}
                       className="flex-1 bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
@@ -120,6 +142,13 @@ export const CoursesListPage: React.FC = () => {
                       className="flex-1 bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600"
                     >
                       Content
+                    </button>
+                    <button
+                      onClick={() => handleClone(course._id)}
+                      className="flex-1 bg-purple-500 text-white px-3 py-2 rounded hover:bg-purple-600"
+                      disabled={cloneMutation.isPending}
+                    >
+                      {cloneMutation.isPending ? 'Cloning...' : 'Clone'}
                     </button>
                     <button
                       onClick={() => handleDelete(course._id)}

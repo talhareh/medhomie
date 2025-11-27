@@ -8,7 +8,10 @@ export const validateLesson = (lesson: any) => {
     order: Joi.number().required().min(0),
     duration: Joi.number().optional().min(0),
     video: Joi.string().optional(),
+    videoSource: Joi.string().valid('bunnycdn').optional(),
     attachments: Joi.array().items(Joi.string()).default([]),
+    pdfUrl: Joi.string().optional().allow(''),
+    ebookName: Joi.string().optional().allow('').max(255),
     isPreview: Joi.boolean().default(false)
   });
 
@@ -26,7 +29,10 @@ export const validateModule = (module: any) => {
       order: Joi.number().required().min(0),
       duration: Joi.number().optional().min(0),
       video: Joi.string().optional(),
+      videoSource: Joi.string().valid('bunnycdn').optional(),
       attachments: Joi.array().items(Joi.string()).default([]),
+      cloudflarePdfUrl: Joi.string().optional().allow(''),
+      ebookName: Joi.string().optional().allow('').max(255),
       isPreview: Joi.boolean().default(false)
     })).default([])
   });
@@ -53,7 +59,9 @@ export const validateCourse = (course: any) => {
         order: Joi.number().required().min(0),
         duration: Joi.number().optional().min(0),
         video: Joi.string().optional(),
+        videoSource: Joi.string().valid('bunnycdn').optional(),
         attachments: Joi.array().items(Joi.string()).default([]),
+        pdfUrl: Joi.string().optional().allow(''),
         isPreview: Joi.boolean().default(false)
       })).default([])
     })).default([]),

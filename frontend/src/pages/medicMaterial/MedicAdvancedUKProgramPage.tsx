@@ -267,7 +267,7 @@ const MedicAdvancedUKProgramPage: React.FC = () => {
       </section>
 
       {/* Enquiry Section */}
-      <section className="py-16 bg-neutral-100">
+      {/* <section className="py-16 bg-neutral-100">
         <div className="container mx-auto px-4 max-w-3xl">
           <h2 className="text-3xl font-bold text-center mb-8">Make an Enquiry</h2>
           <p className="text-center text-lg text-neutral-700 mb-8">Fill out the form to connect with a program expert</p>
@@ -346,7 +346,7 @@ const MedicAdvancedUKProgramPage: React.FC = () => {
             </form>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* FAQ Section */}
       <section className="py-16 bg-white">

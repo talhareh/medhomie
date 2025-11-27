@@ -1,13 +1,15 @@
 import express from 'express';
 import { authenticateToken as auth } from '../middleware/auth';
 import { uploadImage } from '../utils/fileUpload';
-import { 
+import {
   createCourse,
   getCourseDetails as getCourse,
   getAllCourses,
   updateCourse,
   deleteCourse,
-  updateCourseState
+  updateCourseState,
+  cloneCourse,
+  getCourseQuizzes
 } from '../controllers/courseController';
 import {
   addModule,
@@ -32,6 +34,8 @@ router.put('/:courseId', auth, uploadImage.fields([
 ]), updateCourse);
 router.delete('/:courseId', auth, deleteCourse);
 router.patch('/:courseId/state', auth, updateCourseState);
+router.post('/:courseId/clone', auth, cloneCourse);
+router.get('/:courseId/quizzes', auth, getCourseQuizzes);
 
 // Module routes
 router.post('/:courseId/modules', auth, addModule);

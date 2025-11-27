@@ -12,6 +12,7 @@ export enum PaymentStatus {
 export enum PaymentMethod {
   BANK_TRANSFER = 'bank_transfer',
   CASH = 'cash',
+  PAYPAL = 'paypal',
   OTHER = 'other'
 }
 
@@ -27,6 +28,9 @@ export interface IPayment extends Document {
   student: Types.ObjectId | IUser;
   course: Types.ObjectId | ICourseDocument;
   amount: number;
+  originalAmount?: number; // Original price before voucher discount
+  discountAmount?: number; // Discount amount from voucher
+  voucher?: Types.ObjectId; // Reference to voucher if used
   paymentDate: Date;
   paymentMethod: PaymentMethod;
   bankName?: string;
@@ -78,6 +82,19 @@ const paymentSchema = new Schema<IPayment>({
     required: true,
     min: 0
   },
+  originalAmount: {
+    type: Number,
+    min: 0
+  },
+  discountAmount: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  voucher: {
+    type: Schema.Types.ObjectId,
+    ref: 'Voucher'
+  },
   paymentDate: {
     type: Date,
     required: true
@@ -92,7 +109,9 @@ const paymentSchema = new Schema<IPayment>({
   transactionId: String,
   receiptPath: {
     type: String,
-    required: true
+    required: function() {
+      return this.paymentMethod !== PaymentMethod.PAYPAL;
+    }
   },
   status: {
     type: String,

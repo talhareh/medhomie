@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { authenticateToken } from '../middleware/auth';
-import { uploadLessonContent } from '../utils/fileUpload';
+import { uploadLessonContent, uploadAttachment } from '../utils/fileUpload';
 
 // Middleware to log request details
 const logRequestDetails = (req: Request, res: Response, next: NextFunction) => {
@@ -15,7 +15,8 @@ import {
   getLesson,
   addNotice,
   removeNotice,
-  viewPdfAttachment
+  viewPdfAttachment,
+  proxyPdf
 } from '../controllers/courseContentController';
 
 const router = express.Router();
@@ -75,6 +76,11 @@ router.get(
   debugPublicRoute,
   viewPdfAttachment
 );
+
+// PDF proxy route - serves PDF without exposing the actual URL (for secure viewing)
+router.get('/proxy-pdf', proxyPdf);
+
+// Note: Cloudflare R2 upload route removed - using Bunny CDN for all media
 
 // Notice board routes
 router.post('/:courseId/notices', authenticateToken, addNotice);

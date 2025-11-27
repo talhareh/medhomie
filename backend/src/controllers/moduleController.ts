@@ -41,7 +41,9 @@ export const addModule = async (req: Request, res: Response): Promise<void> => {
 export const updateModule = async (req: Request, res: Response): Promise<void> => {
   try {
     const { courseId, moduleId } = req.params;
-    const { title, description } = req.body;
+    const { title, description, order, lessons } = req.body;
+
+    console.log('Update module request:', { courseId, moduleId, body: req.body });
 
     const course = await Course.findById(courseId);
     if (!course) {
@@ -55,21 +57,36 @@ export const updateModule = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // Update module fields
-    if (title) module.title = title;
-    if (description) module.description = description;
+    // Create update data object with only the fields we want to update
+    const updateData = {
+      title: title || module.title,
+      description: description || module.description,
+      order: order !== undefined ? order : module.order,
+      lessons: lessons || module.lessons
+    };
 
-    const { error } = validateModule(module);
+    console.log('Update data:', updateData);
+
+    // Validate the update data
+    const { error } = validateModule(updateData);
     if (error) {
+      console.error('Validation error:', error.details);
       res.status(400).json({ message: error.details[0].message });
       return;
     }
 
+    // Update module fields
+    module.title = updateData.title;
+    module.description = updateData.description;
+    module.order = updateData.order;
+    module.lessons = updateData.lessons;
+
     await course.save();
+    console.log('Module updated successfully');
     res.status(200).json({ message: 'Module updated successfully', module });
   } catch (error) {
     console.error('Error updating module:', error);
-    res.status(500).json({ message: 'Error updating module', error });
+    res.status(500).json({ message: 'Error updating module', error: error instanceof Error ? error.message : 'Unknown error' });
   }
 };
 

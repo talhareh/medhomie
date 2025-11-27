@@ -70,7 +70,7 @@ export const getBlogs = async (req: AuthRequest, res: Response): Promise<void> =
     }
     
     if (tag) {
-      query.tags = tag;
+      query.tags = { $in: [tag] };
     }
     
     if (search) {
@@ -105,13 +105,24 @@ export const getBlogs = async (req: AuthRequest, res: Response): Promise<void> =
   }
 };
 
-// Get a single blog by slug
+// Get a single blog by slug or ID
 export const getBlogBySlug = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { slug } = req.params;
     
-    const blog = await Blog.findOne({ slug })
-      .populate('author', 'fullName profilePicture');
+    // Check if the parameter is a valid MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
+    
+    let blog;
+    if (isObjectId) {
+      // If it's an ObjectId, search by _id
+      blog = await Blog.findById(slug)
+        .populate('author', 'fullName profilePicture');
+    } else {
+      // Otherwise, search by slug
+      blog = await Blog.findOne({ slug })
+        .populate('author', 'fullName profilePicture');
+    }
     
     if (!blog) {
       res.status(404).json({
@@ -150,8 +161,17 @@ export const updateBlog = async (req: AuthRequest, res: Response): Promise<void>
     const { id } = req.params;
     const { title, content, excerpt, tags, status, readTime } = req.body;
     
-    // Check if blog exists
-    const blog = await Blog.findById(id);
+    // Check if the parameter is a valid MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    
+    // Find blog by ID or slug
+    let blog;
+    if (isObjectId) {
+      blog = await Blog.findById(id);
+    } else {
+      blog = await Blog.findOne({ slug: id });
+    }
+    
     if (!blog) {
       res.status(404).json({
         success: false,
@@ -178,7 +198,7 @@ export const updateBlog = async (req: AuthRequest, res: Response): Promise<void>
         .replace(/\s+/g, '-');
       
       // Check if new slug already exists
-      const existingBlog = await Blog.findOne({ slug, _id: { $ne: id } });
+      const existingBlog = await Blog.findOne({ slug, _id: { $ne: blog._id } });
       if (existingBlog) {
         res.status(400).json({
           success: false,
@@ -190,7 +210,7 @@ export const updateBlog = async (req: AuthRequest, res: Response): Promise<void>
     
     // Update the blog
     const updatedBlog = await Blog.findByIdAndUpdate(
-      id,
+      blog._id,
       {
         title: req.body.title || blog.title,
         slug,

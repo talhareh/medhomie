@@ -12,10 +12,11 @@ const EditBlogPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['blog', id],
     queryFn: () => getBlogBySlug(id || ''),
-    enabled: !!id
+    enabled: !!id,
+    retry: 1
   });
 
   const mutation = useMutation({
@@ -48,21 +49,30 @@ const EditBlogPage: React.FC = () => {
   }
 
   if (isError || !data?.data) {
+    const errorMessage = error instanceof Error ? error.message : 
+      typeof error === 'object' && error !== null && 'response' in error && 
+      typeof error.response === 'object' && error.response !== null && 
+      'data' in error.response && typeof error.response.data === 'object' && 
+      error.response.data !== null && 'message' in error.response.data ? 
+      String(error.response.data.message) : 'Failed to load blog post. Please try again later.';
+    
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error!</strong>
-          <span className="block sm:inline"> Failed to load blog post. Please try again later.</span>
-          <div className="mt-3">
-            <button
-              onClick={() => navigate('/admin/blogs')}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
-            >
-              Back to Blogs
-            </button>
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong className="font-bold">Error!</strong>
+            <span className="block sm:inline mt-2">{errorMessage}</span>
+            <div className="mt-3">
+              <button
+                onClick={() => navigate('/admin/blogs')}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+              >
+                Back to Blogs
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 

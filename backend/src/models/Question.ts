@@ -1,32 +1,40 @@
 import { Schema, model, Document } from 'mongoose';
 
 export enum QuestionType {
-  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
-  TRUE_FALSE = 'TRUE_FALSE',
-  SHORT_ANSWER = 'SHORT_ANSWER',
-  FILE_UPLOAD = 'FILE_UPLOAD'
+  MULTIPLE_CHOICE = 'multiple_choice',
+  TRUE_FALSE = 'true_false',
+  FILL_BLANK = 'fill_blank',
+  ESSAY = 'essay'
 }
 
 interface IQuestion extends Document {
-  quizId: Schema.Types.ObjectId;
-  questionText: string;
-  questionType: QuestionType;
-  options?: string[];
+  quiz: Schema.Types.ObjectId; // Reference to Quiz
+  question: string;
+  type: QuestionType;
+  options?: string[]; // For multiple choice
   correctAnswer: string | string[];
-  points: number;
   explanation?: string;
-  imageUrl?: string;
+  points: number;
+  order: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const questionSchema = new Schema<IQuestion>({
-  quizId: { type: Schema.Types.ObjectId, ref: 'Quiz', required: true },
-  questionText: { type: String, required: true },
-  questionType: { type: String, enum: Object.values(QuestionType), required: true },
-  options: { type: [String] },
+  quiz: { type: Schema.Types.ObjectId, ref: 'Quiz', required: true },
+  question: { type: String, required: true },
+  type: { type: String, enum: Object.values(QuestionType), required: true },
+  options: { type: [String] }, // For multiple choice questions
   correctAnswer: { type: Schema.Types.Mixed, required: true },
-  points: { type: Number, required: true, default: 1 },
   explanation: { type: String },
-  imageUrl: { type: String }
+  points: { type: Number, required: true, default: 1 },
+  order: { type: Number, required: true, default: 0 },
+  isActive: { type: Boolean, default: true }
 }, { timestamps: true });
+
+// Indexes for better query performance
+questionSchema.index({ quiz: 1 });
+questionSchema.index({ quiz: 1, order: 1 });
 
 export const Question = model<IQuestion>('Question', questionSchema);

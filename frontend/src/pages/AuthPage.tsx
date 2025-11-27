@@ -4,6 +4,7 @@ import { LoginForm } from '../components/auth/LoginForm';
 import { RegisterForm } from '../components/auth/RegisterForm';
 import { useAuth } from '../contexts/AuthContext';
 import MedicMenu from './medicMaterial/MedicMenu';
+import MedicFooter from './medicMaterial/MedicFooter';
 
 export const AuthPage = () => {
   const { user } = useAuth();
@@ -31,6 +32,8 @@ export const AuthPage = () => {
           </div>
         </div>
       </div>
+
+      <MedicFooter />
     </div>
   );
 };

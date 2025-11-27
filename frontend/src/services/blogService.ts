@@ -65,9 +65,11 @@ export const getBlogs = async (
   return response.data;
 };
 
-// Get a single blog by slug
-export const getBlogBySlug = async (slug: string): Promise<BlogDetailResponse> => {
-  const response = await api.get(`/blogs/${slug}`);
+// Get a single blog by slug or ID
+export const getBlogBySlug = async (slugOrId: string): Promise<BlogDetailResponse> => {
+  const response = await api.get(`/blogs/${slugOrId}`, {
+    headers: getAuthHeaders() // Include auth headers so admins can access DRAFT blogs
+  });
   return response.data;
 };
 
@@ -111,8 +113,8 @@ export const uploadBlogImage = async (file: File): Promise<{ success: boolean; d
     formData, 
     { 
       headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'multipart/form-data'
+        ...getAuthHeaders()
+        // Don't set Content-Type - let browser set it with boundary for FormData
       } 
     }
   );
