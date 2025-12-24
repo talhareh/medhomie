@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faPlay, 
-  faLock, 
-  faChevronRight, 
-  faChevronDown, 
+import {
+  faPlay,
+  faLock,
+  faChevronRight,
+  faChevronDown,
   faCheck,
   faFile
 } from '@fortawesome/free-solid-svg-icons';
@@ -109,13 +109,13 @@ export const CourseDetailPage: React.FC = () => {
     const lesson = course?.modules
       .find(m => m._id === moduleId)
       ?.lessons.find(l => l._id === lessonId);
-    
+
     if (lesson?.isAccessible) {
-      navigate(`/courses/${courseId}/learn`, { 
-        state: { 
-          moduleId, 
-          lessonId 
-        } 
+      navigate(`/courses/${courseId}/learn`, {
+        state: {
+          moduleId,
+          lessonId
+        }
       });
     } else {
       setIsModalOpen(true);
@@ -130,19 +130,19 @@ export const CourseDetailPage: React.FC = () => {
   const openPDFInNewTab = (pdfUrl: string, filename: string) => {
     try {
       console.log('Opening PDF in protected viewer (new tab):', { pdfUrl, filename });
-      
+
       // Encode URL and title for query parameters
       const encodedUrl = encodeURIComponent(pdfUrl);
       const encodedTitle = encodeURIComponent(filename);
-      
-      // Open in new tab with simple PDF viewer that has security protections
-      const viewerUrl = `${window.location.origin}/pdf-simple?url=${encodedUrl}&title=${encodedTitle}`;
+
+      // Open in new tab with enhanced PDF viewer that has full features
+      const viewerUrl = `${window.location.origin}/pdf-enhanced?url=${encodedUrl}&title=${encodedTitle}`;
       const newWindow = window.open(viewerUrl, '_blank');
-      
+
       if (!newWindow) {
         throw new Error('Failed to open new tab. Please allow popups for this site.');
       }
-      
+
       console.log('PDF opened in protected viewer (new tab) successfully');
     } catch (error) {
       console.error('Error opening PDF in protected viewer:', error);
@@ -175,22 +175,22 @@ export const CourseDetailPage: React.FC = () => {
   }
 
   const totalLessons = course.modules.reduce(
-    (acc, module) => acc + module.lessons.length, 
+    (acc, module) => acc + module.lessons.length,
     0
   );
 
   const totalDuration = course.modules.reduce(
     (acc, module) => acc + module.lessons.reduce(
-      (sum, lesson) => sum + (lesson.duration || 0), 
+      (sum, lesson) => sum + (lesson.duration || 0),
       0
-    ), 
+    ),
     0
   );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <MedicMenu />
-      
+
       {/* Hero Section */}
       <div className="bg-neutral-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4">
@@ -220,21 +220,20 @@ export const CourseDetailPage: React.FC = () => {
 
               {/* Enrollment Status */}
               {course.enrollmentStatus && (
-                <span className={`inline-block mt-4 px-3 py-1 rounded-full text-sm ${
-                  course.enrollmentStatus === 'approved' 
-                    ? 'bg-green-500/20 text-green-500' 
+                <span className={`inline-block mt-4 px-3 py-1 rounded-full text-sm ${course.enrollmentStatus === 'approved'
+                    ? 'bg-green-500/20 text-green-500'
                     : course.enrollmentStatus === 'rejected'
-                    ? 'bg-red-500/20 text-red-500'
-                    : 'bg-yellow-500/20 text-yellow-500'
-                }`}>
+                      ? 'bg-red-500/20 text-red-500'
+                      : 'bg-yellow-500/20 text-yellow-500'
+                  }`}>
                   {course.enrollmentStatus.charAt(0).toUpperCase() + course.enrollmentStatus.slice(1)}
                 </span>
               )}
-              
+
               {!user && (
                 <div className="mt-6 bg-yellow-100 text-yellow-800 p-4 rounded-md">
                   <p>You need to be logged in to enroll in this course.</p>
-                  <button 
+                  <button
                     onClick={() => navigate('/auth?mode=login')}
                     className="mt-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
                   >
@@ -242,7 +241,7 @@ export const CourseDetailPage: React.FC = () => {
                   </button>
                 </div>
               )}
-              
+
               {user && !course.enrollmentStatus && (
                 <button
                   onClick={() => navigate(`/courses?enroll=${course._id}`)}
@@ -251,7 +250,7 @@ export const CourseDetailPage: React.FC = () => {
                   Enroll Now
                 </button>
               )}
-              
+
               {user && course.enrollmentStatus === 'rejected' && (
                 <div className="mt-6">
                   <p className="text-red-500 mb-2">Your enrollment was rejected.</p>
@@ -270,9 +269,9 @@ export const CourseDetailPage: React.FC = () => {
               <div className="bg-white rounded-lg shadow-lg overflow-hidden">
                 {course.thumbnail && (
                   <div className="relative">
-                    <img 
+                    <img
                       src={course.thumbnail.replace('uploads/', '/api/uploads/')}
-                      alt={course.title} 
+                      alt={course.title}
                       className="w-full aspect-video object-cover"
                     />
                   </div>
@@ -286,7 +285,7 @@ export const CourseDetailPage: React.FC = () => {
                     </button>
                   ) : (
                     <>
-                      <button 
+                      <button
                         onClick={() => navigate(`/courses?enroll=${course._id}`)}
                         className="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg font-medium mb-3 transition-colors"
                       >
@@ -316,7 +315,7 @@ export const CourseDetailPage: React.FC = () => {
       {/* Course Content */}
       <div className="max-w-7xl mx-auto px-4 py-12">
         <h2 className="text-2xl font-bold text-neutral-800 mb-8">Course Content</h2>
-        
+
         {/* Modules and Lessons */}
         <div className="space-y-6">
           {course.modules.length === 0 ? (
@@ -336,12 +335,12 @@ export const CourseDetailPage: React.FC = () => {
                       <h3 className="text-xl font-semibold text-neutral-800">{module.title}</h3>
                       <p className="text-neutral-600 mt-1">{module.description}</p>
                     </div>
-                    <FontAwesomeIcon 
-                      icon={expandedModules[module._id] ? faChevronDown : faChevronRight} 
+                    <FontAwesomeIcon
+                      icon={expandedModules[module._id] ? faChevronDown : faChevronRight}
                       className="text-neutral-500 text-lg"
                     />
                   </button>
-                  
+
                   {expandedModules[module._id] && (
                     <div className="divide-y divide-neutral-200">
                       {module.lessons
@@ -355,19 +354,19 @@ export const CourseDetailPage: React.FC = () => {
                               {lesson.isAccessible ? (
                                 <div className="flex items-center space-x-2">
                                   {lesson.video && (
-                                    <div 
+                                    <div
                                       className="cursor-pointer hover:bg-neutral-100 p-1 rounded"
                                       onClick={() => handleLessonClick(module._id, lesson._id)}
                                       title="Click to view video lesson"
                                     >
-                                      <FontAwesomeIcon 
-                                        icon={faPlay} 
-                                        className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'} 
+                                      <FontAwesomeIcon
+                                        icon={faPlay}
+                                        className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'}
                                       />
                                     </div>
                                   )}
                                   {lesson.attachments && lesson.attachments.length > 0 && (
-                                    <div 
+                                    <div
                                       className="cursor-pointer hover:bg-neutral-100 p-1 rounded"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -378,9 +377,9 @@ export const CourseDetailPage: React.FC = () => {
                                       }}
                                       title="Click to open PDF in new tab"
                                     >
-                                      <FontAwesomeIcon 
-                                        icon={faFile} 
-                                        className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'} 
+                                      <FontAwesomeIcon
+                                        icon={faFile}
+                                        className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'}
                                       />
                                     </div>
                                   )}
@@ -401,7 +400,7 @@ export const CourseDetailPage: React.FC = () => {
                                 {lesson.isAccessible && (
                                   <div className="flex flex-wrap gap-2 mt-1">
                                     {lesson.video && (
-                                      <span 
+                                      <span
                                         className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded cursor-pointer hover:bg-blue-100"
                                         onClick={() => handleLessonClick(module._id, lesson._id)}
                                         title="Click to view video lesson"
@@ -410,7 +409,7 @@ export const CourseDetailPage: React.FC = () => {
                                       </span>
                                     )}
                                     {(lesson.pdfUrl || (lesson.attachments && lesson.attachments.length > 0)) && (
-                                      <span 
+                                      <span
                                         className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded cursor-pointer hover:bg-green-100"
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -439,7 +438,7 @@ export const CourseDetailPage: React.FC = () => {
           )}
         </div>
       </div>
-      
+
       {/* Enrollment Modal */}
       <Modal
         isOpen={isModalOpen}

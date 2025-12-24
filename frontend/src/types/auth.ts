@@ -14,6 +14,8 @@ export interface User {
   emailVerified: boolean;
   isApproved: boolean;
   lastLogin?: Date;
+  deviceCount?: number;
+  devices?: any[]; // Using any[] for now, can define proper type if needed
 }
 
 export interface AuthResponse {

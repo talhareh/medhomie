@@ -2,8 +2,15 @@ import { Request, Response } from 'express';
 import jwt, { SignOptions, Secret, TokenExpiredError } from 'jsonwebtoken';
 import { User, UserRole } from '../models/User';
 import { LoginHistory } from '../models/LoginHistory';
-import { extractDeviceInfo } from '../utils/deviceInfo';
-import { sendVerificationEmail, sendPasswordResetEmail, sendPasswordChangeNotification } from '../services/emailService';
+import { extractDeviceInfo, generateDeviceFingerprint, getDeviceName } from '../utils/deviceInfo';
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangeNotification,
+  sendNewDeviceEmail,
+  sendDeviceLimitReachedEmail
+} from '../services/emailService';
+import { UserDevice } from '../models/UserDevice';
 import { AuthRequest } from '../middleware/auth';
 import crypto from 'crypto';
 
@@ -14,7 +21,7 @@ const createTokens = (userId: string, role: UserRole): { token: string; refreshT
 
   // 24 hours in seconds
   const tokenExpiry = 24 * 60 * 60;
-  
+
   // 7 days in seconds for refresh token
   const refreshExpiry = 7 * 24 * 60 * 60;
 
@@ -30,8 +37,8 @@ const createTokens = (userId: string, role: UserRole): { token: string; refreshT
     { expiresIn: refreshExpiry }
   );
 
-  return { 
-    token, 
+  return {
+    token,
     refreshToken,
     expiresIn: Date.now() + (tokenExpiry * 1000) // Convert to milliseconds
   };
@@ -40,7 +47,7 @@ const createTokens = (userId: string, role: UserRole): { token: string; refreshT
 // Helper function to log user login
 const logUserLogin = async (userId: string, req: Request): Promise<void> => {
   const { deviceInfo, userAgent, ipAddress } = extractDeviceInfo(req);
-  
+
   await LoginHistory.create({
     userId,
     deviceInfo,
@@ -115,6 +122,10 @@ export const verifyEmail = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+
+
+// ... imports ...
+
 // Login user
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -131,6 +142,61 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     if (!user.emailVerified) {
       res.status(403).json({ message: 'Please verify your email before logging in' });
       return;
+    }
+
+    // Device Management Logic
+    const deviceFingerprint = generateDeviceFingerprint(req);
+    const { deviceInfo } = extractDeviceInfo(req);
+    const deviceName = getDeviceName(deviceInfo);
+
+    let userDevice = await UserDevice.findOne({ userId: user._id, deviceFingerprint });
+
+    if (userDevice) {
+      // Known device - update last login
+      userDevice.lastLogin = new Date();
+      userDevice.isActive = true;
+      userDevice.deviceInfo = {
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
+        platform: deviceInfo.device, // mapping device type/model to platform field
+        userAgent: req.headers['user-agent']
+      };
+      await userDevice.save();
+    } else {
+      // New device - check limit
+      const deviceCount = await UserDevice.countDocuments({ userId: user._id });
+      const MAX_DEVICES = 3;
+
+      // if (deviceCount >= MAX_DEVICES) {
+      //   // Block login
+      //   const devices = await UserDevice.find({ userId: user._id }).select('deviceName');
+      //   const deviceNames = devices.map(d => d.deviceName);
+
+      //   await sendDeviceLimitReachedEmail(user.email, user.fullName, deviceName, deviceNames);
+
+      //   res.status(403).json({
+      //     message: 'Device limit reached. You can only be logged in on 3 devices.',
+      //     code: 'DEVICE_LIMIT_REACHED',
+      //     currentDevices: deviceNames
+      //   });
+      //   return;
+      // }
+
+      // Register new device
+      userDevice = await UserDevice.create({
+        userId: user._id,
+        deviceFingerprint,
+        deviceName,
+        deviceInfo: {
+          browser: deviceInfo.browser,
+          os: deviceInfo.os,
+          platform: deviceInfo.device,
+          userAgent: req.headers['user-agent']
+        }
+      });
+
+      // Send new device email
+      // await sendNewDeviceEmail(user.email, user.fullName, deviceName, deviceCount + 1, MAX_DEVICES);
     }
 
     // Create new tokens
@@ -156,6 +222,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: 'Error logging in', error });
   }
 };
