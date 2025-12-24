@@ -5,6 +5,7 @@ export interface BunnyCDNConfig {
   storageZone: string; // e.g., 'abc123' from vz-abc123.b-cdn.net
   libraryId: string; // For iframe embed
   getIframeUrl: (videoId: string) => string;
+  getHlsUrl: (videoId: string) => string;
 }
 
 // Configuration for Bunny CDN
@@ -25,6 +26,10 @@ export const VIDEO_CDN_CONFIG: { bunnycdn: BunnyCDNConfig } = {
     // Returns: https://iframe.mediadelivery.net/play/{libraryId}/{videoId}
     getIframeUrl: (videoId: string) => {
       return `https://iframe.mediadelivery.net/play/${VIDEO_CDN_CONFIG.bunnycdn.libraryId}/${videoId}`;
+    },
+    getHlsUrl: (videoId: string) => {
+      if (!videoId) return '';
+      return `https://vz-${VIDEO_CDN_CONFIG.bunnycdn.storageZone}.b-cdn.net/${videoId}/playlist.m3u8`;
     }
   }
 };
@@ -60,3 +65,9 @@ export function validateConfig(): { bunnycdn: boolean } {
               VIDEO_CDN_CONFIG.bunnycdn.libraryId !== 'YOUR_LIBRARY_ID'
   };
 }
+
+export const getBunnyHlsUrl = (videoId: string): string => {
+  if (!videoId) return '';
+  if (videoId.startsWith('http')) return videoId;
+  return VIDEO_CDN_CONFIG.bunnycdn.getHlsUrl(videoId);
+};

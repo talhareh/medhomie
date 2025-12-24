@@ -12,7 +12,7 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
   const location = useLocation();
-  
+
   // Only open by default on the main dashboard page
   const shouldOpenByDefault = location.pathname === '/dashboard';
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(shouldOpenByDefault);
@@ -33,7 +33,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
     document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', handleResize);
@@ -68,10 +68,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       <MedicMenu />
-      
+
       {/* Mobile Navigation Bar */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between md:hidden">
-        <button 
+        <button
           onClick={() => setIsMobileSidebarOpen(true)}
           className="p-2 text-gray-600 hover:text-primary hover:bg-gray-100 rounded transition-colors"
           aria-label="Open navigation menu"
@@ -85,12 +85,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
       <div className="flex relative">
         {/* Mobile Sidebar Overlay */}
         {isMobileSidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
             onClick={() => setIsMobileSidebarOpen(false)}
           />
         )}
-        
+
         {/* Sidebar */}
         <div className={`
           ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -104,15 +104,15 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         `}>
           <Sidebar onMobileClose={() => setIsMobileSidebarOpen(false)} />
         </div>
-        
+
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-8 w-full md:w-auto">
+        <main className="flex-1 p-4 md:p-8 w-full md:w-auto min-w-0">
           <div className="max-w-7xl mx-auto w-full">
             {children}
           </div>
         </main>
       </div>
-      
+
       {/* <MedicalAIBot /> */}
     </div>
   );

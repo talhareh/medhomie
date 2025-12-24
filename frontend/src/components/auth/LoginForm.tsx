@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle } from '@fortawesome/free-brands-svg-icons';
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { faEye, faEyeSlash, faDesktop } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoginCredentials } from '../../types/auth';
 import { toast } from 'react-toastify';
@@ -14,13 +14,23 @@ export const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginCredentials>();
 
+  const [deviceError, setDeviceError] = useState<{ message: string; devices: string[] } | null>(null);
+
   const onSubmit = async (data: LoginCredentials) => {
     try {
       setIsLoading(true);
+      setDeviceError(null);
       await login(data);
       toast.success('Login successful!');
-    } catch (error) {
-      toast.error('Login failed. Please check your credentials.');
+    } catch (error: any) {
+      if (error.response?.data?.code === 'DEVICE_LIMIT_REACHED') {
+        setDeviceError({
+          message: error.response.data.message,
+          devices: error.response.data.currentDevices || []
+        });
+      } else {
+        toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -37,7 +47,7 @@ export const LoginForm = () => {
   };
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full max-w-md relative">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
           <label htmlFor="email" className="form-label">
@@ -131,6 +141,46 @@ export const LoginForm = () => {
           </button>
         </div>
       </form>
+
+      {/* Device Limit Modal */}
+      {deviceError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative animate-fade-in">
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <FontAwesomeIcon icon={faDesktop} className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">Device Limit Reached</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                {deviceError.message}
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-md p-4 mb-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Your Active Devices:</h4>
+              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                {deviceError.devices.map((device, index) => (
+                  <li key={index}>{device}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-xs text-gray-500 mb-4 text-center">
+                Please remove one of your existing devices to log in on this new device.
+                Check your email for more details.
+              </p>
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm"
+                onClick={() => setDeviceError(null)}
+              >
+                Understood
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

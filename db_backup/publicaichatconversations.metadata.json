@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"ipAddress":{"$numberInt":"1"}},"name":"ipAddress_1","background":true,"unique":true}],"uuid":"7dfed3af1e1547f6ab97fe94dd629cbd","collectionName":"publicaichatconversations","type":"collection"}

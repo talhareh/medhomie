@@ -4,6 +4,10 @@ import { User, UserRole } from '../models/User';
 import { AuthRequest } from '../middleware/auth';
 import { sendAdminCreatedUserEmail } from '../services/emailService';
 
+import { UserDevice } from '../models/UserDevice';
+import { Enrollment } from '../models/Enrollment';
+import { Payment } from '../models/Payment';
+
 // Get all users (admin only)
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -16,8 +20,15 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     const { role } = req.query;
     const query = role ? { role } : {};
 
-    const users = await User.find(query).select('-password -refreshToken');
-    res.status(200).json(users);
+    const users = await User.find(query).select('-password -refreshToken').lean();
+
+    // Get device counts for all users
+    const usersWithDevices = await Promise.all(users.map(async (user) => {
+      const deviceCount = await UserDevice.countDocuments({ userId: user._id });
+      return { ...user, deviceCount };
+    }));
+
+    res.status(200).json(usersWithDevices);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching users', error });
   }
@@ -38,13 +49,26 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const user = await User.findById(req.params.id).select('-password -refreshToken');
+    const user = await User.findById(req.params.id).select('-password -refreshToken').lean();
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
     }
 
-    res.status(200).json(user);
+    // Get user devices
+    const devices = await UserDevice.find({ userId: user._id }).sort({ lastLogin: -1 });
+
+    // Get user enrollments
+    const enrollments = await Enrollment.find({ student: user._id })
+      .populate('course', 'title price thumbnail')
+      .sort({ createdAt: -1 });
+
+    // Get user payments
+    const payments = await Payment.find({ student: user._id })
+      .populate('course', 'title')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ ...user, devices, enrollments, payments });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching user', error });
   }
@@ -102,9 +126,9 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       isApproved: user.isApproved
     };
 
-    res.status(200).json({ 
-      message: 'User updated successfully', 
-      user: userResponse 
+    res.status(200).json({
+      message: 'User updated successfully',
+      user: userResponse
     });
   } catch (error) {
     console.error('Error updating user:', error);
@@ -315,7 +339,7 @@ export const getAvailableStudents = async (req: Request, res: Response): Promise
 
     // Find all students (users with role STUDENT)
     const query: any = { role: UserRole.STUDENT, isApproved: true };
-    
+
     // Add search filter if provided
     if (search) {
       query.$or = [
@@ -326,17 +350,17 @@ export const getAvailableStudents = async (req: Request, res: Response): Promise
 
     // Get all students
     const students = await User.find(query).select('_id fullName email whatsappNumber');
-    
+
     // Get all enrollments for the course
-    const enrollments = await mongoose.model('Enrollment').find({ 
-      course: courseId 
+    const enrollments = await mongoose.model('Enrollment').find({
+      course: courseId
     }).select('student');
 
     // Extract student IDs from enrollments
     const enrolledStudentIds = enrollments.map(enrollment => enrollment.student.toString());
 
     // Filter out students who are already enrolled
-    const availableStudents = students.filter(student => 
+    const availableStudents = students.filter(student =>
       !enrolledStudentIds.includes(student._id.toString())
     );
 

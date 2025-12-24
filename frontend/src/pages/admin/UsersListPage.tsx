@@ -8,13 +8,14 @@ import { UserRole, User as AuthUser } from '../../types/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faHome, 
-  faGraduationCap, 
-  faBook, 
+import {
+  faHome,
+  faGraduationCap,
+  faBook,
   faCreditCard,
   faUsers,
-  faCog
+  faCog,
+  faDesktop
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
@@ -63,6 +64,8 @@ export const UsersListPage: React.FC = () => {
     whatsappNumber: '',
     password: '',
   });
+  const [sortField, setSortField] = useState<keyof AuthUser | 'deviceCount'>('deviceCount');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Set up Modal root element
   useEffect(() => {
@@ -104,7 +107,7 @@ export const UsersListPage: React.FC = () => {
 
         // Log the create request
         console.log('Creating user with data:', { ...data, password: '[REDACTED]' });
-        
+
         const response = await api.post('/users', data);
         return response.data;
       } catch (error: any) {
@@ -130,7 +133,7 @@ export const UsersListPage: React.FC = () => {
       try {
         // Log the update request
         console.log('Updating user:', userId, 'with data:', data);
-        
+
         // Remove empty strings and undefined values
         const cleanedData = Object.entries(data).reduce((acc, [key, value]) => {
           if (value !== '' && value !== undefined) {
@@ -145,7 +148,7 @@ export const UsersListPage: React.FC = () => {
         }
 
         console.log('Cleaned update data:', cleanedData);
-        
+
         const response = await api.patch(`/users/${userId}`, cleanedData);
         return response.data;
       } catch (error: any) {
@@ -237,9 +240,9 @@ export const UsersListPage: React.FC = () => {
 
     console.log('Update payload:', updatePayload);
 
-    updateUserMutation.mutate({ 
-      userId: selectedUser._id, 
-      data: updatePayload 
+    updateUserMutation.mutate({
+      userId: selectedUser._id,
+      data: updatePayload
     });
   };
 
@@ -272,13 +275,36 @@ export const UsersListPage: React.FC = () => {
 
   const filteredUsers = users.filter(user => {
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesSearch = 
+    const matchesSearch =
       searchTerm === '' ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.whatsappNumber && user.whatsappNumber.includes(searchTerm));
     return matchesRole && matchesSearch;
   });
+
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    const aValue = a[sortField as keyof AuthUser] ?? 0;
+    const bValue = b[sortField as keyof AuthUser] ?? 0;
+
+    if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const handleSort = (field: keyof AuthUser | 'deviceCount') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
+  const getSortIcon = (field: keyof AuthUser | 'deviceCount') => {
+    if (sortField !== field) return null;
+    return sortOrder === 'asc' ? ' ↑' : ' ↓';
+  };
 
   if (error) {
     return (
@@ -332,7 +358,7 @@ export const UsersListPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-x-auto w-full max-w-full">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -343,6 +369,16 @@ export const UsersListPage: React.FC = () => {
                     <FontAwesomeIcon icon={faWhatsapp} className="text-green-500" />
                   </div>
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div
+                    className="flex items-center gap-2 cursor-pointer hover:text-gray-700"
+                    onClick={() => handleSort('deviceCount')}
+                  >
+                    Devices
+                    <FontAwesomeIcon icon={faDesktop} className="text-gray-500" />
+                    {getSortIcon('deviceCount')}
+                  </div>
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
@@ -350,7 +386,7 @@ export const UsersListPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map(user => (
+              {sortedUsers.map(user => (
                 <tr key={user._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -374,6 +410,12 @@ export const UsersListPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {user.whatsappNumber || '-'}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${(user.deviceCount || 0) >= 3 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                      {user.deviceCount || 0} / 3
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                       {user.role}
@@ -382,11 +424,10 @@ export const UsersListPage: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
                       onClick={() => updateStatusMutation.mutate({ userId: user._id, isApproved: !user.isApproved })}
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.isApproved
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.isApproved
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                        }`}
                     >
                       {user.isApproved ? 'Approved' : 'Pending'}
                     </button>
@@ -400,6 +441,12 @@ export const UsersListPage: React.FC = () => {
                       className="text-blue-600 hover:text-blue-900 mr-4"
                     >
                       Edit
+                    </button>
+                    <button
+                      onClick={() => navigate(`/admin/users/${user._id}`)}
+                      className="text-green-600 hover:text-green-900 mr-4"
+                    >
+                      View Details
                     </button>
                     <button
                       onClick={() => handleDeleteUser(user._id)}
@@ -543,9 +590,9 @@ export const UsersListPage: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <form onSubmit={(e) => { 
-            e.preventDefault(); 
-            handleUpdateUser(); 
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleUpdateUser();
           }} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Email</label>
@@ -601,10 +648,10 @@ export const UsersListPage: React.FC = () => {
             <div className="flex justify-end gap-4 mt-6">
               <button
                 type="button"
-                onClick={() => { 
-                  setIsEditModalOpen(false); 
-                  setSelectedUser(null); 
-                  resetForm(); 
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setSelectedUser(null);
+                  resetForm();
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >

@@ -1,5 +1,6 @@
 // courseTransformations.ts - Utility functions for transforming course data
 import { ApiCourse, MedicalCourse, Section, Attachment } from '../types/courseTypes';
+import { getBunnyHlsUrl } from '../config/videoCDN';
 
 /**
  * Transforms API course data to the internal format used by the UI
@@ -94,6 +95,18 @@ export const transformCourse = (apiCourse: ApiCourse, quizzes: any[] = []): Medi
             });
           }
 
+          const rawVideoId = lesson.video || '';
+          const isLikelyBunnyId = !!rawVideoId && !rawVideoId.startsWith('http');
+          const resolvedVideoSource = lesson.videoSource || (isLikelyBunnyId ? 'bunnycdn' : undefined);
+
+          const resolvedVideoUrl = (() => {
+            if (!rawVideoId) return undefined;
+            if (resolvedVideoSource === 'bunnycdn') {
+              return getBunnyHlsUrl(rawVideoId);
+            }
+            return rawVideoId;
+          })();
+
           return {
             id: lesson._id,
             title: lesson.title,
@@ -101,8 +114,8 @@ export const transformCourse = (apiCourse: ApiCourse, quizzes: any[] = []): Medi
             completed: false, // We'll need to fetch this from user progress
             type: lessonType, // Use the determined type
             content: lesson.description,
-            videoUrl: lesson.video || undefined, // Video ID or full URL
-            videoSource: lesson.videoSource, // CDN provider: 'bunnycdn'
+            videoUrl: resolvedVideoUrl, // Resolved playable URL
+            videoSource: resolvedVideoSource, // Inferred CDN provider
             description: lesson.description,
             isPreview: lesson.isPreview,
             attachments: processedAttachments, // Contains PDF from pdfUrl if available

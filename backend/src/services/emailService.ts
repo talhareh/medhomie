@@ -236,10 +236,10 @@ export const sendEnrollmentNotification = async (
         <h1 style="${emailStyles.heading}">Course ${subjectText}</h1>
         <p>Hi ${fullName},</p>
         <p>You have been ${actionText} the course: <strong>${courseTitle}</strong></p>
-        ${action === 'enrolled' ? 
-          '<p>You can now access all course materials and start learning!</p>' : 
-          '<p>You no longer have access to this course. If this was done in error, please contact our support team.</p>'
-        }
+        ${action === 'enrolled' ?
+        '<p>You can now access all course materials and start learning!</p>' :
+        '<p>You no longer have access to this course. If this was done in error, please contact our support team.</p>'
+      }
         <a href="${process.env.FRONTEND_URL}/courses" style="${emailStyles.button}">${buttonText}</a>
         <p>If you have any questions, please contact our support team.</p>
       </div>
@@ -301,5 +301,88 @@ export const sendVoucherAppliedEmail = async (
   } catch (error) {
     console.error('Error sending voucher applied email:', error);
     throw error;
+  }
+};
+
+export const sendNewDeviceEmail = async (
+  to: string,
+  fullName: string,
+  deviceName: string,
+  deviceCount: number,
+  maxDevices: number
+) => {
+  try {
+    console.log('Attempting to send new device email to:', to);
+
+    const html = `
+      <div style="${emailStyles.container}">
+        <h1 style="${emailStyles.heading}">New Device Login</h1>
+        <p>Hi ${fullName},</p>
+        <p>Your account was just accessed from a new device:</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Device:</strong> ${deviceName}</p>
+          <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+        <p>You are now logged in on <strong>${deviceCount} out of ${maxDevices}</strong> allowed devices.</p>
+        <p>If this wasn't you, please reset your password immediately.</p>
+        <a href="${process.env.FRONTEND_URL}/auth/request-password-reset" style="${emailStyles.button}">Secure My Account</a>
+      </div>
+    `;
+
+    const messageData = {
+      from: fromEmail,
+      to: [to],
+      subject: 'New Device Login - MedHome',
+      html
+    };
+
+    const result = await mg.messages.create(domain, messageData);
+    console.log('New device email sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending new device email:', error);
+    // Don't throw error to prevent blocking login
+  }
+};
+
+export const sendDeviceLimitReachedEmail = async (
+  to: string,
+  fullName: string,
+  deviceName: string,
+  currentDevices: string[]
+) => {
+  try {
+    console.log('Attempting to send device limit reached email to:', to);
+
+    const deviceListHtml = currentDevices.map(d => `<li>${d}</li>`).join('');
+
+    const html = `
+      <div style="${emailStyles.container}">
+        <h1 style="${emailStyles.heading}">Login Blocked - Device Limit Reached</h1>
+        <p>Hi ${fullName},</p>
+        <p>We blocked a login attempt from a new device because you have reached your device limit (3 devices).</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Attempted Device:</strong> ${deviceName}</p>
+          <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+        <p>Your current active devices:</p>
+        <ul>${deviceListHtml}</ul>
+        <p>To use this new device, please remove one of your existing devices.</p>
+        <p>If this attempt wasn't you, please reset your password immediately.</p>
+      </div>
+    `;
+
+    const messageData = {
+      from: fromEmail,
+      to: [to],
+      subject: 'Login Blocked: Device Limit Reached - MedHome',
+      html
+    };
+
+    const result = await mg.messages.create(domain, messageData);
+    console.log('Device limit email sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending device limit email:', error);
   }
 };

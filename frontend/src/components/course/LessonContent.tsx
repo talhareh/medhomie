@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faClock, faExclamationTriangle, faQuestionCircle, faVideo } from '@fortawesome/free-solid-svg-icons';
 import { Lesson } from '../../types/courseTypes';
-import { UnifiedVideoPlayer } from './UnifiedVideoPlayer';
+import { ResponsiveVideoPlayer } from './ResponsiveVideoPlayer';
 import { QuizViewer } from './QuizViewer';
 
 interface LessonContentProps {
@@ -20,6 +20,24 @@ export const LessonContent: React.FC<LessonContentProps> = ({
   onPreferredContentTypeHandled
 }) => {
   const [activeContentType, setActiveContentType] = useState<'video' | 'quiz' | null>(null);
+  const videoErrorMessage = lesson ? videoErrors[lesson.id] : null;
+  React.useEffect(() => {
+    if (lesson?.videoUrl) {
+      console.log('🎬 LessonContent: resolved lesson video URL', {
+        lessonId: lesson.id,
+        title: lesson.title,
+        source: lesson.videoSource,
+        videoUrl: lesson.videoUrl
+      });
+    } else {
+      console.log('🎬 LessonContent: no video URL available for lesson', {
+        lessonId: lesson?.id,
+        title: lesson?.title,
+        source: lesson?.videoSource,
+        rawVideoField: lesson?.videoUrl
+      });
+    }
+  }, [lesson?.id, lesson?.videoUrl, lesson?.videoSource, lesson?.title]);
 
   if (!lesson) {
     return (
@@ -146,13 +164,30 @@ export const LessonContent: React.FC<LessonContentProps> = ({
       {/* Content Area - Video and Quiz only */}
       <div className="px-4 md:px-6">
         {shouldShowVideo ? (
-          <div className="mb-6">
-            <UnifiedVideoPlayer 
-              videoId={lesson.videoUrl || ''} 
-              isLoading={false} 
-              error={videoErrors[lesson.id]} 
-              title={lesson.title} 
-            />
+          <div className="mb-6 space-y-4">
+            {videoErrorMessage && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {videoErrorMessage}
+              </div>
+            )}
+            {lesson.videoUrl ? (
+              <ResponsiveVideoPlayer
+                key={lesson.videoUrl}
+                src={lesson.videoUrl}
+                title={lesson.title}
+                className="shadow-2xl"
+                onError={(message) => console.error('Lesson video playback error:', message)}
+              />
+            ) : (
+              <div className="w-full bg-black rounded-lg overflow-hidden">
+                <div className="aspect-video flex items-center justify-center">
+                  <div className="text-white text-center px-4">
+                    <p className="text-lg md:text-xl mb-1">No video available</p>
+                    <p className="text-sm text-gray-300">This lesson does not include a playable video file.</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : shouldShowQuiz && hasQuiz ? (
           <QuizViewer 
