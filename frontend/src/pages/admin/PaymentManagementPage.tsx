@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -9,12 +9,15 @@ import {
   faTimes, 
   faEye, 
   faFilter,
-  faNoteSticky
+  faNoteSticky,
+  faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Enrollment, EnrollmentStatus } from '../../types/enrollment';
 import api from '../../utils/axios';
 import { MainLayout } from '../../components/layout/MainLayout';
+import { UpdateExpirationModal } from '../../components/enrollment/UpdateExpirationModal';
+import { enrollmentService } from '../../services/enrollmentService';
 
 // Server URL for receipt files
 const SERVER_URL = window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://uat.medhome.courses'; // Dynamic server URL based on environment
@@ -88,6 +91,7 @@ export const PaymentManagementPage: React.FC = () => {
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [isUpdateExpirationModalOpen, setIsUpdateExpirationModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
   const [testingServer, setTestingServer] = useState(false);
@@ -100,6 +104,8 @@ export const PaymentManagementPage: React.FC = () => {
     status: '',
     searchTerm: '',
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(25);
 
   // Fetch enrollments
   const { data: enrollments = [], isLoading } = useQuery({
@@ -199,6 +205,22 @@ export const PaymentManagementPage: React.FC = () => {
     });
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(enrollments.length / itemsPerPage);
+  const indexOfLastEnrollment = currentPage * itemsPerPage;
+  const indexOfFirstEnrollment = indexOfLastEnrollment - itemsPerPage;
+  const currentEnrollments = enrollments.slice(indexOfFirstEnrollment, indexOfLastEnrollment);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters.dateRange.start, filters.dateRange.end, filters.status, filters.searchTerm]);
+
+  const paginate = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (!user || user.role !== 'admin') {
     navigate('/');
     return null;
@@ -206,18 +228,11 @@ export const PaymentManagementPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Payment Management</h1>
-            
-            
-          </div>
-          
-         
-          
-          {/* Filters */}
-          <div className="flex gap-4 items-center">
+      <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+        {/* Header - Responsive */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Payment Management</h1>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
             <div className="flex gap-2 items-center">
               <input
                 type="date"
@@ -226,9 +241,9 @@ export const PaymentManagementPage: React.FC = () => {
                   ...prev,
                   dateRange: { ...prev.dateRange, start: e.target.value }
                 }))}
-                className="border rounded px-2 py-1"
+                className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
-              <span>to</span>
+              <span className="text-sm text-gray-600">to</span>
               <input
                 type="date"
                 value={filters.dateRange.end}
@@ -236,7 +251,7 @@ export const PaymentManagementPage: React.FC = () => {
                   ...prev,
                   dateRange: { ...prev.dateRange, end: e.target.value }
                 }))}
-                className="border rounded px-2 py-1"
+                className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
 
@@ -246,7 +261,7 @@ export const PaymentManagementPage: React.FC = () => {
                 ...prev,
                 status: e.target.value as EnrollmentStatus | ''
               }))}
-              className="border rounded px-2 py-1"
+              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             >
               <option value="">All Status</option>
               <option value={EnrollmentStatus.PENDING}>Pending</option>
@@ -262,14 +277,20 @@ export const PaymentManagementPage: React.FC = () => {
                 ...prev,
                 searchTerm: e.target.value
               }))}
-              className="border rounded px-3 py-1 w-64"
+              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm w-full sm:w-auto"
             />
           </div>
         </div>
 
         {/* Enrollments Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
+        {isLoading ? (
+          <div className="flex justify-center items-center min-h-[60vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <>
+            <div className="bg-white rounded-lg shadow overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -294,12 +315,15 @@ export const PaymentManagementPage: React.FC = () => {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Expiration Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {enrollments.map((enrollment) => (
+              {currentEnrollments.map((enrollment) => (
                 <tr key={enrollment._id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(enrollment.enrollmentDate).toLocaleDateString()}
@@ -340,6 +364,31 @@ export const PaymentManagementPage: React.FC = () => {
                     `}>
                       {enrollment.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {enrollment.expirationDate ? (
+                      <div>
+                        <div className={`${
+                          enrollment.isExpired 
+                            ? 'text-red-600 font-semibold' 
+                            : new Date(enrollment.expirationDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                            ? 'text-yellow-600 font-semibold'
+                            : 'text-gray-900'
+                        }`}>
+                          {new Date(enrollment.expirationDate).toLocaleDateString()}
+                        </div>
+                        {enrollment.isExpired && (
+                          <span className="text-xs text-red-600">Expired</span>
+                        )}
+                        {!enrollment.isExpired && new Date(enrollment.expirationDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) && (
+                          <span className="text-xs text-yellow-600">
+                            Expires in {Math.ceil((new Date(enrollment.expirationDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000))} days
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 italic">Not set</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex space-x-2">
@@ -396,13 +445,92 @@ export const PaymentManagementPage: React.FC = () => {
                       >
                         <FontAwesomeIcon icon={faNoteSticky} />
                       </button>
+
+                      {enrollment.status === EnrollmentStatus.APPROVED && (
+                        <button
+                          onClick={() => {
+                            setSelectedEnrollment(enrollment);
+                            setIsUpdateExpirationModalOpen(true);
+                          }}
+                          className="text-purple-600 hover:text-purple-900"
+                          title="Update Expiration Date"
+                        >
+                          <FontAwesomeIcon icon={faCalendarAlt} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+            </div>
+
+            {/* Pagination */}
+            {enrollments.length > 0 && (
+              <div className="bg-white rounded-lg shadow px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{indexOfFirstEnrollment + 1}</span> to{' '}
+                  <span className="font-medium">{Math.min(indexOfLastEnrollment, enrollments.length)}</span> of{' '}
+                  <span className="font-medium">{enrollments.length}</span> enrollments
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${
+                        currentPage === 1
+                          ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      Previous
+                    </button>
+                    <div className="flex gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => paginate(pageNum)}
+                            className={`px-3 py-2 text-sm font-medium rounded-md ${
+                              currentPage === pageNum
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className={`px-3 py-2 text-sm font-medium rounded-md ${
+                        currentPage === totalPages
+                          ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                          : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
 
         {/* Receipt Modal */}
         <Modal
@@ -560,6 +688,22 @@ export const PaymentManagementPage: React.FC = () => {
             </div>
           </div>
         </Modal>
+
+        {/* Update Expiration Modal */}
+        {selectedEnrollment && (
+          <UpdateExpirationModal
+            isOpen={isUpdateExpirationModalOpen}
+            onClose={() => {
+              setIsUpdateExpirationModalOpen(false);
+              setSelectedEnrollment(null);
+            }}
+            enrollmentId={selectedEnrollment._id}
+            currentExpirationDate={selectedEnrollment.expirationDate}
+            onUpdate={async (expirationDate: string) => {
+              await enrollmentService.updateEnrollmentExpiration(selectedEnrollment._id, expirationDate);
+            }}
+          />
+        )}
       </div>
     </MainLayout>
   );

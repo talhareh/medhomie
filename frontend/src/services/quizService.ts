@@ -77,10 +77,20 @@ export const createQuiz = async (quizData: CreateQuizData): Promise<QuizDetailRe
 // Update a quiz
 export const updateQuiz = async (quizId: string, quizData: UpdateQuizData): Promise<QuizDetailResponse> => {
   // Clean the data to avoid sending empty strings for optional fields
-  const cleanData = {
+  // Map courseId to course (backend expects 'course' field, not 'courseId')
+  const cleanData: any = {
     ...quizData,
-    lessonId: quizData.lessonId && quizData.lessonId.trim() !== '' ? quizData.lessonId : undefined
+    lesson: quizData.lessonId && quizData.lessonId.trim() !== '' ? quizData.lessonId : undefined
   };
+  
+  // Remove courseId and use course instead (backend expects 'course' field)
+  if (quizData.courseId) {
+    cleanData.course = quizData.courseId;
+    delete cleanData.courseId;
+  }
+  
+  // Remove lessonId as we've mapped it to lesson
+  delete cleanData.lessonId;
   
   const response = await api.put(
     `/quizzes/${quizId}`,
@@ -187,6 +197,31 @@ export const submitQuizAttempt = async (
 export const getQuizAttempt = async (attemptId: string): Promise<QuizAttemptResponse> => {
   const response = await api.get(`/quizzes/attempts/${attemptId}`, {
     headers: getAuthHeaders()
+  });
+  return response.data;
+};
+
+// Import questions from Excel
+export interface ImportQuestionsResponse {
+  success: boolean;
+  successCount: number;
+  failedCount: number;
+  failedRows: Array<{
+    rowNumber: number;
+    question?: string;
+    errors: string[];
+  }>;
+  successfulQuestions?: string[];
+}
+
+export const importQuestionsFromExcel = async (quizId: string, file: File): Promise<ImportQuestionsResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(`/quizzes/${quizId}/questions/import`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      ...getAuthHeaders()
+    }
   });
   return response.data;
 };

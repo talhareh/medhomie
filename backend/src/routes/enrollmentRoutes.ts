@@ -9,7 +9,8 @@ import {
   bulkEnrollStudents,
   bulkRemoveStudents,
   processCardPayment,
-  cancelEnrollment
+  cancelEnrollment,
+  updateEnrollmentExpiration
 } from '../controllers/enrollmentController';
 
 const router = express.Router();
@@ -32,5 +33,9 @@ router.post('/courses/:courseId/card-payment', authenticateToken, processCardPay
 // Bulk enrollment routes
 router.post('/courses/:courseId/bulk-enroll', authenticateToken, bulkEnrollStudents);
 router.post('/courses/:courseId/bulk-remove', authenticateToken, bulkRemoveStudents);
+
+// Expiration date routes
+router.patch('/:enrollmentId/expiration', authenticateToken, updateEnrollmentExpiration);
+router.patch('/bulk-expiration', authenticateToken, updateEnrollmentExpiration);
 
 export default router;

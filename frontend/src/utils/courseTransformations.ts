@@ -13,6 +13,10 @@ export const transformCourse = (apiCourse: ApiCourse, quizzes: any[] = []): Medi
   
   const totalHours = Math.floor(totalMinutes / 60);
   
+  // Separate lesson-specific quizzes from course-level quizzes
+  const lessonSpecificQuizzes = quizzes.filter(quiz => quiz.lesson);
+  const courseLevelQuizzes = quizzes.filter(quiz => !quiz.lesson);
+  
   // Transform modules to sections
   const sections = apiCourse.modules
     .sort((a, b) => a.order - b.order)
@@ -59,10 +63,8 @@ export const transformCourse = (apiCourse: ApiCourse, quizzes: any[] = []): Medi
           // For video URLs, pass them directly to the HLS player
           // The video field now contains either Cloudflare HLS URLs or BunnyCDN HLS URLs
           
-          // Find quiz for this lesson
-          const lessonQuiz = quizzes.find(quiz => {
-            if (!quiz.lesson) return false; // Skip quizzes without lesson assignment
-            
+          // Find quiz for this lesson (only from lesson-specific quizzes)
+          const lessonQuiz = lessonSpecificQuizzes.find(quiz => {
             // Handle different possible formats for lesson ID comparison
             const quizLessonId = typeof quiz.lesson === 'object' ? quiz.lesson._id || quiz.lesson.toString() : quiz.lesson.toString();
             const currentLessonId = lesson._id.toString();
@@ -150,7 +152,8 @@ export const transformCourse = (apiCourse: ApiCourse, quizzes: any[] = []): Medi
     totalHours,
     studentsCount: apiCourse.enrollmentCount,
     sections,
-    enrollmentStatus: apiCourse.enrollmentStatus
+    enrollmentStatus: apiCourse.enrollmentStatus,
+    courseQuizzes: courseLevelQuizzes // Include course-level quizzes separately
   };
 };
 

@@ -17,7 +17,9 @@ import {
     faMoneyBillWave,
     faCheckCircle,
     faTimesCircle,
-    faHourglassHalf
+    faHourglassHalf,
+    faBan,
+    faCheck
 } from '@fortawesome/free-solid-svg-icons';
 
 interface UserDevice {
@@ -26,6 +28,8 @@ interface UserDevice {
     deviceFingerprint: string;
     lastLogin: string;
     isActive: boolean;
+    isBlocked?: boolean;
+    ipAddress?: string;
     deviceInfo: {
         browser: string;
         os: string;
@@ -89,26 +93,68 @@ export const AdminUserDetailsPage: React.FC = () => {
         }
     };
 
-    const handleDeleteDevice = async (deviceId: string) => {
+    const handleDeleteDevice = async (deviceId: string, e?: React.MouseEvent) => {
+        if (e) {
+            e.stopPropagation();
+        }
+        
         if (!window.confirm('Are you sure you want to remove this device? The user will be logged out from this device.')) {
             return;
         }
 
         try {
-            // We need to implement this endpoint in backend if we want to support deletion
-            // For now, let's assume we might add it later or just show the UI
-            // await api.delete(`/users/${userId}/devices/${deviceId}`);
-            toast.info('Device removal not implemented yet in backend');
+            await api.delete(`/users/${userId}/devices/${deviceId}`);
+            toast.success('Device deleted successfully');
+            fetchUserDetails(); // Refresh the user details
+        } catch (error: any) {
+            console.error('Error deleting device:', error);
+            toast.error(error.response?.data?.message || 'Failed to remove device');
+        }
+    };
 
-            // Optimistic update for demo
-            // if (user) {
-            //   setUser({
-            //     ...user,
-            //     devices: user.devices.filter(d => d._id !== deviceId)
-            //   });
-            // }
-        } catch (error) {
-            toast.error('Failed to remove device');
+    const handleBlockDevice = async (deviceId: string, isBlocked: boolean, e?: React.MouseEvent) => {
+        if (e) {
+            e.stopPropagation();
+        }
+
+        try {
+            await api.patch(`/users/${userId}/devices/${deviceId}/block`, { isBlocked });
+            toast.success(isBlocked ? 'Device blocked successfully' : 'Device unblocked successfully');
+            fetchUserDetails(); // Refresh the user details
+        } catch (error: any) {
+            console.error('Error blocking device:', error);
+            toast.error(error.response?.data?.message || 'Failed to update device status');
+        }
+    };
+
+    const handleDeleteAllDevices = async () => {
+        if (!window.confirm('Are you sure you want to delete all devices? The user will be logged out from all devices.')) {
+            return;
+        }
+
+        try {
+            const response = await api.delete(`/users/${userId}/devices`);
+            toast.success(`All devices deleted successfully (${response.data.count} devices removed)`);
+            fetchUserDetails(); // Refresh the user details
+        } catch (error: any) {
+            console.error('Error deleting all devices:', error);
+            toast.error(error.response?.data?.message || 'Failed to delete all devices');
+        }
+    };
+
+    const handleDeleteDeviceGroup = async (deviceName: string, deviceIds: string[]) => {
+        if (!window.confirm(`Are you sure you want to delete all "${deviceName}" devices? The user will be logged out from these devices.`)) {
+            return;
+        }
+
+        try {
+            // Delete all devices in the group
+            await Promise.all(deviceIds.map(deviceId => api.delete(`/users/${userId}/devices/${deviceId}`)));
+            toast.success(`All "${deviceName}" devices deleted successfully`);
+            fetchUserDetails(); // Refresh the user details
+        } catch (error: any) {
+            console.error('Error deleting device group:', error);
+            toast.error(error.response?.data?.message || 'Failed to delete devices');
         }
     };
 
@@ -123,6 +169,43 @@ export const AdminUserDetailsPage: React.FC = () => {
     }
 
     if (!user) return null;
+
+    // Group devices by deviceName
+    const groupDevicesByName = () => {
+        if (!user.devices || user.devices.length === 0) return [];
+
+        const grouped = user.devices.reduce((acc: any, device) => {
+            const key = device.deviceName;
+            if (!acc[key]) {
+                acc[key] = {
+                    deviceName: device.deviceName,
+                    devices: [],
+                    count: 0,
+                    browser: device.deviceInfo?.browser || '-',
+                    os: device.deviceInfo?.os || '-',
+                    lastActive: device.lastLogin,
+                    ipAddresses: new Set<string>(),
+                    deviceIds: [],
+                    platform: device.deviceInfo?.platform
+                };
+            }
+            acc[key].devices.push(device);
+            acc[key].count++;
+            if (device.ipAddress) acc[key].ipAddresses.add(device.ipAddress);
+            if (new Date(device.lastLogin) > new Date(acc[key].lastActive)) {
+                acc[key].lastActive = device.lastLogin;
+            }
+            acc[key].deviceIds.push(device._id);
+            return acc;
+        }, {});
+
+        return Object.values(grouped).map((group: any) => ({
+            ...group,
+            ipAddresses: Array.from(group.ipAddresses)
+        }));
+    };
+
+    const groupedDevices = groupDevicesByName();
 
     return (
         <MainLayout>
@@ -172,10 +255,18 @@ export const AdminUserDetailsPage: React.FC = () => {
 
                 {/* Devices Section */}
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <div className="px-4 md:px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                         <h3 className="text-lg font-semibold text-gray-800">
                             Registered Devices ({user.devices?.length || 0}/3)
                         </h3>
+                        {user.devices && user.devices.length > 0 && (
+                            <button
+                                onClick={handleDeleteAllDevices}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 text-sm font-medium"
+                            >
+                                Delete All Devices
+                            </button>
+                        )}
                     </div>
 
                     {(!user.devices || user.devices.length === 0) ? (
@@ -183,50 +274,73 @@ export const AdminUserDetailsPage: React.FC = () => {
                             No devices registered for this user.
                         </div>
                     ) : (
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Browser/OS</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {user.devices.map((device) => (
-                                    <tr key={device._id}>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <FontAwesomeIcon icon={faDesktop} className="text-gray-400 mr-3" />
-                                                <span className="font-medium text-gray-900">{device.deviceName}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {device.deviceInfo?.platform || 'Desktop'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <div className="flex items-center gap-2">
-                                                <FontAwesomeIcon icon={faClock} className="text-gray-400" />
-                                                {new Date(device.lastLogin).toLocaleString()}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {device.deviceInfo?.browser} on {device.deviceInfo?.os}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                onClick={() => handleDeleteDevice(device._id)}
-                                                className="text-red-600 hover:text-red-900"
-                                                title="Remove Device"
-                                            >
-                                                <FontAwesomeIcon icon={faTrash} />
-                                            </button>
-                                        </td>
+                        <div className="overflow-x-auto w-full">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Name</th>
+                                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Browser</th>
+                                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OS</th>
+                                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Addresses</th>
+                                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
+                                        <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {groupedDevices.map((group: any, index: number) => {
+                                        const ipDisplay = group.ipAddresses.length === 0 
+                                            ? '-' 
+                                            : group.ipAddresses.length <= 3
+                                                ? group.ipAddresses.join(', ')
+                                                : `${group.ipAddresses.slice(0, 3).join(', ')} (+${group.ipAddresses.length - 3} more)`;
+                                        
+                                        return (
+                                            <tr key={`${group.deviceName}-${index}`}>
+                                                <td className="px-4 md:px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <FontAwesomeIcon 
+                                                            icon={group.platform === 'mobile' ? faMobileAlt : faDesktop} 
+                                                            className="text-gray-400" 
+                                                        />
+                                                        <span className="font-medium text-gray-900">{group.deviceName}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 md:px-6 py-4">
+                                                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                        {group.count}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 md:px-6 py-4 text-sm text-gray-500">
+                                                    {group.browser}
+                                                </td>
+                                                <td className="px-4 md:px-6 py-4 text-sm text-gray-500">
+                                                    {group.os}
+                                                </td>
+                                                <td className="px-4 md:px-6 py-4 text-sm text-gray-500 font-mono">
+                                                    {ipDisplay}
+                                                </td>
+                                                <td className="px-4 md:px-6 py-4 text-sm text-gray-500">
+                                                    <div className="flex items-center gap-2">
+                                                        <FontAwesomeIcon icon={faClock} className="text-gray-400" />
+                                                        {new Date(group.lastActive).toLocaleString()}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 md:px-6 py-4 text-right text-sm font-medium">
+                                                    <button
+                                                        onClick={() => handleDeleteDeviceGroup(group.deviceName, group.deviceIds)}
+                                                        className="text-red-600 hover:text-red-900 px-2 py-1"
+                                                        title="Delete All Devices of This Type"
+                                                    >
+                                                        <FontAwesomeIcon icon={faTrash} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     )}
                 </div>
 

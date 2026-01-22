@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getBlogBySlug } from '../../services/blogService';
@@ -7,6 +7,20 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCalendarAlt, faClock, faUser, faTag, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { getImageUrl } from '../../utils/imageUtils';
+import { createReactEditorJS } from 'react-editor-js';
+import Header from '@editorjs/header';
+import List from '@editorjs/list';
+import Quote from '@editorjs/quote';
+import Image from '@editorjs/image';
+import Code from '@editorjs/code';
+import InlineCode from '@editorjs/inline-code';
+import Delimiter from '@editorjs/delimiter';
+import Marker from '@editorjs/marker';
+import Underline from '@editorjs/underline';
+import Paragraph from '@editorjs/paragraph';
+
+// Create ReactEditorJS component for read-only rendering
+const ReactEditorJS = createReactEditorJS();
 
 const BlogDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -47,6 +61,50 @@ const BlogDetailPage: React.FC = () => {
 
   const blog = data.data;
   const formattedDate = format(new Date(blog.createdAt), 'MMMM d, yyyy');
+
+  // Parse blog content - handle both JSON string and object
+  const blogContent = useMemo(() => {
+    if (!blog.content) {
+      return null;
+    }
+    
+    try {
+      // If it's already an object, return it
+      if (typeof blog.content === 'object') {
+        return blog.content;
+      }
+      
+      // If it's a string, try to parse it
+      if (typeof blog.content === 'string') {
+        // Check if it's HTML (old format) - if so, return null to show empty
+        if (blog.content.trim().startsWith('<')) {
+          return null;
+        }
+        const parsed = JSON.parse(blog.content);
+        return parsed;
+      }
+      
+      return null;
+    } catch (error) {
+      // If parsing fails, it might be old HTML format
+      console.warn('Failed to parse blog content:', error);
+      return null;
+    }
+  }, [blog.content]);
+
+  // Editor.js tools for rendering (read-only)
+  const readOnlyTools = {
+    paragraph: Paragraph,
+    header: Header,
+    list: List,
+    quote: Quote,
+    image: Image,
+    code: Code,
+    inlineCode: InlineCode,
+    delimiter: Delimiter,
+    marker: Marker,
+    underline: Underline,
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -119,10 +177,19 @@ const BlogDetailPage: React.FC = () => {
               </div>
             )}
 
-            <div 
-              className="prose prose-lg max-w-none"
-              dangerouslySetInnerHTML={{ __html: blog.content }}
-            />
+            {blogContent ? (
+              <div className="prose prose-lg max-w-none">
+                <ReactEditorJS
+                  tools={readOnlyTools}
+                  defaultValue={blogContent}
+                  readOnly={true}
+                />
+              </div>
+            ) : (
+              <div className="prose prose-lg max-w-none text-gray-500 italic">
+                No content available.
+              </div>
+            )}
           </div>
         </article>
 

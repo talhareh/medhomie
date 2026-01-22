@@ -115,7 +115,7 @@ export const AddCoursePage: React.FC = () => {
     <MainLayout>
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Add New Course</h1>
-        
+
         <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

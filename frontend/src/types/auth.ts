@@ -13,6 +13,7 @@ export interface User {
   profilePicture?: string;
   emailVerified: boolean;
   isApproved: boolean;
+  isBlocked?: boolean;
   lastLogin?: Date;
   deviceCount?: number;
   devices?: any[]; // Using any[] for now, can define proper type if needed

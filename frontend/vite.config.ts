@@ -4,6 +4,54 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    target: 'esnext',
+    modulePreload: false,
+    commonjsOptions: {
+      transformMixedEsModules: true,
+      include: [/node_modules/],
+      strictRequires: 'auto'
+    },
+    rollupOptions: {
+      output: {
+        format: 'es',
+        generatedCode: {
+          constBindings: true
+        }
+      }
+    }
+  },
+  optimizeDeps: {
+    include: [
+      'react-editor-js',
+      '@editorjs/editorjs',
+      '@editorjs/header',
+      '@editorjs/list',
+      '@editorjs/quote',
+      '@editorjs/image',
+      '@editorjs/code',
+      '@editorjs/inline-code',
+      '@editorjs/delimiter',
+      '@editorjs/marker',
+      '@editorjs/underline',
+      '@editorjs/paragraph',
+      'xlsx',
+      'pdfjs-dist'
+    ],
+    esbuildOptions: {
+      target: 'esnext'
+    },
+    force: true
+  },
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+    alias: {
+      // Force ES module resolution for problematic packages
+    }
+  },
+  define: {
+    'process.env.NODE_ENV': '"production"'
+  },
   server: {
     host: '0.0.0.0', // Listen on all available network interfaces
     port: 5173,

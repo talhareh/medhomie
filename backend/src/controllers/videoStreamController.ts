@@ -242,12 +242,24 @@ const checkVideoAccess = async (
     return true;
   }
 
-  // Check if user is enrolled and approved for the course
+  // Check if user is enrolled and approved for the course, and not expired
   const enrollment = await Enrollment.findOne({
     student: userId,
     course: course._id,
-    status: EnrollmentStatus.APPROVED
+    status: EnrollmentStatus.APPROVED,
+    isExpired: false
   });
 
-  return !!enrollment;
+  if (!enrollment) {
+    return false;
+  }
+
+  // Check if enrollment has not expired
+  // If expirationDate is not set (legacy enrollment), treat as not expired
+  if (!enrollment.expirationDate) {
+    return true;
+  }
+
+  const now = new Date();
+  return enrollment.expirationDate > now;
 };

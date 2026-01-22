@@ -2,16 +2,17 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { BlogPost } from '../../services/blogService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClock, faUser, faCalendarAlt, faTag } from '@fortawesome/free-solid-svg-icons';
+import { faClock, faUser, faCalendarAlt, faTag, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { getImageUrl } from '../../utils/imageUtils';
 
 interface BlogCardProps {
   blog: BlogPost;
   isAdmin?: boolean;
+  onDelete?: (blog: BlogPost, e: React.MouseEvent) => void;
 }
 
-const BlogCard: React.FC<BlogCardProps> = ({ blog, isAdmin = false }) => {
+const BlogCard: React.FC<BlogCardProps> = ({ blog, isAdmin = false, onDelete }) => {
   const {
     _id,
     title,
@@ -53,10 +54,20 @@ const BlogCard: React.FC<BlogCardProps> = ({ blog, isAdmin = false }) => {
           )}
           
           {isAdmin && (
-            <div className="absolute top-2 right-2">
+            <div className="absolute top-2 right-2 flex items-center gap-2">
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}>
                 {status}
               </span>
+              {onDelete && (
+                <button
+                  onClick={(e) => onDelete(blog, e)}
+                  className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg transition-colors"
+                  title="Delete blog post"
+                  aria-label="Delete blog post"
+                >
+                  <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                </button>
+              )}
             </div>
           )}
         </div>

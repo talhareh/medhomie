@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../utils/axios';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
-import { Course } from '../types/course';
+import { Course, Category } from '../types/course';
+import { getAllCategories } from '../services/categoryService';
 import Modal from 'react-modal';
 import MedicMenu from './medicMaterial/MedicMenu';
 import MedicFooter from './medicMaterial/MedicFooter';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faSearch, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
 import { EnrollmentModal } from '../components/common/EnrollmentModal';
+
+const COURSES_PER_PAGE = 8;
 
 
 
@@ -62,24 +65,79 @@ export const PublicCoursesPage: React.FC = () => {
   // New state for search and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Medical specialization categories for filtering
-  const categories = [
-    'MRCOG',
-    'FCPS',
-    'MCPS',
-    'IMM',
-    'GULF'
-  ];
+  // Fetch categories from database
+  const { data: categories = [], isLoading: isLoadingCategories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getAllCategories
+  });
 
-  // Fetch courses
+  // Fetch courses with category filter
   const { data: courses = [], isLoading: isLoadingCourses } = useQuery({
-    queryKey: ['public-courses'],
+    queryKey: ['public-courses', selectedCategory],
     queryFn: async () => {
-      const response = await api.get<PublicCourse[]>('/public/courses');
+      const params = selectedCategory ? { category: selectedCategory } : {};
+      const response = await api.get<PublicCourse[]>('/public/courses', { params });
       return response.data;
     },
   });
+
+  // Reset to page 1 when category changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory]);
+
+  // Calculate pagination values
+  const totalPages = Math.ceil(courses.length / COURSES_PER_PAGE);
+  const startIndex = (currentPage - 1) * COURSES_PER_PAGE;
+  const endIndex = startIndex + COURSES_PER_PAGE;
+  const currentCourses = courses.slice(startIndex, endIndex);
+
+  // Calculate display range
+  const startDisplay = courses.length > 0 ? startIndex + 1 : 0;
+  const endDisplay = Math.min(endIndex, courses.length);
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total pages is less than max visible
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+
+      if (currentPage > 3) {
+        pages.push('...');
+      }
+
+      // Show pages around current page
+      const startPage = Math.max(2, currentPage - 1);
+      const endPage = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = startPage; i <= endPage; i++) {
+        if (i !== 1 && i !== totalPages) {
+          pages.push(i);
+        }
+      }
+
+      if (currentPage < totalPages - 2) {
+        pages.push('...');
+      }
+
+      // Always show last page
+      if (totalPages > 1) {
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
 
   const handleEnrollClick = (course: PublicCourse) => {
     if (!user) {
@@ -96,7 +154,7 @@ export const PublicCoursesPage: React.FC = () => {
     setIsEnrollModalOpen(true);
   };
 
-  if (isLoadingCourses) {
+  if (isLoadingCourses || isLoadingCategories) {
     return (
       <div className="min-h-screen bg-background">
         <MedicMenu />
@@ -139,7 +197,10 @@ export const PublicCoursesPage: React.FC = () => {
         <div className="mb-8">
           <div className="flex flex-wrap gap-3 justify-center">
             <button
-              onClick={() => setSelectedCategory('')}
+              onClick={() => {
+                setSelectedCategory('');
+                setCurrentPage(1);
+              }}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 selectedCategory === '' 
                   ? 'bg-primary text-white' 
@@ -148,17 +209,20 @@ export const PublicCoursesPage: React.FC = () => {
             >
               All Categories
             </button>
-            {categories.map((category) => (
+            {categories.map((category: Category) => (
               <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
+                key={category._id}
+                onClick={() => {
+                  setSelectedCategory(category._id);
+                  setCurrentPage(1);
+                }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategory === category 
+                  selectedCategory === category._id 
                     ? 'bg-primary text-white' 
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
-                {category}
+                {category.name}
               </button>
             ))}
           </div>
@@ -166,12 +230,19 @@ export const PublicCoursesPage: React.FC = () => {
 
         {/* Available Courses Section */}
         <div className="mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">Available Courses</h2>
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">Available Courses</h2>
+            {courses.length > 0 && (
+              <p className="text-sm text-gray-600">
+                Showing {startDisplay}-{endDisplay} of {courses.length} courses
+              </p>
+            )}
+          </div>
           
           {/* Course Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {courses.length > 0 ? (
-              courses.map((course) => (
+            {currentCourses.length > 0 ? (
+              currentCourses.map((course) => (
                 <div key={course._id.toString()} className="bg-white rounded-lg shadow-md overflow-hidden">
                   {/* Course Thumbnail */}
                   <div className="h-48 bg-gray-200 relative">
@@ -249,79 +320,62 @@ export const PublicCoursesPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Previous Courses Section */}
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">Previous Courses</h2>
-          
-          {/* Previous Course Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {courses.slice(0, 4).map((course) => (
-              <div key={`prev-${course._id.toString()}`} className="bg-white rounded-lg shadow-md overflow-hidden opacity-75">
-                {/* Course Thumbnail */}
-                <div className="h-48 bg-gray-200 relative">
-                  {course.thumbnail ? (
-                    <img
-                      src={course.thumbnail.startsWith('http') ? course.thumbnail : course.thumbnail.replace('uploads/', '/api/uploads/')}
-                      alt={course.title}
-                      className="w-full h-full object-cover p-1 object-right-top"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.src = '/placeholder-course.jpg';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                      <span className="text-gray-400">No image available</span>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Course Info */}
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{course.title}</h3>
-                  <p className="text-gray-600 mb-4 line-clamp-3 text-sm">{course.description}</p>
-                  
-                  {/* Course Duration and Credits */}
-                  <div className="flex justify-between items-center mb-4 text-sm text-gray-500">
-                    <span>6 weeks</span>
-                    <span>12 CVF</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-500">
-                      Completed
-                    </span>
-                    <button
-                      onClick={() => navigate(`/courses/${course._id}`)}
-                      className="px-3 py-1 rounded text-white bg-gray-600 hover:bg-gray-700 text-sm"
-                    >
-                      View
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Pagination */}
-        <div className="flex justify-center mt-12">
-          <div className="flex space-x-2">
-            {[1, 2, 3, 4, 5].map((page) => (
+        {totalPages > 1 && (
+          <div className="flex flex-col items-center justify-center mt-12 gap-4">
+            <div className="flex items-center space-x-2">
+              {/* Previous Button */}
               <button
-                key={page}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  page === 1 
-                    ? 'bg-primary text-white' 
+                  currentPage === 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
-                {page}
+                <FontAwesomeIcon icon={faChevronLeft} />
               </button>
-            ))}
+
+              {/* Page Numbers */}
+              {getPageNumbers().map((page, index) => {
+                if (page === '...') {
+                  return (
+                    <span key={`ellipsis-${index}`} className="px-2 text-gray-500">
+                      ...
+                    </span>
+                  );
+                }
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page as number)}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                      currentPage === page
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+
+              {/* Next Button */}
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                  currentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                <FontAwesomeIcon icon={faChevronRight} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <MedicFooter />

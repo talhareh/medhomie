@@ -1,6 +1,5 @@
 import React from 'react';
 import Modal from 'react-modal';
-import { Button } from './Button';
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -57,19 +56,21 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
         <p className="text-gray-600">{message}</p>
 
-        <div className="flex justify-end space-x-2 mt-4">
-          <Button
+        <div className="flex justify-end space-x-3 mt-4">
+          <button
+            type="button"
             onClick={onClose}
-            variant="secondary"
+            className="inline-flex justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             Cancel
-          </Button>
-          <Button
+          </button>
+          <button
+            type="button"
             onClick={onConfirm}
-            variant="danger"
+            className="inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
           >
             Confirm
-          </Button>
+          </button>
         </div>
       </div>
     </Modal>

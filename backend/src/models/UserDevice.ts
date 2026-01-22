@@ -6,6 +6,8 @@ export interface IUserDevice extends Document {
     deviceName: string;
     lastLogin: Date;
     isActive: boolean;
+    isBlocked: boolean;
+    ipAddress?: string;
     deviceInfo: {
         browser?: string;
         os?: string;
@@ -38,6 +40,13 @@ const userDeviceSchema = new Schema<IUserDevice>({
     isActive: {
         type: Boolean,
         default: true
+    },
+    isBlocked: {
+        type: Boolean,
+        default: false
+    },
+    ipAddress: {
+        type: String
     },
     deviceInfo: {
         browser: String,

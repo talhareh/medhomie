@@ -86,4 +86,5 @@ export interface MedicalCourse {
   studentsCount: number;
   sections: Section[];
   enrollmentStatus?: string | null;
+  courseQuizzes?: any[]; // Course-level quizzes (not attached to specific lessons)
 }

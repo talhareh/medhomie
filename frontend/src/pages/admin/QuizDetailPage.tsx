@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -11,17 +11,20 @@ import {
   faClock,
   faCheckCircle,
   faTimesCircle,
-  faEye
+  faEye,
+  faFileExcel
 } from '@fortawesome/free-solid-svg-icons';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuiz, useDeleteQuiz } from '../../hooks/useQuizzes';
 import { QuestionType } from '../../types/quiz';
+import { ImportQuestionsModal } from '../../components/quiz/ImportQuestionsModal';
 
 export const QuizDetailPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const { data: quizData, isLoading, error, refetch } = useQuiz(quizId!);
   const deleteQuizMutation = useDeleteQuiz();
@@ -277,13 +280,22 @@ export const QuizDetailPage: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Questions ({quiz.questions.length})</h2>
-                <button
-                  onClick={() => navigate(`/admin/quizzes/${quizId}/questions/new`)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
-                >
-                  <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
-                  Add Question
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setIsImportModalOpen(true)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
+                  >
+                    <FontAwesomeIcon icon={faFileExcel} className="w-4 h-4 mr-2" />
+                    Import from Excel
+                  </button>
+                  <button
+                    onClick={() => navigate(`/admin/quizzes/${quizId}/questions/new`)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
+                    Add Question
+                  </button>
+                </div>
               </div>
 
               {quiz.questions.length === 0 ? (
@@ -340,36 +352,6 @@ export const QuizDetailPage: React.FC = () => {
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-              
-              <div className="space-y-3">
-                <button
-                  onClick={() => navigate(`/admin/quizzes/${quizId}/statistics`)}
-                  className="w-full bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 flex items-center justify-center"
-                >
-                  <FontAwesomeIcon icon={faChartBar} className="w-4 h-4 mr-2" />
-                  View Statistics
-                </button>
-                
-                <button
-                  onClick={() => navigate(`/admin/quizzes/${quizId}/attempts`)}
-                  className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center justify-center"
-                >
-                  <FontAwesomeIcon icon={faUsers} className="w-4 h-4 mr-2" />
-                  View Attempts
-                </button>
-                
-                <button
-                  onClick={() => navigate(`/admin/quizzes/${quizId}/preview`)}
-                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center justify-center"
-                >
-                  <FontAwesomeIcon icon={faEye} className="w-4 h-4 mr-2" />
-                  Preview Quiz
-                </button>
-              </div>
-            </div>
-
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quiz Summary</h3>
               
@@ -405,6 +387,17 @@ export const QuizDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Import Questions Modal */}
+      <ImportQuestionsModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        quizId={quizId!}
+        onImportSuccess={() => {
+          refetch();
+          setIsImportModalOpen(false);
+        }}
+      />
     </MainLayout>
   );
 

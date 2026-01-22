@@ -248,6 +248,19 @@ export const useAllQuizAttempts = (quizId: string) => {
   });
 };
 
+// Import questions from Excel
+export const useImportQuestionsFromExcel = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ quizId, file }: { quizId: string; file: File }) => 
+      quizService.importQuestionsFromExcel(quizId, file),
+    onSuccess: (data, variables) => {
+      // Invalidate quiz queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['quiz', variables.quizId] });
+    },
+  });
+};
+
 // ===== COURSE INTEGRATION HOOKS =====
 
 // Get course quizzes

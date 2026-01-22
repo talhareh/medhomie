@@ -79,12 +79,19 @@ export const enrollInCourse = async (req: AuthRequest, res: Response): Promise<v
       };
     }
 
+    // Set expiration date to 10 years from now for student self-enrollments
+    // (Admin bulk enrollments will have their own expiration dates)
+    const expirationDate = new Date();
+    expirationDate.setFullYear(expirationDate.getFullYear() + 10);
+
     const enrollment = new Enrollment({
       student: req.user._id,
       course: courseId,
       paymentReceipt: file.path,
       voucherCode: voucherCode ? voucherCode.trim().toUpperCase() : undefined,
-      status: EnrollmentStatus.PENDING
+      status: EnrollmentStatus.PENDING,
+      expirationDate: expirationDate,
+      isExpired: false
     });
 
     await enrollment.save();
@@ -261,6 +268,18 @@ export const updateEnrollmentStatus = async (req: AuthRequest, res: Response): P
     if (status === EnrollmentStatus.APPROVED) {
       enrollment.approvalDate = new Date();
       
+      // Set expiration date if not already set (for legacy enrollments)
+      if (!enrollment.expirationDate) {
+        const expirationDate = new Date();
+        expirationDate.setFullYear(expirationDate.getFullYear() + 10);
+        enrollment.expirationDate = expirationDate;
+      }
+      
+      // Reset isExpired if enrollment is being re-approved
+      if (enrollment.isExpired) {
+        enrollment.isExpired = false;
+      }
+      
       // Add student to course's enrolled students
       await Course.findByIdAndUpdate(enrollment.course, {
         $addToSet: { enrolledStudents: enrollment.student }
@@ -357,7 +376,7 @@ export const getMyEnrollments = async (req: AuthRequest, res: Response): Promise
 export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { courseId } = req.params;
-    let { studentIds } = req.body;
+    let { studentIds, expirationDate } = req.body;
 
     // Check if user is admin
     if (!req.user || req.user.role !== UserRole.ADMIN) {
@@ -368,6 +387,25 @@ export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promi
     // Validate input
     if (!Array.isArray(studentIds) || studentIds.length === 0) {
       res.status(400).json({ message: 'Student IDs array is required' });
+      return;
+    }
+
+    // Validate expiration date
+    if (!expirationDate) {
+      res.status(400).json({ message: 'Expiration date is required' });
+      return;
+    }
+
+    const expiration = new Date(expirationDate);
+    if (isNaN(expiration.getTime())) {
+      res.status(400).json({ message: 'Invalid expiration date format' });
+      return;
+    }
+
+    // Validate expiration date is in the future
+    const now = new Date();
+    if (expiration <= now) {
+      res.status(400).json({ message: 'Expiration date must be in the future' });
       return;
     }
 
@@ -412,7 +450,9 @@ export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promi
       paymentReceipt: 'admin-enrollment', // Default value for admin enrollments
       status: EnrollmentStatus.APPROVED,
       enrollmentDate: new Date(),
-      approvalDate: new Date()
+      approvalDate: new Date(),
+      expirationDate: expiration,
+      isExpired: false
     }));
 
     await Enrollment.insertMany(enrollments);
@@ -446,6 +486,79 @@ export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promi
   } catch (error) {
     console.error('Error in bulkEnrollStudents:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Update enrollment expiration date (admin only)
+export const updateEnrollmentExpiration = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { enrollmentId } = req.params;
+    const { expirationDate, enrollmentIds } = req.body;
+
+    // Check if user is admin
+    if (!req.user || req.user.role !== UserRole.ADMIN) {
+      res.status(403).json({ message: 'Only admin can update enrollment expiration' });
+      return;
+    }
+
+    // Validate expiration date
+    if (!expirationDate) {
+      res.status(400).json({ message: 'Expiration date is required' });
+      return;
+    }
+
+    const expiration = new Date(expirationDate);
+    if (isNaN(expiration.getTime())) {
+      res.status(400).json({ message: 'Invalid expiration date format' });
+      return;
+    }
+
+    // Validate expiration date is in the future
+    const now = new Date();
+    if (expiration <= now) {
+      res.status(400).json({ message: 'Expiration date must be in the future' });
+      return;
+    }
+
+    // Handle bulk update
+    if (enrollmentIds && Array.isArray(enrollmentIds)) {
+      const result = await Enrollment.updateMany(
+        { _id: { $in: enrollmentIds } },
+        { expirationDate: expiration }
+      );
+      res.status(200).json({
+        message: 'Expiration dates updated successfully',
+        updatedCount: result.modifiedCount
+      });
+      return;
+    }
+
+    // Handle single update
+    if (!enrollmentId) {
+      res.status(400).json({ message: 'Enrollment ID is required for single update' });
+      return;
+    }
+
+    const enrollment = await Enrollment.findById(enrollmentId);
+    if (!enrollment) {
+      res.status(404).json({ message: 'Enrollment not found' });
+      return;
+    }
+
+    enrollment.expirationDate = expiration;
+    // If enrollment was expired and new date is in future, reset isExpired
+    if (enrollment.isExpired && expiration > now) {
+      enrollment.isExpired = false;
+    }
+
+    await enrollment.save();
+    res.status(200).json(enrollment);
+  } catch (error) {
+    console.error('Error in updateEnrollmentExpiration:', error);
+    res.status(500).json({ 
+      message: 'Error updating enrollment expiration', 
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
 };
 
@@ -613,6 +726,10 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
     }
 
     // Create a new enrollment with approved status
+    // Set expiration date to 10 years from now for student self-enrollments
+    const expirationDate = new Date();
+    expirationDate.setFullYear(expirationDate.getFullYear() + 10);
+
     const enrollment = new Enrollment({
       student: req.user._id,
       course: courseId,
@@ -620,7 +737,9 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
       paymentDetails: paymentDetails,
       voucherCode: voucherCode ? voucherCode.trim().toUpperCase() : undefined,
       status: EnrollmentStatus.APPROVED,
-      approvalDate: new Date()
+      approvalDate: new Date(),
+      expirationDate: expirationDate,
+      isExpired: false
     });
 
     await enrollment.save();

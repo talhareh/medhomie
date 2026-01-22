@@ -123,7 +123,8 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       whatsappNumber: user.whatsappNumber,
       role: user.role,
       emailVerified: user.emailVerified,
-      isApproved: user.isApproved
+      isApproved: user.isApproved,
+      isBlocked: user.isBlocked
     };
 
     res.status(200).json({
@@ -315,6 +316,46 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// Block/Unblock user (Admin only)
+export const blockUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authReq = req as AuthRequest;
+    if (!authReq.user || authReq.user.role !== UserRole.ADMIN) {
+      res.status(403).json({ message: 'Access denied' });
+      return;
+    }
+
+    const { isBlocked } = req.body;
+    const userId = req.params.id;
+
+    // Don't allow admin to block themselves
+    if (userId === authReq.user._id) {
+      res.status(400).json({ message: 'Cannot block your own account' });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    user.isBlocked = isBlocked;
+    await user.save();
+
+    res.status(200).json({
+      id: user._id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      isApproved: user.isApproved,
+      isBlocked: user.isBlocked
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating user block status', error });
+  }
+};
+
 // Get available students for enrollment (students not enrolled in a specific course)
 export const getAvailableStudents = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -337,8 +378,9 @@ export const getAvailableStudents = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Find all students (users with role STUDENT)
-    const query: any = { role: UserRole.STUDENT, isApproved: true };
+    // Find all students (users with role STUDENT, approved and not blocked)
+    // Returns all students regardless of enrollment status in the course
+    const query: any = { role: UserRole.STUDENT, isApproved: true, isBlocked: false };
 
     // Add search filter if provided
     if (search) {
@@ -351,20 +393,7 @@ export const getAvailableStudents = async (req: Request, res: Response): Promise
     // Get all students
     const students = await User.find(query).select('_id fullName email whatsappNumber');
 
-    // Get all enrollments for the course
-    const enrollments = await mongoose.model('Enrollment').find({
-      course: courseId
-    }).select('student');
-
-    // Extract student IDs from enrollments
-    const enrolledStudentIds = enrollments.map(enrollment => enrollment.student.toString());
-
-    // Filter out students who are already enrolled
-    const availableStudents = students.filter(student =>
-      !enrolledStudentIds.includes(student._id.toString())
-    );
-
-    res.status(200).json(availableStudents);
+    res.status(200).json(students);
   } catch (error) {
     console.error('Error in getAvailableStudents:', error);
     res.status(500).json({ message: 'Error fetching available students', error });

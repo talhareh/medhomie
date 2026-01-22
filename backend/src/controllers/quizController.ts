@@ -6,6 +6,8 @@ import multer from 'multer';
 import path from 'path';
 import { AuthRequest } from '../middleware/auth';
 import { UserRole } from '../models/User';
+import * as XLSX from 'xlsx';
+import { Types } from 'mongoose';
 
 // Configure multer storage
 const storage = multer.diskStorage({
@@ -32,6 +34,29 @@ const upload = multer({
   storage, 
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
+
+// Multer configuration for Excel file uploads
+const excelStorage = multer.memoryStorage();
+const excelFileFilter = (req: any, file: any, cb: any) => {
+  const allowedTypes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-excel' // .xls
+  ];
+  const allowedExtensions = ['.xlsx', '.xls'];
+  const fileExtension = path.extname(file.originalname).toLowerCase();
+  
+  if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only .xlsx and .xls files are allowed'), false);
+  }
+};
+
+const uploadExcel = multer({
+  storage: excelStorage,
+  fileFilter: excelFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
 // Quiz CRUD Operations
@@ -364,6 +389,228 @@ const deleteQuestion = async (req: Request, res: Response, next: NextFunction): 
   }
 };
 
+// Import questions from Excel file
+const importQuestionsFromExcel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role !== UserRole.ADMIN && authReq.user.role !== UserRole.INSTRUCTOR) {
+    res.status(403).json({ message: 'Unauthorized: Only admins and instructors can import questions' });
+    return;
+  }
+
+  try {
+    const { quizId } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ message: 'No file uploaded' });
+      return;
+    }
+
+    // Validate file type
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    if (!['.xlsx', '.xls'].includes(fileExtension)) {
+      res.status(400).json({ message: 'Invalid file type. Only .xlsx and .xls files are allowed' });
+      return;
+    }
+
+    // Check if quiz exists
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      res.status(404).json({ message: 'Quiz not found' });
+      return;
+    }
+
+    // Parse Excel file
+    const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
+    if (!Array.isArray(data) || data.length === 0) {
+      res.status(400).json({ message: 'Excel file is empty or invalid' });
+      return;
+    }
+
+    // Define expected columns (case-insensitive matching)
+    const requiredColumns = ['Question', 'Option A', 'Option B', 'Correct Answer'];
+    const optionalColumns = ['Option C', 'Option D', 'Points', 'Explanation', 'Order'];
+
+    // Normalize column names from first row
+    const firstRow = data[0] as any;
+    const columnMap: Record<string, string> = {};
+    Object.keys(firstRow).forEach(key => {
+      const normalizedKey = key.trim();
+      columnMap[normalizedKey.toLowerCase()] = key;
+    });
+
+    // Validate required columns exist
+    const missingColumns: string[] = [];
+    requiredColumns.forEach(col => {
+      if (!columnMap[col.toLowerCase()]) {
+        missingColumns.push(col);
+      }
+    });
+
+    if (missingColumns.length > 0) {
+      res.status(400).json({ 
+        message: `Missing required columns: ${missingColumns.join(', ')}`,
+        missingColumns 
+      });
+      return;
+    }
+
+    // Get existing questions count for order calculation
+    const existingQuestionsCount = quiz.questions.length;
+
+    // Process each row
+    const successfulQuestions: Types.ObjectId[] = [];
+    const failedRows: Array<{
+      rowNumber: number;
+      question?: string;
+      errors: string[];
+    }> = [];
+
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i] as any;
+      const rowNumber = i + 2; // +2 because Excel rows are 1-indexed and first row is header
+      const errors: string[] = [];
+
+      // Extract values (case-insensitive)
+      const getValue = (columnName: string): string | undefined => {
+        const key = columnMap[columnName.toLowerCase()];
+        return key ? (row[key]?.toString().trim() || '') : undefined;
+      };
+
+      const questionText = getValue('Question');
+      const optionA = getValue('Option A');
+      const optionB = getValue('Option B');
+      const optionC = getValue('Option C');
+      const optionD = getValue('Option D');
+      const correctAnswer = getValue('Correct Answer');
+      const pointsStr = getValue('Points');
+      const explanation = getValue('Explanation');
+      const orderStr = getValue('Order');
+
+      // Validate question text
+      if (!questionText || questionText.length === 0) {
+        errors.push('Question text is required');
+      }
+
+      // Validate options (at least A and B are required)
+      if (!optionA || optionA.length === 0) {
+        errors.push('Option A is required');
+      }
+      if (!optionB || optionB.length === 0) {
+        errors.push('Option B is required');
+      }
+
+      // Build options array
+      const options: string[] = [];
+      if (optionA) options.push(optionA);
+      if (optionB) options.push(optionB);
+      if (optionC) options.push(optionC);
+      if (optionD) options.push(optionD);
+
+      // Validate correct answer
+      if (!correctAnswer) {
+        errors.push('Correct Answer is required');
+      } else {
+        const normalizedAnswer = correctAnswer.trim().toUpperCase();
+        if (!['A', 'B', 'C', 'D'].includes(normalizedAnswer)) {
+          errors.push('Correct Answer must be A, B, C, or D');
+        } else {
+          // Validate that the correct answer option exists
+          const optionIndex = normalizedAnswer.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+          if (optionIndex >= options.length) {
+            errors.push(`Correct Answer "${normalizedAnswer}" refers to an option that does not exist`);
+          }
+        }
+      }
+
+      // Validate points
+      let points = 1;
+      if (pointsStr) {
+        const parsedPoints = parseFloat(pointsStr);
+        if (isNaN(parsedPoints) || parsedPoints <= 0) {
+          errors.push('Points must be a positive number');
+        } else {
+          points = parsedPoints;
+        }
+      }
+
+      // Validate order
+      let order = existingQuestionsCount + successfulQuestions.length + 1;
+      if (orderStr) {
+        const parsedOrder = parseInt(orderStr, 10);
+        if (!isNaN(parsedOrder) && parsedOrder > 0) {
+          order = parsedOrder;
+        }
+      }
+
+      // If there are errors, skip this row
+      if (errors.length > 0) {
+        failedRows.push({
+          rowNumber,
+          question: questionText || 'N/A',
+          errors
+        });
+        continue;
+      }
+
+      // Create question
+      try {
+        const normalizedCorrectAnswer = correctAnswer!.trim().toUpperCase();
+        const newQuestion = await Question.create({
+          quiz: quizId,
+          question: questionText!,
+          type: 'multiple_choice',
+          options: options,
+          correctAnswer: options[normalizedCorrectAnswer.charCodeAt(0) - 65], // Convert A/B/C/D to option index
+          explanation: explanation || undefined,
+          points: points,
+          order: order,
+          isActive: true
+        });
+
+        successfulQuestions.push(newQuestion._id as Types.ObjectId);
+      } catch (error) {
+        failedRows.push({
+          rowNumber,
+          question: questionText || 'N/A',
+          errors: [`Failed to create question: ${error instanceof Error ? error.message : 'Unknown error'}`]
+        });
+      }
+    }
+
+    // Update quiz's questions array with all successfully created questions
+    if (successfulQuestions.length > 0) {
+      await Quiz.findByIdAndUpdate(quizId, {
+        $push: { questions: { $each: successfulQuestions } }
+      });
+    }
+
+    // Return results
+    res.json({
+      success: true,
+      successCount: successfulQuestions.length,
+      failedCount: failedRows.length,
+      failedRows: failedRows,
+      successfulQuestions: successfulQuestions.map(id => id.toString())
+    });
+  } catch (error) {
+    console.error('Error importing questions from Excel:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error importing questions from Excel',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
+
 // Quiz Attempt Tracking
 const startAttempt = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authReq = req as AuthRequest;
@@ -495,6 +742,54 @@ const submitAttempt = async (req: Request, res: Response, next: NextFunction): P
   }
 };
 
+// Get quiz attempt by ID
+const getAttempt = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  try {
+    const attempt = await QuizAttempt.findById(req.params.attemptId)
+      .populate({
+        path: 'quiz',
+        populate: {
+          path: 'questions'
+        }
+      });
+    
+    if (!attempt) {
+      res.status(404).json({ 
+        success: false,
+        message: 'Attempt not found' 
+      });
+      return;
+    }
+
+    // Verify the attempt belongs to the user
+    if (attempt.student.toString() !== authReq.user._id.toString()) {
+      res.status(403).json({ 
+        success: false,
+        message: 'Unauthorized: This attempt does not belong to you' 
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: attempt
+    });
+  } catch (error) {
+    const err = error as Error;
+    console.error('Error getting attempt:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error getting attempt', 
+      error: err.message 
+    });
+  }
+};
+
 // Helper function to check if an answer is correct
 const checkAnswer = (question: any, userAnswer: any): boolean => {
   if (question.type === 'multiple_choice') {
@@ -577,12 +872,13 @@ const checkQuizEligibility = async (req: Request, res: Response, next: NextFunct
       return;
     }
 
-    // Check if user is enrolled in the course
-    const { Enrollment } = await import('../models/Enrollment');
+    // Check if user is enrolled in the course, not expired
+    const { Enrollment, EnrollmentStatus } = await import('../models/Enrollment');
     const enrollment = await Enrollment.findOne({ 
       student: authReq.user._id, 
       course: quiz.course,
-      status: 'approved'
+      status: EnrollmentStatus.APPROVED,
+      isExpired: false
     });
 
     if (!enrollment) {
@@ -596,6 +892,24 @@ const checkQuizEligibility = async (req: Request, res: Response, next: NextFunct
         }
       });
       return;
+    }
+
+    // Check if enrollment has not expired
+    // If expirationDate is not set (legacy enrollment), treat as not expired
+    if (enrollment.expirationDate) {
+      const now = new Date();
+      if (enrollment.expirationDate <= now) {
+        res.json({
+          success: true,
+          data: {
+            canTake: false,
+            reason: 'Your enrollment in this course has expired',
+            attemptsRemaining: 0,
+            maxAttempts: quiz.maxAttempts
+          }
+        });
+        return;
+      }
     }
 
     // Check if quiz is active
@@ -655,6 +969,7 @@ const checkQuizEligibility = async (req: Request, res: Response, next: NextFunct
 };
 
 export const uploadQuestionImage = upload.single('image');
+export const uploadExcelFile = uploadExcel.single('file');
 
 export default {
   createQuiz,
@@ -666,8 +981,10 @@ export default {
   addQuestion,
   updateQuestion,
   deleteQuestion,
+  importQuestionsFromExcel,
   startAttempt,
   submitAttempt,
+  getAttempt,
   getQuizStatistics,
   checkQuizEligibility
 };

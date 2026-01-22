@@ -2,20 +2,20 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import { createBlog, BlogFormData } from '../../../services/blogService';
-import BlogEditor from '../../../components/blog/BlogEditor';
+import { createBlog, BlogFormData } from '../../services/blogService';
+import BlogEditor from '../../components/blog/BlogEditor';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import { MainLayout } from '../../../components/layout/MainLayout';
+import { MainLayout } from '../../components/layout/MainLayout';
 
-const CreateBlogPage: React.FC = () => {
+const NewBlogPage: React.FC = () => {
   const navigate = useNavigate();
   
   const mutation = useMutation({
     mutationFn: (data: BlogFormData) => createBlog(data),
     onSuccess: () => {
       toast.success('Blog post created successfully!');
-      navigate('/admin/blogs');
+      navigate('/blogs');
     },
     onError: (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 
@@ -37,7 +37,7 @@ const CreateBlogPage: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-6">
           <button 
-            onClick={() => navigate('/admin/blogs')}
+            onClick={() => navigate('/blogs')}
             className="flex items-center text-blue-600 hover:text-blue-800 font-medium"
           >
             <FontAwesomeIcon icon={faArrowLeft} className="mr-2" />
@@ -59,4 +59,4 @@ const CreateBlogPage: React.FC = () => {
   );
 };
 
-export default CreateBlogPage;
+export default NewBlogPage;
