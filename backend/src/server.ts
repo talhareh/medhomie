@@ -25,6 +25,7 @@ import quizRoutes from './routes/quizRoutes';
 import paypalRoutes from './routes/paypalRoutes';
 import voucherRoutes from './routes/voucherRoutes';
 import { errorHandler } from './middleware/errorHandler';
+import { startEnrollmentExpirationJob } from './jobs/enrollmentExpirationJob';
 
 config();
 
@@ -113,6 +114,8 @@ const startServer = async () => {
   try {
     if (!process.env.DISABLE_DB_CONNECT) {
       await connectDB();
+      // Start enrollment expiration cron job after DB connection
+      startEnrollmentExpirationJob();
     }
     app.listen(port, () => {
       console.log(`⚡️[server]: Server is running at http://localhost:${port}`);

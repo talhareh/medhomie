@@ -14,6 +14,8 @@ interface PublicCourseResponse {
   thumbnail?: string;
   banner?: string;
   enrollmentCount: number;
+  categories?: any[];
+  tags?: any[];
   isEnrolled?: boolean;
   enrollmentStatus?: string | null;
 }
@@ -42,8 +44,17 @@ export const getPublicCourses = async (
 ): Promise<void> => {
   try {
     console.log('Fetching public courses...');
-    const courses = await Course.find({ state: CourseState.ACTIVE })
-      .select('title description price thumbnail banner enrollmentCount')
+    const filter: any = { state: CourseState.ACTIVE };
+    
+    // Filter by category if provided
+    if (req.query.category) {
+      filter.categories = req.query.category;
+    }
+    
+    const courses = await Course.find(filter)
+      .select('title description price thumbnail banner enrollmentCount categories tags')
+      .populate('categories', 'name slug')
+      .populate('tags', 'name slug')
       .lean();
 
     console.log('Found courses:', courses.length);
@@ -57,6 +68,8 @@ export const getPublicCourses = async (
       thumbnail: course.thumbnail,
       banner: course.banner,
       enrollmentCount: course.enrollmentCount,
+      categories: (course as any).categories || [],
+      tags: (course as any).tags || [],
       isEnrolled: false, // Default value
       enrollmentStatus: null // Default value
     }));

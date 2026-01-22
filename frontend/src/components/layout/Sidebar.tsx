@@ -68,7 +68,6 @@ export const Sidebar = ({ onMobileClose }: SidebarProps) => {
         { to: '/admin/categories', icon: faLayerGroup, label: 'Categories' },
         { to: '/admin/tags', icon: faTags, label: 'Tags' },
         { to: '/admin/vouchers', icon: faTicketAlt, label: 'Vouchers' },
-        { to: '/admin/settings', icon: faCog, label: 'Settings' },
         { to: '/admin/whatsapp-conversations', icon: faCog, label: 'WhatsApp Conversations' },
         { to: '/admin/public-ai-chat-conversations', icon: faRobot, label: 'Public AI Chat' }
       );
@@ -92,10 +91,11 @@ export const Sidebar = ({ onMobileClose }: SidebarProps) => {
       </div>
 
       <nav className="p-4 space-y-2 overflow-y-auto">
-        {getNavItems().map((item) => (
+        {getNavItems().map((item, index) => (
           <NavLink
             key={item.to}
             to={item.to}
+            end={index === 0} // Only exact match for Home (first item)
             onClick={handleLinkClick}
             className={({ isActive }) =>
               `sidebar-link ${isActive ? 'active' : ''}`

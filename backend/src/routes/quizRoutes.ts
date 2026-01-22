@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import quizController from '../controllers/quizController';
-import { uploadQuestionImage } from '../controllers/quizController';
+import { uploadQuestionImage, uploadExcelFile } from '../controllers/quizController';
 import { authenticateToken, authorizeRoles } from '../middleware/auth';
 import { UserRole } from '../models/User';
 
@@ -17,8 +17,10 @@ const deleteQuizHandler = (req: Request, res: Response, next: NextFunction) => q
 const addQuestionHandler = (req: Request, res: Response, next: NextFunction) => quizController.addQuestion(req, res, next);
 const updateQuestionHandler = (req: Request, res: Response, next: NextFunction) => quizController.updateQuestion(req, res, next);
 const deleteQuestionHandler = (req: Request, res: Response, next: NextFunction) => quizController.deleteQuestion(req, res, next);
+const importQuestionsHandler = (req: Request, res: Response, next: NextFunction) => quizController.importQuestionsFromExcel(req, res, next);
 
 const startAttemptHandler = (req: Request, res: Response, next: NextFunction) => quizController.startAttempt(req, res, next);
+const getAttemptHandler = (req: Request, res: Response, next: NextFunction) => quizController.getAttempt(req, res, next);
 const submitAttemptHandler = (req: Request, res: Response, next: NextFunction) => quizController.submitAttempt(req, res, next);
 
 const getQuizStatisticsHandler = (req: Request, res: Response, next: NextFunction) => quizController.getQuizStatistics(req, res, next);
@@ -38,11 +40,13 @@ router.delete('/:id', authenticateToken, authorizeRoles(UserRole.ADMIN), deleteQ
 
 // Question Routes
 router.post('/:quizId/questions', authenticateToken, uploadQuestionImage, addQuestionHandler);
+router.post('/:quizId/questions/import', authenticateToken, uploadExcelFile, importQuestionsHandler);
 router.put('/:quizId/questions/:questionId', authenticateToken, updateQuestionHandler);
 router.delete('/:quizId/questions/:questionId', authenticateToken, deleteQuestionHandler);
 
 // Attempt Routes
 router.post('/:quizId/attempts', authenticateToken, startAttemptHandler);
+router.get('/attempts/:attemptId', authenticateToken, getAttemptHandler);
 router.put('/attempts/:attemptId', authenticateToken, submitAttemptHandler);
 
 // Analytics Routes

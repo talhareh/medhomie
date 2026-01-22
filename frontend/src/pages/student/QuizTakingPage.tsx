@@ -10,7 +10,8 @@ import {
   faFlag,
   faExclamationTriangle,
   faCheckCircle,
-  faTimesCircle
+  faTimesCircle,
+  faBars
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
@@ -18,10 +19,16 @@ import {
   useQuiz, 
   useStartQuizAttempt, 
   useSubmitQuizAttempt,
-  useQuizEligibility 
+  useQuizEligibility,
+  useCourseQuizzes
 } from '../../hooks/useQuizzes';
 import { QuestionType, QuizWithQuestions } from '../../types/quiz';
-import { MainLayout } from '../../components/layout/MainLayout';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../utils/axios';
+import { ApiCourse, MedicalCourse } from '../../types/courseTypes';
+import { transformCourse } from '../../utils/courseTransformations';
+import { CourseSidebar } from '../../components/course/CourseSidebar';
+import MedicMenu from '../medicMaterial/MedicMenu';
 
 export const QuizTakingPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
@@ -34,6 +41,9 @@ export const QuizTakingPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(new Set());
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [course, setCourse] = useState<MedicalCourse | null>(null);
 
   // Fetch quiz data and eligibility
   const { data: quizData, isLoading: quizLoading } = useQuiz(quizId!);
@@ -44,6 +54,137 @@ export const QuizTakingPage: React.FC = () => {
 
   const quiz = quizData?.data;
   const eligibility = eligibilityData?.data;
+
+  // Extract courseId from quiz (handle both string and object formats)
+  const courseId = quiz?.course 
+    ? (typeof quiz.course === 'object' && quiz.course?._id 
+        ? quiz.course._id 
+        : typeof quiz.course === 'string' 
+        ? quiz.course 
+        : null)
+    : null;
+
+  // Fetch course data
+  const { data: apiCourse, isLoading: courseLoading, error: courseError } = useQuery<ApiCourse>({
+    queryKey: ['course-content', courseId],
+    queryFn: async () => {
+      const response = await api.get(`/public/courses/${courseId}`);
+      return response.data;
+    },
+    enabled: !!courseId,
+  });
+
+  // Fetch course quizzes
+  const { data: quizzesData } = useCourseQuizzes(courseId || '');
+  const quizzes = quizzesData?.data?.quizzes || [];
+
+  // Transform course data when available
+  useEffect(() => {
+    if (apiCourse) {
+      const transformedCourse = transformCourse(apiCourse, quizzes);
+      setCourse(transformedCourse);
+      // Expand first section by default
+      if (transformedCourse.sections.length > 0) {
+        setExpandedSections({ [transformedCourse.sections[0].id]: true });
+      }
+    }
+  }, [apiCourse, quizzes]);
+
+  // Handle mobile sidebar resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle escape key to close mobile sidebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileSidebarOpen]);
+
+  // Handle body scroll lock when mobile sidebar is open
+  useEffect(() => {
+    if (isMobileSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileSidebarOpen]);
+
+  // Navigation handlers for course sidebar
+  const navigateToLesson = (sectionId: string, lessonId: string) => {
+    if (courseId) {
+      navigate(`/courses/${courseId}/learn`, {
+        state: {
+          moduleId: sectionId,
+          lessonId
+        }
+      });
+    }
+  };
+
+  const navigateToQuiz = (sectionId: string, lessonId: string) => {
+    // This is for lesson-specific quizzes - navigate to lesson with quiz content type
+    navigateToLesson(sectionId, lessonId);
+  };
+
+  const navigateToCourseQuiz = (quizId: string) => {
+    // Navigate to quiz taking page
+    navigate(`/student/quiz/${quizId}`);
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  const openPDFInNewTab = (lesson: any, attachmentIndex?: number) => {
+    // PDF opening logic - can be simplified for quiz page
+    const pdfUrl = lesson.pdfUrl || (lesson.attachments && lesson.attachments[0]?.path);
+    if (pdfUrl) {
+      const encodedUrl = encodeURIComponent(pdfUrl);
+      const encodedTitle = encodeURIComponent(lesson.ebookName || `${lesson.title}.pdf`);
+      const viewerUrl = `${window.location.origin}/pdf-enhanced?url=${encodedUrl}&title=${encodedTitle}`;
+      window.open(viewerUrl, '_blank');
+    }
+  };
+
+  const handleSubmitQuiz = async () => {
+    if (!activeAttempt?._id) {
+      toast.error('No active quiz attempt found');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await submitAttemptMutation.mutateAsync({
+        attemptId: activeAttempt._id,
+        answers
+      });
+      
+      // Navigate to results page
+      navigate(`/student/quiz-results/${activeAttempt._id}`);
+    } catch (error) {
+      console.error('Error submitting quiz:', error);
+      toast.error('Failed to submit quiz. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
 
   // Timer effect
   useEffect(() => {
@@ -61,7 +202,7 @@ export const QuizTakingPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeRemaining]);
+  }, [timeRemaining, activeAttempt, submitAttemptMutation, answers, navigate]);
 
   // Start quiz attempt when component mounts
   useEffect(() => {
@@ -111,28 +252,6 @@ export const QuizTakingPage: React.FC = () => {
     }
   };
 
-  const handleSubmitQuiz = async () => {
-    if (!activeAttempt?._id) {
-      toast.error('No active quiz attempt found');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await submitAttemptMutation.mutateAsync({
-        attemptId: activeAttempt._id,
-        answers
-      });
-      
-      // Navigate to results page
-      navigate(`/student/quiz-results/${activeAttempt._id}`);
-    } catch (error) {
-      console.error('Error submitting quiz:', error);
-      toast.error('Failed to submit quiz. Please try again.');
-      setIsSubmitting(false);
-    }
-  };
-
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -169,56 +288,155 @@ export const QuizTakingPage: React.FC = () => {
     return 'answered';
   };
 
+  // Check if user has access to the course
+  const hasAccess = Boolean(user && course?.enrollmentStatus === 'approved');
+  
+  // Calculate course progress (placeholder values for quiz page)
+  const completedLessons = 0;
+  const totalLessons = course?.sections.reduce((acc, section) => acc + section.totalLessons, 0) || 0;
+  const progressPercentage = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+
   // Loading state
-  if (quizLoading || !quiz) {
+  if (quizLoading || !quiz || (courseId && courseLoading)) {
     return (
-      <MainLayout>
-        <div className="flex justify-center items-center h-64">
+      <div className="h-screen bg-white flex flex-col">
+        <MedicMenu />
+        <div className="flex justify-center items-center flex-1">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
   // Eligibility check
   if (eligibility && !eligibility.canTake) {
     return (
-      <MainLayout>
-        <div className="max-w-2xl mx-auto p-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <FontAwesomeIcon icon={faExclamationTriangle} className="w-12 h-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold text-red-800 mb-2">Cannot Take Quiz</h2>
-            <p className="text-red-700 mb-4">{eligibility.reason}</p>
+      <div className="h-screen bg-white flex flex-col">
+        <MedicMenu />
+        {courseId && course && (
+          <div className="bg-neutral-900 text-white py-3 px-4 flex items-center">
             <button
-              onClick={() => navigate(-1)}
-              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+              onClick={() => navigate(`/courses/${courseId}/learn`)}
+              className="mr-4 hover:text-gray-300"
             >
-              Go Back
+              <FontAwesomeIcon icon={faArrowLeft} />
             </button>
+            <div className="flex items-center">
+              <span
+                className="cursor-pointer hover:text-gray-300"
+                onClick={() => navigate('/student/courses')}
+              >
+                Courses
+              </span>
+              <span className="mx-2">/</span>
+              <span className="truncate max-w-xs">{course.title}</span>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-1 overflow-hidden">
+          {course && (
+            <div className="hidden md:block w-64 border-r border-gray-200">
+              <CourseSidebar
+                sections={course.sections}
+                expandedSections={expandedSections}
+                currentLessonId={null}
+                hasAccess={hasAccess}
+                completedLessons={completedLessons}
+                totalLessons={totalLessons}
+                totalHours={course.totalHours}
+                progressPercentage={progressPercentage}
+                toggleSection={toggleSection}
+                navigateToLesson={navigateToLesson}
+                navigateToQuiz={navigateToQuiz}
+                navigateToCourseQuiz={navigateToCourseQuiz}
+                courseQuizzes={course.courseQuizzes || []}
+                openPDFInNewTab={openPDFInNewTab}
+              />
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="w-12 h-12 text-red-500 mb-4" />
+                <h2 className="text-xl font-semibold text-red-800 mb-2">Cannot Take Quiz</h2>
+                <p className="text-red-700 mb-4">{eligibility.reason}</p>
+                <button
+                  onClick={() => courseId ? navigate(`/courses/${courseId}/learn`) : navigate(-1)}
+                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
   // Check if quiz has questions
   if (!quiz.questions || quiz.questions.length === 0) {
     return (
-      <MainLayout>
-        <div className="max-w-2xl mx-auto p-6">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-            <FontAwesomeIcon icon={faExclamationTriangle} className="w-12 h-12 text-yellow-500 mb-4" />
-            <h2 className="text-xl font-semibold text-yellow-800 mb-2">Quiz Not Ready</h2>
-            <p className="text-yellow-700 mb-4">This quiz doesn't have any questions yet. Please check back later.</p>
+      <div className="h-screen bg-white flex flex-col">
+        <MedicMenu />
+        {courseId && course && (
+          <div className="bg-neutral-900 text-white py-3 px-4 flex items-center">
             <button
-              onClick={() => navigate(-1)}
-              className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700"
+              onClick={() => navigate(`/courses/${courseId}/learn`)}
+              className="mr-4 hover:text-gray-300"
             >
-              Go Back
+              <FontAwesomeIcon icon={faArrowLeft} />
             </button>
+            <div className="flex items-center">
+              <span
+                className="cursor-pointer hover:text-gray-300"
+                onClick={() => navigate('/student/courses')}
+              >
+                Courses
+              </span>
+              <span className="mx-2">/</span>
+              <span className="truncate max-w-xs">{course.title}</span>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-1 overflow-hidden">
+          {course && (
+            <div className="hidden md:block w-64 border-r border-gray-200">
+              <CourseSidebar
+                sections={course.sections}
+                expandedSections={expandedSections}
+                currentLessonId={null}
+                hasAccess={hasAccess}
+                completedLessons={completedLessons}
+                totalLessons={totalLessons}
+                totalHours={course.totalHours}
+                progressPercentage={progressPercentage}
+                toggleSection={toggleSection}
+                navigateToLesson={navigateToLesson}
+                navigateToQuiz={navigateToQuiz}
+                navigateToCourseQuiz={navigateToCourseQuiz}
+                courseQuizzes={course.courseQuizzes || []}
+                openPDFInNewTab={openPDFInNewTab}
+              />
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="w-12 h-12 text-yellow-500 mb-4" />
+                <h2 className="text-xl font-semibold text-yellow-800 mb-2">Quiz Not Ready</h2>
+                <p className="text-yellow-700 mb-4">This quiz doesn't have any questions yet. Please check back later.</p>
+                <button
+                  onClick={() => courseId ? navigate(`/courses/${courseId}/learn`) : navigate(-1)}
+                  className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700"
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
@@ -233,27 +451,166 @@ export const QuizTakingPage: React.FC = () => {
   // Safety check for currentQuestion
   if (!currentQuestion) {
     return (
-      <MainLayout>
-        <div className="max-w-2xl mx-auto p-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <FontAwesomeIcon icon={faExclamationTriangle} className="w-12 h-12 text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold text-red-800 mb-2">Question Not Found</h2>
-            <p className="text-red-700 mb-4">Unable to load the current question. Please try again.</p>
+      <div className="h-screen bg-white flex flex-col">
+        <MedicMenu />
+        {courseId && course && (
+          <div className="bg-neutral-900 text-white py-3 px-4 flex items-center">
             <button
-              onClick={() => navigate(-1)}
-              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+              onClick={() => navigate(`/courses/${courseId}/learn`)}
+              className="mr-4 hover:text-gray-300"
             >
-              Go Back
+              <FontAwesomeIcon icon={faArrowLeft} />
             </button>
+            <div className="flex items-center">
+              <span
+                className="cursor-pointer hover:text-gray-300"
+                onClick={() => navigate('/student/courses')}
+              >
+                Courses
+              </span>
+              <span className="mx-2">/</span>
+              <span className="truncate max-w-xs">{course.title}</span>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-1 overflow-hidden">
+          {course && (
+            <div className="hidden md:block w-64 border-r border-gray-200">
+              <CourseSidebar
+                sections={course.sections}
+                expandedSections={expandedSections}
+                currentLessonId={null}
+                hasAccess={hasAccess}
+                completedLessons={completedLessons}
+                totalLessons={totalLessons}
+                totalHours={course.totalHours}
+                progressPercentage={progressPercentage}
+                toggleSection={toggleSection}
+                navigateToLesson={navigateToLesson}
+                navigateToQuiz={navigateToQuiz}
+                navigateToCourseQuiz={navigateToCourseQuiz}
+                courseQuizzes={course.courseQuizzes || []}
+                openPDFInNewTab={openPDFInNewTab}
+              />
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="w-12 h-12 text-red-500 mb-4" />
+                <h2 className="text-xl font-semibold text-red-800 mb-2">Question Not Found</h2>
+                <p className="text-red-700 mb-4">Unable to load the current question. Please try again.</p>
+                <button
+                  onClick={() => courseId ? navigate(`/courses/${courseId}/learn`) : navigate(-1)}
+                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
   return (
-    <MainLayout>
-      <div className="max-w-6xl mx-auto p-4 md:p-6">
+    <div className="h-screen bg-white flex flex-col">
+      <MedicMenu />
+
+      {/* Top navigation bar */}
+      <div className="bg-neutral-900 text-white py-3 px-4 flex items-center justify-between">
+        <div className="flex items-center">
+          {/* Mobile sidebar toggle button - only show if course data is available */}
+          {course && (
+            <button
+              onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+              className="mr-4 hover:text-gray-300 md:hidden"
+              aria-label="Toggle course menu"
+            >
+              <FontAwesomeIcon icon={isMobileSidebarOpen ? faTimes : faBars} />
+            </button>
+          )}
+
+          <button
+            onClick={() => courseId ? navigate(`/courses/${courseId}/learn`) : navigate('/student/courses')}
+            className="mr-4 hover:text-gray-300"
+          >
+            <FontAwesomeIcon icon={faArrowLeft} />
+          </button>
+          <div className="flex items-center">
+            <span
+              className="cursor-pointer hover:text-gray-300"
+              onClick={() => navigate('/student/courses')}
+            >
+              Courses
+            </span>
+            {courseId && course && (
+              <>
+                <span className="mx-2">/</span>
+                <span
+                  className="cursor-pointer hover:text-gray-300 truncate max-w-xs"
+                  onClick={() => navigate(`/courses/${courseId}`)}
+                >
+                  {course.title}
+                </span>
+                <span className="mx-2">/</span>
+                <span className="truncate max-w-xs">Quiz</span>
+              </>
+            )}
+            {courseId && !course && courseLoading && (
+              <>
+                <span className="mx-2">/</span>
+                <span className="truncate max-w-xs">Loading...</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Mobile Sidebar Overlay */}
+        {isMobileSidebarOpen && course && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+
+        {/* Course Sidebar */}
+        {course && (
+          <div className={`
+            ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+            md:translate-x-0
+            transform transition-transform duration-300 ease-in-out
+            fixed md:relative
+            z-50 md:z-auto
+            h-full
+            w-full sm:w-80 md:w-60 lg:w-64
+          `}>
+            <CourseSidebar
+              sections={course.sections}
+              expandedSections={expandedSections}
+              currentLessonId={null}
+              hasAccess={hasAccess}
+              completedLessons={completedLessons}
+              totalLessons={totalLessons}
+              totalHours={course.totalHours}
+              progressPercentage={progressPercentage}
+              toggleSection={toggleSection}
+              navigateToLesson={navigateToLesson}
+              navigateToQuiz={navigateToQuiz}
+              navigateToCourseQuiz={navigateToCourseQuiz}
+              courseQuizzes={course.courseQuizzes || []}
+              openPDFInNewTab={openPDFInNewTab}
+              onMobileClose={() => setIsMobileSidebarOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto bg-white min-w-0 flex flex-col">
+          <div className="max-w-6xl mx-auto p-4 md:p-6 w-full">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-4 md:mb-6">
           <div className="flex flex-col md:flex-row md:justify-between md:items-center">
@@ -497,7 +854,9 @@ export const QuizTakingPage: React.FC = () => {
             </div>
           </div>
         )}
+          </div>
+        </div>
       </div>
-    </MainLayout>
+    </div>
   );
 }; 

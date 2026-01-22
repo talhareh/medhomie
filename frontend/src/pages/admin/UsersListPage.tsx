@@ -15,7 +15,12 @@ import {
   faCreditCard,
   faUsers,
   faCog,
-  faDesktop
+  faDesktop,
+  faEdit,
+  faBan,
+  faCheckCircle,
+  faTrash,
+  faEllipsisV
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
@@ -66,6 +71,9 @@ export const UsersListPage: React.FC = () => {
   });
   const [sortField, setSortField] = useState<keyof AuthUser | 'deviceCount'>('deviceCount');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(25);
+  const [mobileActionMenu, setMobileActionMenu] = useState<string | null>(null);
 
   // Set up Modal root element
   useEffect(() => {
@@ -200,6 +208,21 @@ export const UsersListPage: React.FC = () => {
     },
   });
 
+  const blockUserMutation = useMutation({
+    mutationFn: async ({ userId, isBlocked }: { userId: string; isBlocked: boolean }) => {
+      const response = await api.patch(`/users/${userId}/block`, { isBlocked });
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries(['users']);
+      toast.success(variables.isBlocked ? 'User blocked successfully' : 'User unblocked successfully');
+    },
+    onError: (error: any) => {
+      console.error('Error updating user block status:', error);
+      toast.error(error.response?.data?.message || 'Error updating user block status');
+    },
+  });
+
   const handleCreateUser = () => {
     // Validate required fields
     if (!formData.email || !formData.password || !formData.fullName || !formData.whatsappNumber) {
@@ -292,6 +315,33 @@ export const UsersListPage: React.FC = () => {
     return 0;
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
+  const indexOfLastUser = currentPage * itemsPerPage;
+  const indexOfFirstUser = indexOfLastUser - itemsPerPage;
+  const currentUsers = sortedUsers.slice(indexOfFirstUser, indexOfLastUser);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter, searchTerm]);
+
+  // Close action menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileActionMenu && !(event.target as Element).closest('.action-menu-container')) {
+        setMobileActionMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [mobileActionMenu]);
+
+  const paginate = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSort = (field: keyof AuthUser | 'deviceCount') => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -328,14 +378,15 @@ export const UsersListPage: React.FC = () => {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-800">Users Management</h1>
-          <div className="flex gap-4">
+      <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+        {/* Header - Responsive */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Users Management</h1>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')}
-              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:w-auto px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Roles</option>
               {Object.values(UserRole).map(role => (
@@ -347,29 +398,31 @@ export const UsersListPage: React.FC = () => {
               placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:w-auto px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
             >
               Add User
             </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-x-auto w-full max-w-full">
-          <table className="min-w-full divide-y divide-gray-200">
+        {/* Desktop Table View - Hidden on mobile */}
+        <div className="hidden lg:block bg-white rounded-lg shadow w-full">
+          <div className="overflow-x-hidden">
+            <table className="w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <div className="flex items-center gap-2">
                     WhatsApp
                     <FontAwesomeIcon icon={faWhatsapp} className="text-green-500" />
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <div
                     className="flex items-center gap-2 cursor-pointer hover:text-gray-700"
                     onClick={() => handleSort('deviceCount')}
@@ -379,16 +432,19 @@ export const UsersListPage: React.FC = () => {
                     {getSortIcon('deviceCount')}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                <th className="px-4 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sortedUsers.map(user => (
-                <tr key={user._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
+              {currentUsers.map(user => (
+                <tr 
+                  key={user._id} 
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => navigate(`/admin/users/${user._id}`)}
+                >
+                  <td className="px-4 md:px-6 py-4">
                     <div className="flex items-center">
                       {user.profilePicture ? (
                         <img className="h-10 w-10 rounded-full" src={user.profilePicture} alt="" />
@@ -407,59 +463,330 @@ export const UsersListPage: React.FC = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-4 md:px-6 py-4 text-sm text-gray-500">
                     {user.whatsappNumber || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-4 md:px-6 py-4 text-sm text-gray-500">
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${(user.deviceCount || 0) >= 3 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
                       }`}>
                       {user.deviceCount || 0} / 3
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {user.role}
-                    </span>
+                  <td className="px-4 md:px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {user.role}
+                      </span>
+                      {user.isBlocked && (
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-200 text-red-900">
+                          Blocked
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => updateStatusMutation.mutate({ userId: user._id, isApproved: !user.isApproved })}
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.isApproved
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                        }`}
-                    >
-                      {user.isApproved ? 'Approved' : 'Pending'}
-                    </button>
+                  <td className="px-4 md:px-6 py-4 text-sm text-gray-500">
+                    {(user as any).createdAt ? new Date((user as any).createdAt).toLocaleDateString() : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => openEditModal(user)}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => navigate(`/admin/users/${user._id}`)}
-                      className="text-green-600 hover:text-green-900 mr-4"
-                    >
-                      View Details
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUser(user._id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
+                  <td className="px-4 md:px-6 py-4 text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-end gap-2 flex-wrap">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(user);
+                        }}
+                        className="text-blue-600 hover:text-blue-900 px-2 py-1"
+                        title="Edit"
+                      >
+                        <FontAwesomeIcon icon={faEdit} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          blockUserMutation.mutate({ userId: user._id, isBlocked: !user.isBlocked });
+                        }}
+                        className={user.isBlocked ? 'text-green-600 hover:text-green-900 px-2 py-1' : 'text-orange-600 hover:text-orange-900 px-2 py-1'}
+                        title={user.isBlocked ? 'Unblock user' : 'Block user'}
+                      >
+                        <FontAwesomeIcon icon={user.isBlocked ? faCheckCircle : faBan} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteUser(user._id);
+                        }}
+                        className="text-red-600 hover:text-red-900 px-2 py-1"
+                        title="Delete"
+                      >
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
+
+        {/* Tablet Table View - Hidden on mobile and desktop */}
+        <div className="hidden md:block lg:hidden bg-white rounded-lg shadow w-full">
+          <div className="overflow-x-hidden">
+            <table className="w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentUsers.map(user => (
+                  <tr 
+                    key={user._id} 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => navigate(`/admin/users/${user._id}`)}
+                  >
+                    <td className="px-4 py-4">
+                      <div className="flex items-center">
+                        {user.profilePicture ? (
+                          <img className="h-10 w-10 rounded-full" src={user.profilePicture} alt="" />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-gray-500 font-medium">{user.fullName[0]}</span>
+                          </div>
+                        )}
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
+                          <div className="text-sm text-gray-500">{user.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {user.role}
+                        </span>
+                        {user.isBlocked && (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-200 text-red-900">
+                            Blocked
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative inline-block action-menu-container">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMobileActionMenu(mobileActionMenu === user._id ? null : user._id);
+                          }}
+                          className="text-gray-600 hover:text-gray-900 px-2 py-1"
+                        >
+                          <FontAwesomeIcon icon={faEllipsisV} />
+                        </button>
+                        {mobileActionMenu === user._id && (
+                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                            <div className="py-1">
+                              <button
+                                onClick={() => {
+                                  openEditModal(user);
+                                  setMobileActionMenu(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <FontAwesomeIcon icon={faEdit} /> Edit
+                              </button>
+                              <button
+                                onClick={() => {
+                                  blockUserMutation.mutate({ userId: user._id, isBlocked: !user.isBlocked });
+                                  setMobileActionMenu(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <FontAwesomeIcon icon={user.isBlocked ? faCheckCircle : faBan} /> {user.isBlocked ? 'Unblock' : 'Block'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleDeleteUser(user._id);
+                                  setMobileActionMenu(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                              >
+                                <FontAwesomeIcon icon={faTrash} /> Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Mobile Card View - Only visible on mobile */}
+        <div className="lg:hidden space-y-4">
+          {currentUsers.map(user => (
+            <div 
+              key={user._id} 
+              className="bg-white rounded-lg shadow p-4 cursor-pointer hover:bg-gray-50"
+              onClick={() => navigate(`/admin/users/${user._id}`)}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  {user.profilePicture ? (
+                    <img className="h-12 w-12 rounded-full flex-shrink-0" src={user.profilePicture} alt="" />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-gray-500 font-medium text-lg">{user.fullName[0]}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate">{user.fullName}</div>
+                    <div className="text-sm text-gray-500 truncate">{user.email}</div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {user.role}
+                      </span>
+                      {user.isBlocked && (
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-200 text-red-900">
+                          Blocked
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="relative ml-2 action-menu-container" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMobileActionMenu(mobileActionMenu === user._id ? null : user._id);
+                    }}
+                    className="text-gray-600 hover:text-gray-900 p-2"
+                  >
+                    <FontAwesomeIcon icon={faEllipsisV} />
+                  </button>
+                  {mobileActionMenu === user._id && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setMobileActionMenu(null)}
+                      />
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                        <div className="py-1">
+                          <button
+                            onClick={() => {
+                              openEditModal(user);
+                              setMobileActionMenu(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <FontAwesomeIcon icon={faEdit} /> Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              blockUserMutation.mutate({ userId: user._id, isBlocked: !user.isBlocked });
+                              setMobileActionMenu(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <FontAwesomeIcon icon={user.isBlocked ? faCheckCircle : faBan} /> {user.isBlocked ? 'Unblock' : 'Block'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleDeleteUser(user._id);
+                              setMobileActionMenu(null);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <FontAwesomeIcon icon={faTrash} /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                <div>
+                  <span className="font-medium">WhatsApp:</span> {user.whatsappNumber || '-'}
+                </div>
+                <div>
+                  <span className="font-medium">Devices:</span>{' '}
+                  <span className={`px-2 py-1 rounded-full ${(user.deviceCount || 0) >= 3 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {user.deviceCount || 0} / 3
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pagination */}
+        {sortedUsers.length > 0 && (
+          <div className="bg-white rounded-lg shadow px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-700">
+              Showing <span className="font-medium">{indexOfFirstUser + 1}</span> to{' '}
+              <span className="font-medium">{Math.min(indexOfLastUser, sortedUsers.length)}</span> of{' '}
+              <span className="font-medium">{sortedUsers.length}</span> users
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => paginate(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    currentPage === 1
+                      ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                      : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Previous
+                </button>
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => paginate(pageNum)}
+                        className={`px-3 py-2 text-sm font-medium rounded-md ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => paginate(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${
+                    currentPage === totalPages
+                      ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                      : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create User Modal */}

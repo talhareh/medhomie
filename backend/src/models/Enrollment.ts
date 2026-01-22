@@ -17,6 +17,8 @@ export interface IEnrollment extends Document {
   enrollmentDate: Date;
   approvalDate?: Date;
   rejectionReason?: string;
+  expirationDate: Date;
+  isExpired: boolean;
 }
 
 const enrollmentSchema = new Schema<IEnrollment>({
@@ -57,12 +59,22 @@ const enrollmentSchema = new Schema<IEnrollment>({
     default: Date.now
   },
   approvalDate: Date,
-  rejectionReason: String
+  rejectionReason: String,
+  expirationDate: {
+    type: Date,
+    required: false // Optional for backward compatibility, but required for new enrollments
+  },
+  isExpired: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true
 });
 
 // Ensure unique enrollment per student per course
 enrollmentSchema.index({ student: 1, course: 1 }, { unique: true });
+// Index for efficient cron job queries
+enrollmentSchema.index({ expirationDate: 1, status: 1, isExpired: 1 });
 
 export const Enrollment = mongoose.model<IEnrollment>('Enrollment', enrollmentSchema);

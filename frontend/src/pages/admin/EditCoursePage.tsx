@@ -10,7 +10,7 @@ export const EditCoursePage: React.FC = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -141,7 +141,7 @@ export const EditCoursePage: React.FC = () => {
     <MainLayout>
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Edit Course</h1>
-        
+
         <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -35,6 +35,8 @@ export const EnrollStudentsModal: React.FC<EnrollmentModalProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [expirationDate, setExpirationDate] = useState('');
+  const [dateError, setDateError] = useState('');
   const queryClient = useQueryClient();
 
   // Query for available students
@@ -50,13 +52,16 @@ export const EnrollStudentsModal: React.FC<EnrollmentModalProps> = ({
 
   // Mutation for bulk enrollment
   const enrollMutation = useMutation({
-    mutationFn: (studentIds: string[]) => enrollmentService.bulkEnrollStudents(courseId, studentIds),
+    mutationFn: ({ studentIds, expirationDate }: { studentIds: string[], expirationDate: string }) => 
+      enrollmentService.bulkEnrollStudents(courseId, studentIds, expirationDate),
     onSuccess: () => {
       toast.success('Students enrolled successfully');
       queryClient.invalidateQueries(['enrollments', courseId]);
       queryClient.invalidateQueries(['available-students', courseId]);
       onClose();
       setSelectedStudents([]);
+      setExpirationDate('');
+      setDateError('');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to enroll students');
@@ -79,12 +84,46 @@ export const EnrollStudentsModal: React.FC<EnrollmentModalProps> = ({
     );
   };
 
+  const handleExpirationDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dateValue = e.target.value;
+    setExpirationDate(dateValue);
+    setDateError('');
+
+    if (dateValue) {
+      const selectedDate = new Date(dateValue);
+      const now = new Date();
+      
+      // Set time to start of day for comparison
+      selectedDate.setHours(0, 0, 0, 0);
+      now.setHours(0, 0, 0, 0);
+
+      if (selectedDate <= now) {
+        setDateError('Expiration date must be in the future');
+      }
+    }
+  };
+
   const handleEnroll = async () => {
     if (selectedStudents.length === 0) {
       toast.error('Please select at least one student');
       return;
     }
-    enrollMutation.mutate(selectedStudents);
+
+    if (!expirationDate) {
+      setDateError('Expiration date is required');
+      return;
+    }
+
+    if (dateError) {
+      toast.error(dateError);
+      return;
+    }
+
+    // Convert local date to UTC ISO string
+    const date = new Date(expirationDate);
+    const utcDateString = date.toISOString();
+
+    enrollMutation.mutate({ studentIds: selectedStudents, expirationDate: utcDateString });
   };
 
   return (
@@ -106,13 +145,38 @@ export const EnrollStudentsModal: React.FC<EnrollmentModalProps> = ({
           </button>
         </div>
 
-        <input
-          type="text"
-          placeholder="Search students..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
-        />
+        <div className="space-y-2">
+          <input
+            type="text"
+            placeholder="Search students..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6"
+          />
+          
+          <div>
+            <label htmlFor="expirationDate" className="block text-sm font-medium text-gray-700 mb-1">
+              Expiration Date <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="expirationDate"
+              type="date"
+              value={expirationDate}
+              onChange={handleExpirationDateChange}
+              min={new Date().toISOString().split('T')[0]}
+              className={`block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ${
+                dateError ? 'ring-red-300' : 'ring-gray-300'
+              } focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6`}
+              required
+            />
+            {dateError && (
+              <p className="mt-1 text-sm text-red-600">{dateError}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Students will be automatically removed from this course after this date (UTC)
+            </p>
+          </div>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -176,7 +240,7 @@ export const EnrollStudentsModal: React.FC<EnrollmentModalProps> = ({
           </button>
           <button
             onClick={handleEnroll}
-            disabled={selectedStudents.length === 0 || enrollMutation.isLoading}
+            disabled={selectedStudents.length === 0 || !expirationDate || !!dateError || enrollMutation.isLoading}
             className="inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {enrollMutation.isLoading ? 'Enrolling...' : 'Enroll Selected'}

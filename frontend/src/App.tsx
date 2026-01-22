@@ -60,6 +60,7 @@ import CreateBlogPage from './pages/admin/blog/CreateBlogPage';
 import EditBlogPage from './pages/admin/blog/EditBlogPage';
 import BlogListingPage from './pages/blog/BlogListingPage';
 import BlogDetailPage from './pages/blog/BlogDetailPage';
+import NewBlogPage from './pages/blog/NewBlogPage';
 import RefundPolicyPage from './pages/RefundPolicyPage';
 import WhatsappConversationsPage from './pages/admin/WhatsappConversationsPage';
 import MedicalAIBot from './components/common/MedicalAIBot';
@@ -133,6 +134,11 @@ function App() {
               {/* Public Blog Routes */}
               <Route path="/blogs" element={<BlogListingPage />} />
               <Route path="/blogs/:slug" element={<BlogDetailPage />} />
+              <Route path="/newBlog" element={
+                <ProtectedRoute adminOnly>
+                  <NewBlogPage />
+                </ProtectedRoute>
+              } />
               <Route path="/courses/:courseId/learn" element={
                 <ProtectedRoute>
                   <CourseContentPage />

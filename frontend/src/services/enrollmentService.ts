@@ -2,9 +2,10 @@ import api from '../utils/axios';
 
 export const enrollmentService = {
   // Bulk enroll students in a course
-  bulkEnrollStudents: async (courseId: string, studentIds: string[]) => {
+  bulkEnrollStudents: async (courseId: string, studentIds: string[], expirationDate: string) => {
     const response = await api.post(`/enrollments/courses/${courseId}/bulk-enroll`, {
-      studentIds
+      studentIds,
+      expirationDate
     });
     return response.data;
   },
@@ -50,5 +51,22 @@ export const enrollmentService = {
       email: enrollment.student.email,
       whatsappNumber: enrollment.student.whatsappNumber
     }));
+  },
+
+  // Update enrollment expiration date
+  updateEnrollmentExpiration: async (enrollmentId: string, expirationDate: string) => {
+    const response = await api.patch(`/enrollments/${enrollmentId}/expiration`, {
+      expirationDate
+    });
+    return response.data;
+  },
+
+  // Bulk update enrollment expiration dates
+  bulkUpdateExpiration: async (enrollmentIds: string[], expirationDate: string) => {
+    const response = await api.patch(`/enrollments/bulk-expiration`, {
+      enrollmentIds,
+      expirationDate
+    });
+    return response.data;
   }
 };

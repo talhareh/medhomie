@@ -35,26 +35,35 @@ export const QuizzesListPage: React.FC = () => {
     setPage(1); // Reset to first page when filters change
   };
 
+  const paginate = (pageNumber: number) => {
+    setPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const quizzes = quizzesData?.data?.quizzes || [];
   const totalPages = quizzesData?.data?.totalPages || 1;
+  const totalQuizzes = quizzesData?.data?.total || 0;
+  const itemsPerPage = 10;
+  const indexOfLastQuiz = page * itemsPerPage;
+  const indexOfFirstQuiz = indexOfLastQuiz - itemsPerPage;
 
   return (
     <MainLayout>
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Quizzes Management</h1>
+      <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+        {/* Header - Responsive */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Quizzes Management</h1>
           <button
             onClick={() => navigate('/admin/quizzes/new')}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center"
+            className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap flex items-center justify-center gap-2"
           >
-            <FontAwesomeIcon icon={faPlus} className="w-4 h-4 mr-2" />
+            <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
             Create New Quiz
           </button>
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Filters</h3>
+        <div className="bg-white p-4 rounded-lg shadow mb-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -65,7 +74,7 @@ export const QuizzesListPage: React.FC = () => {
                 placeholder="Search quizzes..."
                 value={filters.search || ''}
                 onChange={(e) => handleFilterChange('search', e.target.value || undefined)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -75,7 +84,7 @@ export const QuizzesListPage: React.FC = () => {
               <select
                 value={filters.isActive?.toString() || ''}
                 onChange={(e) => handleFilterChange('isActive', e.target.value === '' ? undefined : e.target.value === 'true')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Status</option>
                 <option value="true">Active</option>
@@ -91,13 +100,13 @@ export const QuizzesListPage: React.FC = () => {
                 placeholder="Filter by course ID..."
                 value={filters.courseId || ''}
                 onChange={(e) => handleFilterChange('courseId', e.target.value || undefined)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="flex items-end">
               <button
                 onClick={() => setFilters({})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="w-full px-3 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 Clear Filters
               </button>
@@ -126,9 +135,8 @@ export const QuizzesListPage: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+            <div className="bg-white rounded-lg shadow overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -238,31 +246,67 @@ export const QuizzesListPage: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
-              </div>
             </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-center mt-6">
-                <nav className="flex space-x-2">
+              <div className="bg-white rounded-lg shadow px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{indexOfFirstQuiz + 1}</span> to{' '}
+                  <span className="font-medium">{Math.min(indexOfLastQuiz, totalQuizzes)}</span> of{' '}
+                  <span className="font-medium">{totalQuizzes}</span> quizzes
+                </div>
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setPage(Math.max(1, page - 1))}
+                    onClick={() => paginate(page - 1)}
                     disabled={page === 1}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`px-3 py-2 text-sm font-medium rounded-md ${
+                      page === 1
+                        ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                    }`}
                   >
                     Previous
                   </button>
-                  <span className="px-3 py-2 text-sm text-gray-700">
-                    Page {page} of {totalPages}
-                  </span>
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (page <= 3) {
+                        pageNum = i + 1;
+                      } else if (page >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = page - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => paginate(pageNum)}
+                          className={`px-3 py-2 text-sm font-medium rounded-md ${
+                            page === pageNum
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <button
-                    onClick={() => setPage(Math.min(totalPages, page + 1))}
+                    onClick={() => paginate(page + 1)}
                     disabled={page === totalPages}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`px-3 py-2 text-sm font-medium rounded-md ${
+                      page === totalPages
+                        ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                    }`}
                   >
                     Next
                   </button>
-                </nav>
+                </div>
               </div>
             )}
           </>

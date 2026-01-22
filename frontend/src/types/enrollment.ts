@@ -23,6 +23,8 @@ export interface Enrollment {
   enrollmentDate: string;
   approvalDate?: string;
   rejectionReason?: string;
+  expirationDate?: string;
+  isExpired?: boolean;
 }
 
 export interface EnrollmentRequest {
@@ -66,4 +68,13 @@ export interface RemoveModalProps {
   courseId: string;
   courseTitle: string;
   onRemove: (studentIds: string[]) => Promise<void>;
+}
+
+export interface UpdateExpirationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  enrollmentId?: string;
+  enrollmentIds?: string[];
+  currentExpirationDate?: string;
+  onUpdate: (expirationDate: string) => Promise<void>;
 }

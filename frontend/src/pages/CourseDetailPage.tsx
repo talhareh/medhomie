@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,13 +8,15 @@ import {
   faChevronRight,
   faChevronDown,
   faCheck,
-  faFile
+  faFile,
+  faQuestionCircle
 } from '@fortawesome/free-solid-svg-icons';
 import MedicMenu from './medicMaterial/MedicMenu';
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 import { EnrollmentStatus } from './PublicCoursesPage';
 import Modal from 'react-modal';
+import { useCourseQuizzes } from '../hooks/useQuizzes';
 
 // Bind modal to your appElement for accessibility
 Modal.setAppElement('#root');
@@ -88,6 +90,29 @@ export const CourseDetailPage: React.FC = () => {
     },
   });
 
+  // Fetch course quizzes
+  const { data: quizzesData, error: quizzesError, isLoading: quizzesLoading } = useCourseQuizzes(courseId!);
+  const quizzes = quizzesData?.data?.quizzes || [];
+
+  // Log quiz fetching errors for debugging
+  useEffect(() => {
+    if (quizzesError) {
+      console.error('Error fetching quizzes:', quizzesError);
+    }
+  }, [quizzesError]);
+
+  // Separate lesson-specific quizzes from course-level quizzes
+  const lessonSpecificQuizzes = quizzes.filter((quiz: any) => quiz.lesson);
+  const courseLevelQuizzes = quizzes.filter((quiz: any) => !quiz.lesson);
+
+  // Helper function to get quizzes for a specific lesson
+  const getQuizzesForLesson = (lessonId: string) => {
+    return lessonSpecificQuizzes.filter((quiz: any) => {
+      const quizLessonId = typeof quiz.lesson === 'object' ? quiz.lesson._id || quiz.lesson.toString() : quiz.lesson.toString();
+      return quizLessonId === lessonId;
+    });
+  };
+
   // Expand the first module by default when course data is loaded
   React.useEffect(() => {
     if (course && course.modules.length > 0) {
@@ -124,6 +149,15 @@ export const CourseDetailPage: React.FC = () => {
 
   const closeModal = () => {
     setIsModalOpen(false);
+  };
+
+  const handleQuizClick = (quizId: string) => {
+    if (!hasAccess) {
+      setIsModalOpen(true);
+      return;
+    }
+    // Navigate to quiz taking page
+    navigate(`/student/quiz/${quizId}`);
   };
 
   // Function to open PDF in new tab with security protections
@@ -431,6 +465,80 @@ export const CourseDetailPage: React.FC = () => {
                             </div>
                           </div>
                         ))}
+                      
+                      {/* Quizzes Section for this Module */}
+                      {(() => {
+                        // Get quizzes for lessons in this module
+                        const moduleLessonQuizzes = module.lessons.flatMap(lesson => 
+                          getQuizzesForLesson(lesson._id).map((quiz: any) => ({
+                            ...quiz,
+                            lessonId: lesson._id,
+                            lessonTitle: lesson.title
+                          }))
+                        );
+                        
+                        // Show quizzes section if there are any lesson-specific quizzes or course-level quizzes
+                        const hasQuizzes = moduleLessonQuizzes.length > 0 || courseLevelQuizzes.length > 0;
+                        
+                        return hasQuizzes ? (
+                          <div className="border-t-2 border-purple-200 bg-purple-50">
+                            <div className="p-4">
+                              <div className="flex items-center mb-3">
+                                <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-600 mr-2" />
+                                <h4 className="font-semibold text-purple-800">Quizzes</h4>
+                              </div>
+                              
+                              {/* Lesson-specific quizzes */}
+                              {moduleLessonQuizzes.length > 0 && (
+                                <div className="space-y-2 mb-3">
+                                  {moduleLessonQuizzes.map((quiz: any) => (
+                                    <div
+                                      key={quiz._id || quiz.id}
+                                      onClick={() => handleQuizClick(quiz._id || quiz.id)}
+                                      className="bg-white rounded-lg p-3 cursor-pointer hover:bg-purple-100 transition-colors border border-purple-200"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <p className="font-medium text-sm text-purple-900">{quiz.title}</p>
+                                          {quiz.description && (
+                                            <p className="text-xs text-purple-600 mt-1">{quiz.description}</p>
+                                          )}
+                                          <p className="text-xs text-purple-500 mt-1">Lesson: {quiz.lessonTitle}</p>
+                                        </div>
+                                        <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-500 ml-2" />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Course-level quizzes (only show in the last module) */}
+                              {courseLevelQuizzes.length > 0 && module._id === course.modules[course.modules.length - 1]._id && (
+                                <div className="space-y-2">
+                                  {courseLevelQuizzes.map((quiz: any) => (
+                                    <div
+                                      key={quiz._id || quiz.id}
+                                      onClick={() => handleQuizClick(quiz._id || quiz.id)}
+                                      className="bg-white rounded-lg p-3 cursor-pointer hover:bg-purple-100 transition-colors border border-purple-200"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <p className="font-medium text-sm text-purple-900">{quiz.title}</p>
+                                          {quiz.description && (
+                                            <p className="text-xs text-purple-600 mt-1">{quiz.description}</p>
+                                          )}
+                                          <p className="text-xs text-purple-500 mt-1">Course Quiz</p>
+                                        </div>
+                                        <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-500 ml-2" />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   )}
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -189,14 +189,20 @@ export const VoucherManagementPage: React.FC = () => {
   const vouchers = vouchersData?.data || [];
   const pagination = vouchersData?.pagination;
 
+  const paginate = (pageNumber: number) => {
+    setPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <MainLayout>
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Voucher Management</h1>
+      <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+        {/* Header - Responsive */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Voucher Management</h1>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center gap-2"
+            className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap flex items-center justify-center gap-2"
           >
             <FontAwesomeIcon icon={faPlus} />
             Add New Voucher
@@ -204,7 +210,7 @@ export const VoucherManagementPage: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="mb-4 flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <input
             type="text"
             placeholder="Search by code..."
@@ -213,7 +219,7 @@ export const VoucherManagementPage: React.FC = () => {
               setSearchTerm(e.target.value);
               setPage(1);
             }}
-            className="border rounded px-3 py-2 flex-1 max-w-md"
+            className="w-full sm:w-auto px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={isActiveFilter === undefined ? 'all' : isActiveFilter.toString()}
@@ -222,7 +228,7 @@ export const VoucherManagementPage: React.FC = () => {
               setIsActiveFilter(value === 'all' ? undefined : value === 'true');
               setPage(1);
             }}
-            className="border rounded px-3 py-2"
+            className="w-full sm:w-auto px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Status</option>
             <option value="true">Active</option>
@@ -240,8 +246,8 @@ export const VoucherManagementPage: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white border border-gray-200">
+            <div className="bg-white rounded-lg shadow overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
                 <thead>
                   <tr>
                     <th className="px-6 py-3 border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -347,22 +353,59 @@ export const VoucherManagementPage: React.FC = () => {
 
             {/* Pagination */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="mt-4 flex justify-between items-center">
+              <div className="bg-white rounded-lg shadow px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-gray-700">
-                  Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, pagination.total)} of {pagination.total} vouchers
+                  Showing <span className="font-medium">{((page - 1) * 10) + 1}</span> to{' '}
+                  <span className="font-medium">{Math.min(page * 10, pagination.total)}</span> of{' '}
+                  <span className="font-medium">{pagination.total}</span> vouchers
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    onClick={() => paginate(page - 1)}
                     disabled={page === 1}
-                    className="px-4 py-2 border rounded disabled:opacity-50"
+                    className={`px-3 py-2 text-sm font-medium rounded-md ${
+                      page === 1
+                        ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                    }`}
                   >
                     Previous
                   </button>
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (pagination.totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (page <= 3) {
+                        pageNum = i + 1;
+                      } else if (page >= pagination.totalPages - 2) {
+                        pageNum = pagination.totalPages - 4 + i;
+                      } else {
+                        pageNum = page - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => paginate(pageNum)}
+                          className={`px-3 py-2 text-sm font-medium rounded-md ${
+                            page === pageNum
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <button
-                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                    onClick={() => paginate(page + 1)}
                     disabled={page === pagination.totalPages}
-                    className="px-4 py-2 border rounded disabled:opacity-50"
+                    className={`px-3 py-2 text-sm font-medium rounded-md ${
+                      page === pagination.totalPages
+                        ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                    }`}
                   >
                     Next
                   </button>

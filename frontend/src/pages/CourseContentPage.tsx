@@ -47,6 +47,13 @@ export const CourseContentPage: React.FC = () => {
   // Fetch course quizzes
   const { data: quizzesData, error: quizzesError, isLoading: quizzesLoading } = useCourseQuizzes(courseId!);
   const quizzes = quizzesData?.data?.quizzes || [];
+  
+  // Log quiz fetching errors for debugging
+  useEffect(() => {
+    if (quizzesError) {
+      console.error('Error fetching quizzes:', quizzesError);
+    }
+  }, [quizzesError]);
 
   // Create a derived state for the transformed course
   const [course, setCourse] = useState<MedicalCourse | null>(null);
@@ -257,6 +264,17 @@ export const CourseContentPage: React.FC = () => {
     navigateToLesson(sectionId, lessonId, { contentType: 'quiz' });
   };
 
+  const navigateToCourseQuiz = (quizId: string) => {
+    if (!hasAccess) {
+      setIsModalOpen(true);
+      return;
+    }
+    // Close mobile sidebar when navigating to quiz
+    setIsMobileSidebarOpen(false);
+    // Navigate to quiz taking page
+    navigate(`/student/quiz/${quizId}`);
+  };
+
 
 
 
@@ -419,6 +437,8 @@ export const CourseContentPage: React.FC = () => {
             toggleSection={toggleSection}
             navigateToLesson={navigateToLesson}
             navigateToQuiz={navigateToQuiz}
+            navigateToCourseQuiz={navigateToCourseQuiz}
+            courseQuizzes={course.courseQuizzes || []}
             openPDFInNewTab={openPDFInNewTab}
             onMobileClose={() => setIsMobileSidebarOpen(false)}
           />

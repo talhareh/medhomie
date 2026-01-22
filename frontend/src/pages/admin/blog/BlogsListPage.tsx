@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { getBlogs, BlogPost } from '../../../services/blogService';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
+import { getBlogs, deleteBlog, BlogPost } from '../../../services/blogService';
 import BlogCard from '../../../components/blog/BlogCard';
+import { ConfirmationDialog } from '../../../components/common/ConfirmationDialog';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faFilter, faSearch, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { MainLayout } from '../../../components/layout/MainLayout';
@@ -13,11 +15,51 @@ const BlogsListPage: React.FC = () => {
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [blogToDelete, setBlogToDelete] = useState<BlogPost | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['blogs', page, limit, status, search],
     queryFn: () => getBlogs(page, limit, status, undefined, search)
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteBlog(id),
+    onSuccess: () => {
+      toast.success('Blog deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['blogs'] });
+      setIsDeleteDialogOpen(false);
+      setBlogToDelete(null);
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 
+        typeof error === 'object' && error !== null && 'response' in error && 
+        typeof error.response === 'object' && error.response !== null && 
+        'data' in error.response && typeof error.response.data === 'object' && 
+        error.response.data !== null && 'message' in error.response.data ? 
+        String(error.response.data.message) : 'Failed to delete blog';
+      toast.error(errorMessage);
+    }
+  });
+
+  const handleDeleteClick = (blog: BlogPost, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setBlogToDelete(blog);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (blogToDelete) {
+      deleteMutation.mutate(blogToDelete._id);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setIsDeleteDialogOpen(false);
+    setBlogToDelete(null);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +153,12 @@ const BlogsListPage: React.FC = () => {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {data?.data.map((blog: BlogPost) => (
-              <BlogCard key={blog._id} blog={blog} isAdmin={true} />
+              <BlogCard 
+                key={blog._id} 
+                blog={blog} 
+                isAdmin={true}
+                onDelete={handleDeleteClick}
+              />
             ))}
           </div>
 
@@ -150,6 +197,14 @@ const BlogsListPage: React.FC = () => {
           )}
         </>
       )}
+
+      <ConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Delete Blog Post"
+        message="Are you sure you want to delete this blog post? This action cannot be undone."
+      />
       </div>
     </MainLayout>
   );

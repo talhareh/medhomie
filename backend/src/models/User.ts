@@ -18,6 +18,7 @@ export interface IUser extends Document {
   googleId?: string;
   profilePicture?: string;
   isApproved: boolean;
+  isBlocked: boolean;
   emailVerified: boolean;
   emailVerificationToken?: string;
   emailVerificationExpires?: Date;
@@ -74,6 +75,10 @@ const userSchema = new Schema<IUser>({
     default: function() {
       return this.role === UserRole.STUDENT;
     }
+  },
+  isBlocked: {
+    type: Boolean,
+    default: false
   },
   emailVerified: {
     type: Boolean,

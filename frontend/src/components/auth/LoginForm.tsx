@@ -15,11 +15,13 @@ export const LoginForm = () => {
   const { register, handleSubmit, formState: { errors } } = useForm<LoginCredentials>();
 
   const [deviceError, setDeviceError] = useState<{ message: string; devices: string[] } | null>(null);
+  const [blockedError, setBlockedError] = useState<string | null>(null);
 
   const onSubmit = async (data: LoginCredentials) => {
     try {
       setIsLoading(true);
       setDeviceError(null);
+      setBlockedError(null);
       await login(data);
       toast.success('Login successful!');
     } catch (error: any) {
@@ -28,6 +30,8 @@ export const LoginForm = () => {
           message: error.response.data.message,
           devices: error.response.data.currentDevices || []
         });
+      } else if (error.response?.data?.message?.includes('blocked')) {
+        setBlockedError(error.response.data.message || 'Your account has been blocked. Please contact support.');
       } else {
         toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
       }
@@ -174,6 +178,35 @@ export const LoginForm = () => {
                 type="button"
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm"
                 onClick={() => setDeviceError(null)}
+              >
+                Understood
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Account Blocked Modal */}
+      {blockedError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Account Blocked</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                {blockedError}
+              </p>
+            </div>
+
+            <div className="mt-6">
+              <button
+                type="button"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm"
+                onClick={() => setBlockedError(null)}
               >
                 Understood
               </button>

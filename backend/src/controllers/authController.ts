@@ -144,17 +144,30 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Check if user is blocked
+    if (user.isBlocked) {
+      res.status(403).json({ message: 'Your account has been blocked. Please contact support.' });
+      return;
+    }
+
     // Device Management Logic
     const deviceFingerprint = generateDeviceFingerprint(req);
-    const { deviceInfo } = extractDeviceInfo(req);
+    const { deviceInfo, ipAddress } = extractDeviceInfo(req);
     const deviceName = getDeviceName(deviceInfo);
 
     let userDevice = await UserDevice.findOne({ userId: user._id, deviceFingerprint });
 
     if (userDevice) {
+      // Check if device is blocked
+      if (userDevice.isBlocked) {
+        res.status(403).json({ message: 'This device has been blocked. Please contact support.' });
+        return;
+      }
+
       // Known device - update last login
       userDevice.lastLogin = new Date();
       userDevice.isActive = true;
+      userDevice.ipAddress = ipAddress;
       userDevice.deviceInfo = {
         browser: deviceInfo.browser,
         os: deviceInfo.os,
@@ -187,6 +200,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         userId: user._id,
         deviceFingerprint,
         deviceName,
+        ipAddress,
         deviceInfo: {
           browser: deviceInfo.browser,
           os: deviceInfo.os,
@@ -218,6 +232,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         fullName: user.fullName,
         role: user.role,
         isApproved: user.isApproved,
+        isBlocked: user.isBlocked,
         emailVerified: user.emailVerified
       }
     });

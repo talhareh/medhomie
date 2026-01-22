@@ -8,8 +8,10 @@ import {
   updateUserRole,
   deleteUser,
   getUserById,
-  getAvailableStudents
+  getAvailableStudents,
+  blockUser
 } from '../controllers/userController';
+import { deleteDevice, deleteAllDevices, blockDevice } from '../controllers/deviceController';
 
 const router = express.Router();
 
@@ -39,5 +41,13 @@ router.patch('/:id/status', updateUserStatus);
 
 // Update user role (Admin only)
 router.patch('/:id/role', updateUserRole);
+
+// Block/Unblock user (Admin only)
+router.patch('/:id/block', blockUser);
+
+// Device management routes (Admin only)
+router.delete('/:userId/devices', deleteAllDevices);
+router.delete('/:userId/devices/:deviceId', deleteDevice);
+router.patch('/:userId/devices/:deviceId/block', blockDevice);
 
 export default router;

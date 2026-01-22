@@ -31,6 +31,8 @@ interface CourseSidebarProps {
     options?: { contentType?: 'video' | 'quiz' }
   ) => void;
   navigateToQuiz?: (sectionId: string, lessonId: string) => void;
+  navigateToCourseQuiz?: (quizId: string) => void;
+  courseQuizzes?: any[];
   openPDFInNewTab: (lesson: Lesson, attachmentIndex?: number) => void;
   onMobileClose?: () => void;
 }
@@ -52,6 +54,8 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
   toggleSection,
   navigateToLesson,
   navigateToQuiz,
+  navigateToCourseQuiz,
+  courseQuizzes = [],
   openPDFInNewTab,
   onMobileClose
 }) => {
@@ -183,6 +187,34 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
             )}
           </div>
         ))}
+        
+        {/* Course-Level Quizzes Section */}
+        {courseQuizzes && courseQuizzes.length > 0 && (
+          <div className="bg-white border-t-2 border-gray-200">
+            <div className="px-3 md:px-4 py-3 border-b border-gray-100">
+              <h3 className="font-medium text-gray-800 text-sm md:text-base">Course Quizzes</h3>
+            </div>
+            <div className="bg-gray-50">
+              {courseQuizzes.map((quiz) => (
+                <button
+                  key={quiz._id || quiz.id}
+                  onClick={() => navigateToCourseQuiz && navigateToCourseQuiz(quiz._id || quiz.id)}
+                  className="w-full px-4 md:px-6 py-3 text-left border-b border-gray-100 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition-colors touch-manipulation"
+                >
+                  <div className="flex items-center">
+                    <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-500 mr-2 text-sm flex-shrink-0" />
+                    <span className="text-xs md:text-sm font-medium text-gray-800 truncate">
+                      {quiz.title}
+                    </span>
+                  </div>
+                  {quiz.description && (
+                    <p className="text-xs text-gray-500 mt-1 ml-6 truncate">{quiz.description}</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

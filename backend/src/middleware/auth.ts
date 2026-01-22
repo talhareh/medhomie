@@ -78,6 +78,12 @@ export const authenticateToken = async (
       const error = new Error('User not found');
       return next(error);
     }
+
+    // Check if user is blocked
+    if (user.isBlocked) {
+      res.status(403).json({ message: 'Your account has been blocked. Please contact support.' });
+      return;
+    }
     
     (req as AuthRequest).user = {
       _id: decoded.userId,
