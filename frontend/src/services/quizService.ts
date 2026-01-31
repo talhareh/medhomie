@@ -130,9 +130,9 @@ export const addQuestion = async (quizId: string, questionData: CreateQuestionDa
 };
 
 // Update a question
-export const updateQuestion = async (questionId: string, questionData: UpdateQuestionData): Promise<{ success: boolean; data: Question }> => {
+export const updateQuestion = async (quizId: string, questionId: string, questionData: UpdateQuestionData): Promise<{ success: boolean; data: Question }> => {
   const response = await api.put(
-    `/questions/${questionId}`,
+    `/quizzes/${quizId}/questions/${questionId}`,
     questionData,
     { headers: getAuthHeaders() }
   );

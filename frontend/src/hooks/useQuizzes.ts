@@ -140,12 +140,13 @@ export const useUpdateQuestion = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ questionId, questionData }: { questionId: string; questionData: UpdateQuestionData }) =>
-      quizService.updateQuestion(questionId, questionData),
+    mutationFn: ({ quizId, questionId, questionData }: { quizId: string; questionId: string; questionData: UpdateQuestionData }) =>
+      quizService.updateQuestion(quizId, questionId, questionData),
     onSuccess: (data, variables) => {
       toast.success('Question updated successfully!');
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['quiz', variables.quizId] });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to update question');

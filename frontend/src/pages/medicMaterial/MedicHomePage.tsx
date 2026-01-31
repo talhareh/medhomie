@@ -24,10 +24,17 @@ import testimonial3 from '../../assets/testimonial/3.jpeg';
 import testimonial4 from '../../assets/testimonial/4.jpeg';
 import testimonial5 from '../../assets/testimonial/5.jpeg';
 
-// Import testimonial videos
-import video1 from '../../assets/testimonial/vid1.mp4';
-import video2 from '../../assets/testimonial/vid2.mp4';
-import video3 from '../../assets/testimonial/vid3.mp4';
+// Helper function to get testimonial video URL from server
+const getTestimonialVideoUrl = (filename: string): string => {
+  // Determine server URL based on environment
+  // In development, use localhost; in production, use the current origin
+  const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const serverUrl = isDevelopment 
+    ? 'http://localhost:5000' 
+    : window.location.origin;
+  
+  return `${serverUrl}/api/uploads/testimonials/${filename}`;
+};
 
 /**
  * MedicHomePage component - Clone of MedHome homepage
@@ -88,10 +95,10 @@ const MedicHomePage: React.FC = () => {
     { id: 3, type: 'image', src: testimonial3, alt: "Student Testimonial 3" },
     { id: 4, type: 'image', src: testimonial4, alt: "Student Testimonial 4" },
     { id: 5, type: 'image', src: testimonial5, alt: "Student Testimonial 5" },
-    // Videos
-    { id: 6, type: 'video', src: video1, title: "Student Testimonial Video 1" },
-    { id: 7, type: 'video', src: video2, title: "Student Testimonial Video 2" },
-    { id: 8, type: 'video', src: video3, title: "Student Testimonial Video 3" },
+    // Videos - now loaded from server instead of build
+    { id: 6, type: 'video', src: getTestimonialVideoUrl('vid1.mp4'), title: "Student Testimonial Video 1" },
+    { id: 7, type: 'video', src: getTestimonialVideoUrl('vid2.mp4'), title: "Student Testimonial Video 2" },
+    { id: 8, type: 'video', src: getTestimonialVideoUrl('vid3.mp4'), title: "Student Testimonial Video 3" },
   ];
 
   // Course data - exact from MedHome

@@ -65,6 +65,7 @@ export const QuestionForm: React.FC<QuestionFormProps> = ({
     try {
       if (isEditing && initialData) {
         await updateQuestionMutation.mutateAsync({
+          quizId,
           questionId: initialData._id,
           questionData: data as UpdateQuestionData
         });
