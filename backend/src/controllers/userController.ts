@@ -356,7 +356,7 @@ export const blockUser = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Get available students for enrollment (students not enrolled in a specific course)
+// Get available students for enrollment (students not already enrolled in a specific course)
 export const getAvailableStudents = async (req: Request, res: Response): Promise<void> => {
   try {
     const authReq = req as AuthRequest;
@@ -378,9 +378,14 @@ export const getAvailableStudents = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Find all students (users with role STUDENT, approved and not blocked)
-    // Returns all students regardless of enrollment status in the course
-    const query: any = { role: UserRole.STUDENT, isApproved: true, isBlocked: false };
+    // Base query: students (approved and not blocked)
+    // Use $ne: true for isBlocked so that older users without this field
+    // (documents where isBlocked is missing) are still included.
+    const query: any = { 
+      role: UserRole.STUDENT, 
+      isApproved: true, 
+      isBlocked: { $ne: true }
+    };
 
     // Add search filter if provided
     if (search) {
@@ -390,7 +395,15 @@ export const getAvailableStudents = async (req: Request, res: Response): Promise
       ];
     }
 
-    // Get all students
+    // Exclude students already enrolled in this course
+    const enrolledStudentIds = await Enrollment.find({ course: courseId })
+      .distinct('student');
+
+    if (enrolledStudentIds.length > 0) {
+      query._id = { $nin: enrolledStudentIds };
+    }
+
+    // Get all available students matching filters
     const students = await User.find(query).select('_id fullName email whatsappNumber');
 
     res.status(200).json(students);

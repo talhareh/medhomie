@@ -26,8 +26,6 @@ const customModalStyles = {
   },
 };
 
-Modal.setAppElement('#root');
-
 export const RemoveStudentsModal: React.FC<RemoveModalProps> = ({
   isOpen,
   onClose,

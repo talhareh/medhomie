@@ -24,8 +24,6 @@ const customModalStyles = {
   },
 };
 
-Modal.setAppElement('#root');
-
 export const EnrollStudentsModal: React.FC<EnrollmentModalProps> = ({
   isOpen,
   onClose,

@@ -37,20 +37,28 @@ export const enrollmentService = {
         search: searchQuery
       }
     });
-    
-    // Check if the response is already in the expected format
-    if (response.data.length > 0 && !response.data[0].student) {
-      // If data is already in the correct format (direct student objects)
-      return response.data;
+
+    const raw = response.data;
+
+    if (!Array.isArray(raw)) {
+      return [];
     }
-    
+
+    // Normalize possible nested arrays: [[...]] -> [...]
+    const enrollmentsOrStudents = Array.isArray(raw[0]) ? raw[0] : raw;
+
+    // If data already looks like student objects (no .student field), return as-is
+    if (enrollmentsOrStudents.length > 0 && !enrollmentsOrStudents[0].student) {
+      return enrollmentsOrStudents;
+    }
+
     // Extract student data from enrollments
-    return response.data.map((enrollment: any) => ({
-      _id: enrollment.student._id,
-      fullName: enrollment.student.fullName,
-      email: enrollment.student.email,
-      whatsappNumber: enrollment.student.whatsappNumber
-    }));
+    return enrollmentsOrStudents.map((enrollment: any) => ({
+      _id: enrollment.student?._id,
+      fullName: enrollment.student?.fullName,
+      email: enrollment.student?.email,
+      whatsappNumber: enrollment.student?.whatsappNumber
+    })).filter((student: any) => !!student._id);
   },
 
   // Update enrollment expiration date
