@@ -20,6 +20,12 @@
 }
 
 @layer components {
+  .touch-chip {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border touch-manipulation transition-colors active:opacity-90;
+    @apply min-h-[44px] px-3 py-2 text-sm;
+    @apply sm:min-h-0 sm:px-2 sm:py-1.5 sm:text-xs;
+  }
+
   .btn-primary {
     @apply bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors;
   }

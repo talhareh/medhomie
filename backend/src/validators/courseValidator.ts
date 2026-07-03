@@ -62,12 +62,14 @@ export const validateCourse = (course: any) => {
         videoSource: Joi.string().valid('bunnycdn').optional(),
         attachments: Joi.array().items(Joi.string()).default([]),
         pdfUrl: Joi.string().optional().allow(''),
+        ebookName: Joi.string().optional().allow('').max(255),
         isPreview: Joi.boolean().default(false)
       })).default([])
     })).default([]),
     noticeBoard: Joi.array().items(Joi.string()).default([]),
     enrollmentCount: Joi.number().default(0),
-    categories: Joi.array().items(Joi.string()).default([])
+    categories: Joi.array().items(Joi.string()).default([]),
+    tags: Joi.array().items(Joi.string()).default([])
   }).unknown(true);
 
   return schema.validate(course);

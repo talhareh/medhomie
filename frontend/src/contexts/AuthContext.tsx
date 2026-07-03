@@ -12,12 +12,23 @@ interface AuthContextType {
   verifyEmail: (token: string) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
+  acceptPolicyConsent: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Token refresh interval (6 hours)
 const REFRESH_INTERVAL = 6 * 60 * 60 * 1000;
+
+/** Login historically returned `id` instead of `_id`; dashboard and APIs expect `_id`. */
+function normalizeAuthUser(data: User | (Partial<User> & { id?: string })): User {
+  const u = data as Partial<User> & { id?: string };
+  const _id = u._id ?? u.id;
+  if (_id === undefined || _id === null) {
+    return data as User;
+  }
+  return { ...(u as Record<string, unknown>), _id: String(_id) } as User;
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -64,7 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
               };
               const userData = await fetchCurrentUser();
-              setUser(userData);
+              setUser(normalizeAuthUser(userData));
             } catch (error) {
               // If refresh fails, clear everything
               logout();
@@ -85,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
               };
               const userData = await fetchCurrentUser();
-              setUser(userData);
+              setUser(normalizeAuthUser(userData));
               setToken(storedToken);
               setRefreshToken(storedRefreshToken);
             } catch (error) {
@@ -177,7 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const response = await api.post<AuthResponse>('/auth/login', credentials);
     const { user: userData, token: newToken, refreshToken: newRefreshToken, expiresIn } = response.data;
 
-    setUser(userData);
+    setUser(normalizeAuthUser(userData));
     setToken(newToken);
     setRefreshToken(newRefreshToken);
     localStorage.setItem('token', newToken);
@@ -212,6 +223,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await api.post(`/auth/reset-password/${token}`, { password: newPassword });
   };
 
+  const acceptPolicyConsent = async () => {
+    const response = await api.post<User>('/auth/policy-consent');
+    setUser(normalizeAuthUser(response.data));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -224,6 +240,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         verifyEmail,
         requestPasswordReset,
         resetPassword,
+        acceptPolicyConsent,
       }}
     >
       {children}

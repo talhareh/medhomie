@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { MainLayout } from '../../components/layout/MainLayout';
 import api from '../../utils/axios';
 import { Course, CourseState } from '../../types/course';
+import { CategorySelect } from '../../components/forms/CategorySelect';
 
 export const EditCoursePage: React.FC = () => {
   const { courseId } = useParams();
@@ -19,6 +20,7 @@ export const EditCoursePage: React.FC = () => {
   const [banner, setBanner] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
   const [bannerPreview, setBannerPreview] = useState<string>('');
+  const [categories, setCategories] = useState<string[]>([]);
 
   // Fetch course details
   const { data: course, isLoading } = useQuery({
@@ -42,6 +44,11 @@ export const EditCoursePage: React.FC = () => {
       if (course.banner) {
         setBannerPreview(course.banner.startsWith('uploads/') ? `/api/${course.banner}` : course.banner);
       }
+      setCategories(
+        (course.categories ?? []).map((c) =>
+          String(typeof c === 'string' ? c : c._id)
+        )
+      );
     }
   }, [course]);
 
@@ -93,6 +100,7 @@ export const EditCoursePage: React.FC = () => {
       if (banner) {
         formData.append('banner', banner);
       }
+      formData.append('categories', JSON.stringify(categories));
 
       const response = await api.put(`/courses/${courseId}`, formData, {
         headers: {
@@ -102,7 +110,9 @@ export const EditCoursePage: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['course', courseId]);
+      queryClient.invalidateQueries({ queryKey: ['course', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['public-courses'] });
       toast.success('Course updated successfully');
       navigate(`/admin/courses/${courseId}`);
     },
@@ -197,6 +207,20 @@ export const EditCoursePage: React.FC = () => {
               <option value={CourseState.ACTIVE}>Active</option>
               <option value={CourseState.INACTIVE}>Inactive</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Categories
+            </label>
+            <CategorySelect
+              selectedCategories={categories}
+              onChange={setCategories}
+              className="w-full"
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              Hold Ctrl (or Cmd) to select multiple. Used for filters on the public courses page.
+            </p>
           </div>
 
           <div>

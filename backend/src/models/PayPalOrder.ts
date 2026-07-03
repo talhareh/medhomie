@@ -2,35 +2,49 @@ import mongoose, { Document, Schema, Types } from 'mongoose';
 import { IUser } from './User';
 import { ICourseDocument } from './Course';
 
-export enum PayPalOrderStatus {
+export enum CheckoutOrderStatus {
   CREATED = 'CREATED',
-  APPROVED = 'APPROVED',
+  REDIRECTED = 'REDIRECTED',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
   FAILED = 'FAILED'
 }
 
-export interface IPayPalOrder extends Document {
-  paypalOrderId: string;
+export interface ICheckoutOrder extends Document {
+  gatewayOrderId: string;
+  gateway: 'kuickpay';
   student: Types.ObjectId | IUser;
   course: Types.ObjectId | ICourseDocument;
   amount: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  voucherCode?: string;
   currency: string;
-  status: PayPalOrderStatus;
-  approvalUrl?: string;
-  payerId?: string;
-  paymentId?: string;
-  customId?: string;
-  invoiceId?: string;
+  exchangeRate?: number;
+  exchangeRateDate?: Date;
+  pkrAmount?: number;
+  pkrCurrency?: string;
+  status: CheckoutOrderStatus;
+  checkoutUrl?: string;
+  gatewayTransactionId?: string;
+  responseCode?: string;
+  signature?: string;
+  requestPayload?: Record<string, unknown>;
+  responsePayload?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const payPalOrderSchema = new Schema<IPayPalOrder>({
-  paypalOrderId: {
+const checkoutOrderSchema = new Schema<ICheckoutOrder>({
+  gatewayOrderId: {
     type: String,
     required: true,
     unique: true
+  },
+  gateway: {
+    type: String,
+    enum: ['kuickpay'],
+    default: 'kuickpay'
   },
   student: {
     type: Schema.Types.ObjectId,
@@ -47,39 +61,68 @@ const payPalOrderSchema = new Schema<IPayPalOrder>({
     required: true,
     min: 0
   },
+  originalAmount: {
+    type: Number,
+    min: 0
+  },
+  discountAmount: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  voucherCode: {
+    type: String
+  },
   currency: {
     type: String,
     required: true,
     default: 'USD'
   },
+  exchangeRate: {
+    type: Number,
+    min: 0
+  },
+  exchangeRateDate: {
+    type: Date
+  },
+  pkrAmount: {
+    type: Number,
+    min: 0
+  },
+  pkrCurrency: {
+    type: String,
+    default: 'PKR'
+  },
   status: {
     type: String,
-    enum: Object.values(PayPalOrderStatus),
-    default: PayPalOrderStatus.CREATED
+    enum: Object.values(CheckoutOrderStatus),
+    default: CheckoutOrderStatus.CREATED
   },
-  approvalUrl: {
+  checkoutUrl: {
     type: String
   },
-  payerId: {
+  gatewayTransactionId: {
     type: String
   },
-  paymentId: {
+  responseCode: {
     type: String
   },
-  customId: {
+  signature: {
     type: String
   },
-  invoiceId: {
-    type: String
+  requestPayload: {
+    type: Schema.Types.Mixed
+  },
+  responsePayload: {
+    type: Schema.Types.Mixed
   }
 }, {
   timestamps: true
 });
 
-// Indexes for efficient querying
-payPalOrderSchema.index({ paypalOrderId: 1 });
-payPalOrderSchema.index({ student: 1, course: 1 });
-payPalOrderSchema.index({ status: 1 });
-payPalOrderSchema.index({ createdAt: -1 });
+checkoutOrderSchema.index({ gatewayOrderId: 1 });
+checkoutOrderSchema.index({ student: 1, course: 1 });
+checkoutOrderSchema.index({ status: 1 });
+checkoutOrderSchema.index({ createdAt: -1 });
 
-export const PayPalOrder = mongoose.model<IPayPalOrder>('PayPalOrder', payPalOrderSchema);
+export const CheckoutOrder = mongoose.model<ICheckoutOrder>('CheckoutOrder', checkoutOrderSchema);

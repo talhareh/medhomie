@@ -34,23 +34,23 @@ export const enrollmentService = {
     const response = await api.get(`/enrollments`, {
       params: {
         courseId,
-        search: searchQuery
+        search: searchQuery,
+        excludeWithdrawn: true
       }
     });
-    
-    // Check if the response is already in the expected format
-    if (response.data.length > 0 && !response.data[0].student) {
-      // If data is already in the correct format (direct student objects)
-      return response.data;
-    }
-    
-    // Extract student data from enrollments
-    return response.data.map((enrollment: any) => ({
-      _id: enrollment.student._id,
-      fullName: enrollment.student.fullName,
-      email: enrollment.student.email,
-      whatsappNumber: enrollment.student.whatsappNumber
-    }));
+
+    const enrollments = Array.isArray(response.data) ? response.data : [];
+
+    // Skip rows where student ref is missing (e.g. deleted user). Reading
+    // enrollment.student._id on null throws and the modal shows no rows.
+    return enrollments
+      .filter((enrollment: { student?: unknown }) => enrollment.student != null)
+      .map((enrollment: any) => ({
+        _id: enrollment.student._id,
+        fullName: enrollment.student.fullName,
+        email: enrollment.student.email,
+        whatsappNumber: enrollment.student.whatsappNumber
+      }));
   },
 
   // Update enrollment expiration date

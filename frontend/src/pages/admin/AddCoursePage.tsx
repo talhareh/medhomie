@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageCourses } from '../../utils/roles';
 import api from '../../utils/axios';
+import { CategorySelect } from '../../components/forms/CategorySelect';
 
 interface CourseData {
   title: string;
@@ -12,16 +14,19 @@ interface CourseData {
   price: number;
   thumbnail?: File;
   banner?: File;
+  categories: string[];
 }
 
 export const AddCoursePage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
 
   const addCourseMutation = useMutation({
     mutationFn: async (courseData: CourseData) => {
@@ -35,6 +40,7 @@ export const AddCoursePage: React.FC = () => {
       if (courseData.banner) {
         formData.append('banner', courseData.banner);
       }
+      formData.append('categories', JSON.stringify(courseData.categories));
 
       const response = await api.post('/courses', formData, {
         headers: {
@@ -44,6 +50,8 @@ export const AddCoursePage: React.FC = () => {
       return response.data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['public-courses'] });
       toast.success('Course created successfully');
       navigate('/admin/courses');
     },
@@ -103,11 +111,12 @@ export const AddCoursePage: React.FC = () => {
       price: priceNumber,
       thumbnail,
       banner: banner || undefined,
+      categories,
     });
   };
 
-  if (!user || user.role !== 'admin') {
-    navigate('/');
+  if (!user || !canManageCourses(user.role)) {
+    navigate('/dashboard');
     return null;
   }
 
@@ -156,6 +165,20 @@ export const AddCoursePage: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               required
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Categories
+            </label>
+            <CategorySelect
+              selectedCategories={categories}
+              onChange={setCategories}
+              className="w-full"
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              Hold Ctrl (or Cmd) to select multiple. Categories are managed under Admin → Categories.
+            </p>
           </div>
 
           <div>

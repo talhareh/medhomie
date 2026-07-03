@@ -1,7 +1,14 @@
 import { Request, Response } from 'express';
+import { Types } from 'mongoose';
 import { Course, IModuleDocument, ILessonDocument, ILessonData } from '../models/Course';
 import { AuthRequest } from '../middleware/auth';
 import { validateLesson } from '../validators/courseValidator';
+import { Enrollment } from '../models/Enrollment';
+import { hasActiveEnrollmentAccess } from '../utils/enrollmentAccess';
+import { UserRole } from '../models/User';
+import { PdfDownloadLog } from '../models/PdfDownloadLog';
+import { tagPdfWithToken } from '../utils/pdfTagging';
+import { getClientIp } from '../utils/deviceInfo';
 
 // Helper function to validate BunnyCDN Video IDs
 const validateBunnyCDNVideoId = (videoId: string): boolean => {
@@ -290,13 +297,13 @@ export const addNotice = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Remove notice from course
+// Remove notice from course (noticeId in URL is the 0-based index in noticeBoard)
 export const removeNotice = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { courseId } = req.params;
-    const { noticeIndex } = req.body;
+    const { courseId, noticeId } = req.params;
+    const noticeIndex = parseInt(noticeId, 10);
 
-    if (typeof noticeIndex !== 'number' || noticeIndex < 0) {
+    if (Number.isNaN(noticeIndex) || noticeIndex < 0) {
       res.status(400).json({ message: 'Valid notice index is required' });
       return;
     }
@@ -462,6 +469,12 @@ export const viewPdfAttachment = async (req: Request, res: Response): Promise<vo
 // Proxy PDF endpoint - serves PDF without exposing the actual URL
 export const proxyPdf = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
+      res.status(401).json({ message: 'Authentication required' });
+      return;
+    }
+
     const pdfUrl = req.query.url as string;
     
     if (!pdfUrl) {
@@ -469,9 +482,79 @@ export const proxyPdf = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Validate URL is HTTPS
-    if (!pdfUrl.startsWith('https://')) {
+    // Validate URL is HTTPS and parseable
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(pdfUrl);
+    } catch {
+      res.status(400).json({ message: 'Invalid PDF URL' });
+      return;
+    }
+
+    if (parsedUrl.protocol !== 'https:') {
       res.status(400).json({ message: 'Only HTTPS URLs are allowed' });
+      return;
+    }
+
+    // Ensure this URL belongs to at least one lesson in a course
+    const candidateCourses = await Course.find({
+      $or: [
+        { 'modules.lessons.pdfUrl': pdfUrl },
+        { 'modules.lessons.attachments': pdfUrl }
+      ]
+    }).select('_id createdBy modules.lessons.pdfUrl modules.lessons.attachments modules.lessons.isPreview');
+
+    if (candidateCourses.length === 0) {
+      res.status(403).json({ message: 'Access denied' });
+      return;
+    }
+
+    const userId = authReq.user._id;
+    const isAdmin = authReq.user.role === UserRole.ADMIN;
+
+    let hasAccess = false;
+    let grantingCourseId: Types.ObjectId | undefined;
+    for (const course of candidateCourses) {
+      if (isAdmin || course.createdBy.toString() === userId) {
+        hasAccess = true;
+        grantingCourseId = course._id as Types.ObjectId;
+        break;
+      }
+
+      // Preview PDFs are accessible to authenticated users.
+      const containsPreviewLesson = course.modules.some((module) =>
+        module.lessons.some((lesson) => {
+          if (!lesson.isPreview) return false;
+          const attachments = lesson.attachments || [];
+          return lesson.pdfUrl === pdfUrl || attachments.includes(pdfUrl);
+        })
+      );
+
+      if (containsPreviewLesson) {
+        hasAccess = true;
+        grantingCourseId = course._id as Types.ObjectId;
+        break;
+      }
+
+      const enrollment = await Enrollment.findOne({
+        student: userId,
+        course: course._id
+      }).select('status isExpired expirationDate');
+
+      if (!enrollment || !hasActiveEnrollmentAccess(enrollment)) {
+        continue;
+      }
+
+      // Legacy rows may not have expirationDate set.
+      if (!enrollment.expirationDate || enrollment.expirationDate > new Date()) {
+        hasAccess = true;
+        grantingCourseId = course._id as Types.ObjectId;
+        break;
+      }
+    }
+
+    if (!hasAccess) {
+      res.status(403).json({ message: 'Access denied' });
       return;
     }
 
@@ -490,10 +573,33 @@ export const proxyPdf = async (req: Request, res: Response): Promise<void> => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    
-    // Stream the PDF to the client
+
     const buffer = await response.arrayBuffer();
-    res.send(Buffer.from(buffer));
+
+    // Embed an invisible, traceable token into the PDF metadata and record it,
+    // so a leaked copy can be traced back to this user. The document looks
+    // identical to the user. If tagging fails for any reason, fall back to
+    // serving the original so viewing is never broken.
+    let outBuffer = Buffer.from(buffer);
+    try {
+      const { bytes, token } = await tagPdfWithToken(buffer);
+      outBuffer = Buffer.from(bytes);
+
+      await PdfDownloadLog.create({
+        token,
+        userId: authReq.user._id,
+        email: authReq.user.email,
+        pdfUrl,
+        courseId: grantingCourseId,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers['user-agent']
+      });
+    } catch (taggingError) {
+      console.error('PDF tagging failed; serving original file:', taggingError);
+      outBuffer = Buffer.from(buffer);
+    }
+
+    res.send(outBuffer);
   } catch (error) {
     console.error('Error proxying PDF:', error);
     res.status(500).json({ message: 'Error proxying PDF', error });

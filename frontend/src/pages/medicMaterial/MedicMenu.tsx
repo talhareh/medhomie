@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { motion, AnimatePresence } from 'framer-motion';
-import { faChevronDown, faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { faSignOutAlt, faUser } from '@fortawesome/free-solid-svg-icons';
 import logo from '../../assets/logo.png';
+
+const EXTERNAL_HOME_URL = 'https://medhome.courses';
 
 /**
  * MedicMenu component - Navigation menu for the MedicHomePage
@@ -17,65 +19,8 @@ const MedicMenu: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   
-  // State to track which dropdown is open
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   // State for mobile menu toggle
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Animation variants for subtle, professional animations
-  const dropdownVariants = {
-    hidden: { 
-      opacity: 0, 
-      y: -10,
-      scale: 0.95
-    },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      scale: 1,
-      transition: { 
-        duration: 0.2
-      }
-    },
-    exit: { 
-      opacity: 0, 
-      y: -10,
-      scale: 0.95,
-      transition: { 
-        duration: 0.15
-      }
-    }
-  };
-
-  const chevronVariants = {
-    closed: { rotate: 0 },
-    open: { rotate: 180 }
-  };
-
-  const buttonHover = {
-    hover: { 
-      scale: 1.02,
-      transition: { duration: 0.2 }
-    },
-    tap: { 
-      scale: 0.98,
-      transition: { duration: 0.1 }
-    }
-  };
-
-  // Toggle dropdown visibility
-  const toggleDropdown = (dropdown: string) => {
-    if (openDropdown === dropdown) {
-      setOpenDropdown(null);
-    } else {
-      setOpenDropdown(dropdown);
-    }
-  };
-
-  // Close dropdown when mouse leaves
-  const closeDropdown = () => {
-    setOpenDropdown(null);
-  };
 
   const whatsappNumber = '+923020465921';
   const isMobile = useMemo(() => {
@@ -127,162 +72,34 @@ const MedicMenu: React.FC = () => {
   return (
     <header className="bg-white shadow-md relative z-50">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        {/* Logo - Always visible */}
-        <motion.div 
-          className="flex items-center"
+        {/* Left side - Logo + Home (desktop) */}
+        <motion.div
+          className="flex items-center gap-6"
           whileHover={{ scale: 1.02 }}
           transition={{ duration: 0.2 }}
         >
-          <Link to="/" className="flex items-center">
+          <a href={EXTERNAL_HOME_URL} className="flex items-center">
             <img src={logo} alt="MedHome Logo" className="h-10 w-auto" />
-          </Link>
+          </a>
+          <motion.a
+            href={EXTERNAL_HOME_URL}
+            className="hidden md:inline-flex text-neutral-700 hover:text-primary py-2 transition-colors"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+          >
+            Home
+          </motion.a>
         </motion.div>
 
-        {/* Desktop Navigation - Hidden on mobile */}
-        <nav className="hidden md:flex space-x-6">
-          <motion.button 
-            className="text-neutral-700 hover:text-primary py-2 transition-colors"
-            whileHover="hover"
-            whileTap="tap"
-            variants={buttonHover}
-          >
-            <Link to="/">Home</Link>
-          </motion.button>
-          
-          {/* About Dropdown */}
-          <div className="relative group">
-            <motion.button 
-              className="text-neutral-700 hover:text-primary flex items-center py-2 transition-colors"
-              onClick={() => toggleDropdown('about')}
-              onMouseEnter={() => setOpenDropdown('about')}
-              whileHover="hover"
-              whileTap="tap"
-              variants={buttonHover}
-            >
-              About 
-              <motion.div
-                animate={openDropdown === 'about' ? 'open' : 'closed'}
-                variants={chevronVariants}
-                transition={{ duration: 0.2 }}
-              >
-                <FontAwesomeIcon icon={faChevronDown} className="ml-1 text-xs" />
-              </motion.div>
-            </motion.button>
-            <AnimatePresence>
-              {openDropdown === 'about' && (
-                <motion.div 
-                  className="absolute left-0 mt-0 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
-                  onMouseLeave={() => setOpenDropdown(null)}
-                  variants={dropdownVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                >
-                  <div className="py-1">
-                    <motion.div whileHover={{ backgroundColor: '#f0f9ff' }} transition={{ duration: 0.2 }}>
-                      <Link to="/medicAbout" className="block px-4 py-2 text-sm text-neutral-700 hover:text-primary transition-colors">
-                        About Us
-                      </Link>
-                    </motion.div>
-                    <motion.div whileHover={{ backgroundColor: '#f0f9ff' }} transition={{ duration: 0.2 }}>
-                      <Link to="/medicScholarship" className="block px-4 py-2 text-sm text-neutral-700 hover:text-primary transition-colors">
-                        Scholarships
-                      </Link>
-                    </motion.div>
-                    {/* <Link to="/medicAccreditations" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-primary/10 hover:text-primary">
-                      Medical Accreditation
-                    </Link> */}
-                    {/* <Link to="/medicPartners" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-primary/10 hover:text-primary">
-                      Partners
-                    </Link> */}
-                    {/* <Link to="/medicClinicalPrograms" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-primary/10 hover:text-primary">
-                      Clinical Programs
-                    </Link> */}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          
-          {/* Programs Dropdown */}
-          <div className="relative group">
-            <button 
-              className="text-neutral-700 hover:text-primary flex items-center py-2"
-              onClick={() => toggleDropdown('programs')}
-              onMouseEnter={() => setOpenDropdown('programs')}
-            >
-              Programs <FontAwesomeIcon icon={faChevronDown} className="ml-1 text-xs" />
-            </button>
-            {openDropdown === 'programs' && (
-              <div 
-                className="absolute left-0 mt-0 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
-                onMouseLeave={() => setOpenDropdown(null)}
-              >
-                <div className="py-1">
-                  <Link to="/medicAdvancedUKProgram" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-primary/10 hover:text-primary">
-                    Advanced UK Membership/Fellowship Program
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Digital Learn Zone Dropdown */}
-          <div className="relative group">
-            <button 
-              className="text-neutral-700 hover:text-primary flex items-center py-2"
-              onClick={() => toggleDropdown('digital')}
-              onMouseEnter={() => setOpenDropdown('digital')}
-            >
-              Digital Learn Zone <FontAwesomeIcon icon={faChevronDown} className="ml-1 text-xs" />
-            </button>
-            {openDropdown === 'digital' && (
-              <div 
-                className="absolute left-0 mt-0 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
-                onMouseLeave={() => setOpenDropdown(null)}
-              >
-                <div className="py-1">
-                  <Link to="/medicLMS" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-primary/10 hover:text-primary">
-                    Learning Management System
-                  </Link>
-                  <Link to="/medicOSCEApp" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-primary/10 hover:text-primary">
-                    OSCE Exam Application
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Media Dropdown */}
-          <div className="relative group">
-            <button 
-              className="text-neutral-700 hover:text-primary flex items-center py-2"
-              onClick={() => toggleDropdown('media')}
-              onMouseEnter={() => setOpenDropdown('media')}
-            >
-              Media <FontAwesomeIcon icon={faChevronDown} className="ml-1 text-xs" />
-            </button>
-            {openDropdown === 'media' && (
-              <div 
-                className="absolute left-0 mt-0 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
-                onMouseLeave={() => setOpenDropdown(null)}
-              >
-                <div className="py-1">
-                  <Link to="/medicBlogs" className="block px-4 py-2 text-sm text-neutral-700 hover:bg-primary/10 hover:text-primary">
-                    Blogs
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* <Link to="/medicContact" className="text-neutral-700 hover:text-primary py-2">Contact</Link> */}
+        {/* Right side - Mobile burger menu + WhatsApp + Auth buttons */}
+        <div className="flex items-center space-x-2">
           {/* WhatsApp Button for desktop */}
           <motion.a
             href={whatsappLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-2 flex items-center bg-[#25D366] text-white px-3 py-2 rounded hover:bg-[#1ebe57] transition-colors md:inline-flex hidden"
+            className="hidden md:inline-flex items-center bg-[#25D366] text-white px-3 py-2 rounded hover:bg-[#1ebe57] transition-colors"
             title="Chat with us on WhatsApp"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -290,10 +107,7 @@ const MedicMenu: React.FC = () => {
           >
             <FontAwesomeIcon icon={faWhatsapp} className="mr-2 text-lg" /> WhatsApp
           </motion.a>
-        </nav>
 
-        {/* Right side - Mobile burger menu + WhatsApp + Auth buttons */}
-        <div className="flex items-center space-x-2">
           {/* Mobile Menu Toggle Button */}
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -399,83 +213,13 @@ const MedicMenu: React.FC = () => {
                 <div className="p-4 space-y-6">
                   {/* Navigation Links */}
                   <div className="space-y-4">
-                    <Link 
-                      to="/" 
+                    <a
+                      href={EXTERNAL_HOME_URL}
                       className="block text-neutral-700 hover:text-primary py-2 text-lg transition-colors"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       Home
-                    </Link>
-
-                    {/* About Section */}
-                    <div>
-                      <div className="text-neutral-700 py-2 text-lg font-medium">About</div>
-                      <div className="ml-4 space-y-2">
-                        <Link 
-                          to="/medicAbout" 
-                          className="block text-neutral-600 hover:text-primary py-1 transition-colors"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                          About Us
-                        </Link>
-                        <Link 
-                          to="/medicScholarship" 
-                          className="block text-neutral-600 hover:text-primary py-1 transition-colors"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                          Scholarships
-                        </Link>
-                      </div>
-                    </div>
-
-                    {/* Programs Section */}
-                    <div>
-                      <div className="text-neutral-700 py-2 text-lg font-medium">Programs</div>
-                      <div className="ml-4 space-y-2">
-                        <Link 
-                          to="/medicAdvancedUKProgram" 
-                          className="block text-neutral-600 hover:text-primary py-1 transition-colors"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                          Advanced UK Membership/Fellowship Program
-                        </Link>
-                      </div>
-                    </div>
-
-                    {/* Digital Learn Zone Section */}
-                    <div>
-                      <div className="text-neutral-700 py-2 text-lg font-medium">Digital Learn Zone</div>
-                      <div className="ml-4 space-y-2">
-                        <Link 
-                          to="/medicLMS" 
-                          className="block text-neutral-600 hover:text-primary py-1 transition-colors"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                          Learning Management System
-                        </Link>
-                        <Link 
-                          to="/medicOSCEApp" 
-                          className="block text-neutral-600 hover:text-primary py-1 transition-colors"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                          OSCE Exam Application
-                        </Link>
-                      </div>
-                    </div>
-
-                    {/* Media Section */}
-                    <div>
-                      <div className="text-neutral-700 py-2 text-lg font-medium">Media</div>
-                      <div className="ml-4 space-y-2">
-                        <Link 
-                          to="/medicBlogs" 
-                          className="block text-neutral-600 hover:text-primary py-1 transition-colors"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                          Blogs
-                        </Link>
-                      </div>
-                    </div>
+                    </a>
                   </div>
 
                   {/* Auth Buttons for Mobile */}

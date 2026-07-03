@@ -14,7 +14,8 @@ import {
   faRobot,
   faQuestionCircle,
   faTimes,
-  faTicketAlt
+  faTicketAlt,
+  faImages
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types/auth';
@@ -45,15 +46,16 @@ export const Sidebar = ({ onMobileClose }: SidebarProps) => {
       items.push(
         { to: '/student/courses', icon: faBook, label: 'Courses' },
         { to: '/my-courses', icon: faGraduationCap, label: 'My Courses' },
-        { to: '/payments', icon: faCreditCard, label: 'Payments' }
+        { to: '/student/quiz-attempts', icon: faClipboardList, label: 'Quiz Attempts' },
+        { to: '/payments', icon: faCreditCard, label: 'Payments' },
+        { to: '/student/profile', icon: faCog, label: 'Profile Setting' }
       );
     }
 
     if (user?.role === UserRole.INSTRUCTOR) {
       items.push(
-        { to: '/my-courses', icon: faBook, label: 'My Courses' },
-        { to: '/students', icon: faUsers, label: 'Students' },
-        { to: '/payments', icon: faCreditCard, label: 'Payments' }
+        { to: '/admin/courses', icon: faBook, label: 'My Courses' },
+        { to: '/students', icon: faUsers, label: 'Students' }
       );
     }
 
@@ -65,6 +67,7 @@ export const Sidebar = ({ onMobileClose }: SidebarProps) => {
         { to: '/enrolled', icon: faClipboardList, label: 'Enrollments' },
         { to: '/admin/users', icon: faUsers, label: 'Users' },
         { to: '/admin/payments', icon: faCreditCard, label: 'Payments' },
+        { to: '/admin/hero-sliders', icon: faImages, label: 'Hero Slides' },
         { to: '/admin/categories', icon: faLayerGroup, label: 'Categories' },
         { to: '/admin/tags', icon: faTags, label: 'Tags' },
         { to: '/admin/vouchers', icon: faTicketAlt, label: 'Vouchers' },

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CourseWithEnrollment } from '../../types/enrollment';
 import { EnrollStudentsModal } from './EnrollStudentsModal';
 import { RemoveStudentsModal } from './RemoveStudentsModal';
 import { courseService } from '../../services/courseService';
 import { enrollmentService } from '../../services/enrollmentService';
 import { toast } from 'react-toastify';
+import { EnrolledStudentsModal } from './EnrolledStudentsModal';
 
 interface Course {
   _id: string;
@@ -18,19 +18,33 @@ interface Course {
   enrolledCount: number;
 }
 
-export const CourseTable: React.FC = () => {
+interface CourseTableProps {
+  readOnly?: boolean;
+}
+
+export const CourseTable: React.FC<CourseTableProps> = ({ readOnly = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
+  const [isViewStudentsOpen, setIsViewStudentsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(25);
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
-    queryKey: ['courses', searchTerm],
-    queryFn: () => courseService.getAllCourses(searchTerm),
-    keepPreviousData: true
+    queryKey: ['courses', 'enrollment-management'],
+    queryFn: () => courseService.getAllCourses(),
   });
+
+  const filteredCourses = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return courses;
+    return courses.filter((course) => {
+      const title = (course.title ?? '').toLowerCase();
+      const instructorName = (course.instructor?.fullName ?? '').toLowerCase();
+      return title.includes(q) || instructorName.includes(q);
+    });
+  }, [courses, searchTerm]);
 
   const handleEnrollStudents = async (studentIds: string[]) => {
     try {
@@ -54,16 +68,21 @@ export const CourseTable: React.FC = () => {
     }
   };
 
-  // Pagination logic
-  const totalPages = Math.ceil(courses.length / itemsPerPage);
+  // Pagination over filtered results
+  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
   const indexOfLastCourse = currentPage * itemsPerPage;
   const indexOfFirstCourse = indexOfLastCourse - itemsPerPage;
-  const currentCourses = courses.slice(indexOfFirstCourse, indexOfLastCourse);
+  const currentCourses = filteredCourses.slice(indexOfFirstCourse, indexOfLastCourse);
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search changes; clamp page if filtered set shrinks
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filteredCourses.length / itemsPerPage));
+    setCurrentPage((p) => (p > maxPage ? maxPage : p));
+  }, [filteredCourses.length, itemsPerPage]);
 
   const paginate = (pageNumber: number) => {
     setCurrentPage(pageNumber);
@@ -105,7 +124,7 @@ export const CourseTable: React.FC = () => {
                 Enrolled Students
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
+                {readOnly ? 'Students' : 'Actions'}
               </th>
             </tr>
           </thead>
@@ -123,7 +142,7 @@ export const CourseTable: React.FC = () => {
                     {course.title}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {course.instructor.fullName}
+                    {course.instructor?.fullName ?? '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -135,26 +154,40 @@ export const CourseTable: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {course.enrolledCount}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button
-                      onClick={() => {
-                        setSelectedCourse(course);
-                        setIsEnrollModalOpen(true);
-                      }}
-                      className="text-primary-600 hover:text-primary-900"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedCourse(course);
-                        setIsRemoveModalOpen(true);
-                      }}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Remove
-                    </button>
-                  </td>
+                  {readOnly ? (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => {
+                          setSelectedCourse(course);
+                          setIsViewStudentsOpen(true);
+                        }}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        View Students
+                      </button>
+                    </td>
+                  ) : (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => {
+                          setSelectedCourse(course);
+                          setIsEnrollModalOpen(true);
+                        }}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedCourse(course);
+                          setIsRemoveModalOpen(true);
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -163,12 +196,12 @@ export const CourseTable: React.FC = () => {
           </div>
 
           {/* Pagination */}
-          {courses.length > 0 && (
+          {filteredCourses.length > 0 && (
             <div className="bg-white rounded-lg shadow px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-sm text-gray-700">
                 Showing <span className="font-medium">{indexOfFirstCourse + 1}</span> to{' '}
-                <span className="font-medium">{Math.min(indexOfLastCourse, courses.length)}</span> of{' '}
-                <span className="font-medium">{courses.length}</span> courses
+                <span className="font-medium">{Math.min(indexOfLastCourse, filteredCourses.length)}</span> of{' '}
+                <span className="font-medium">{filteredCourses.length}</span> courses
               </div>
               {totalPages > 1 && (
                 <div className="flex items-center gap-2">
@@ -230,26 +263,40 @@ export const CourseTable: React.FC = () => {
 
       {selectedCourse && (
         <>
-          <EnrollStudentsModal
-            isOpen={isEnrollModalOpen}
-            onClose={() => {
-              setIsEnrollModalOpen(false);
-              setSelectedCourse(null);
-            }}
-            courseId={selectedCourse._id}
-            courseTitle={selectedCourse.title}
-            onEnroll={handleEnrollStudents}
-          />
-          <RemoveStudentsModal
-            isOpen={isRemoveModalOpen}
-            onClose={() => {
-              setIsRemoveModalOpen(false);
-              setSelectedCourse(null);
-            }}
-            courseId={selectedCourse._id}
-            courseTitle={selectedCourse.title}
-            onRemove={handleRemoveStudents}
-          />
+          {readOnly ? (
+            <EnrolledStudentsModal
+              isOpen={isViewStudentsOpen}
+              onClose={() => {
+                setIsViewStudentsOpen(false);
+                setSelectedCourse(null);
+              }}
+              courseId={selectedCourse._id}
+              courseTitle={selectedCourse.title}
+            />
+          ) : (
+            <>
+              <EnrollStudentsModal
+                isOpen={isEnrollModalOpen}
+                onClose={() => {
+                  setIsEnrollModalOpen(false);
+                  setSelectedCourse(null);
+                }}
+                courseId={selectedCourse._id}
+                courseTitle={selectedCourse.title}
+                onEnroll={handleEnrollStudents}
+              />
+              <RemoveStudentsModal
+                isOpen={isRemoveModalOpen}
+                onClose={() => {
+                  setIsRemoveModalOpen(false);
+                  setSelectedCourse(null);
+                }}
+                courseId={selectedCourse._id}
+                courseTitle={selectedCourse.title}
+                onRemove={handleRemoveStudents}
+              />
+            </>
+          )}
         </>
       )}
     </div>

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { MainLayout } from './MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageCourses } from '../../utils/roles';
 import api from '../../utils/axios';
 
 // Cloudinary widget type
@@ -284,8 +285,8 @@ export const ModuleLessonsManager: React.FC = () => {
     setEbookName(lesson.ebookName || '');
   };
 
-  if (!user || user.role !== 'admin') {
-    navigate('/');
+  if (!user || !canManageCourses(user.role)) {
+    navigate('/dashboard');
     return null;
   }
 

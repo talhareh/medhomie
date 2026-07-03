@@ -2,10 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faExclamationTriangle, faArrowLeft, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../contexts/AuthContext';
 
 export const EnhancedPDFViewer: React.FC = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -47,6 +49,11 @@ export const EnhancedPDFViewer: React.FC = () => {
                 const proxyUrl = `/api/course-content/proxy-pdf?url=${encodeURIComponent(pdfUrl)}`;
 
                 const response = await fetch(proxyUrl, {
+                    headers: {
+                        ...(localStorage.getItem('token')
+                            ? { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                            : {})
+                    },
                     signal: controller.signal
                 });
 
@@ -113,7 +120,12 @@ export const EnhancedPDFViewer: React.FC = () => {
                 // Create Blob URL
                 const blob = new Blob(chunks as BlobPart[], { type: 'application/pdf' });
                 const blobUrl = URL.createObjectURL(blob);
-                const finalViewerUrl = `/pdfjs/viewer.html?file=${encodeURIComponent(blobUrl)}`;
+
+                // Use current user's email as watermark (fallback to a generic label)
+                const watermarkBase = user?.email || 'CONFIDENTIAL';
+
+                const finalViewerUrl =
+                    `/pdfjs/viewer.html?file=${encodeURIComponent(blobUrl)}&watermark=${encodeURIComponent(watermarkBase)}`;
 
                 setViewerUrl(finalViewerUrl);
                 setIsLoading(false);
@@ -142,7 +154,7 @@ export const EnhancedPDFViewer: React.FC = () => {
                 // For now, we'll rely on page navigation cleanup.
             }
         };
-    }, [pdfUrl, pdfTitle]);
+    }, [pdfUrl, pdfTitle, user]);
 
     // Format helpers
     const formatSize = (bytes: number) => {

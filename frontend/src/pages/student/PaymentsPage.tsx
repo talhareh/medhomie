@@ -233,7 +233,7 @@ export const PaymentsPage: React.FC = () => {
                         ${payment.course?.price || 0}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {payment.paymentMethod === 'paypal' ? (
+                        {payment.paymentMethod === 'kuickpay' ? (
                           <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                             Card Payment
                           </span>
@@ -303,9 +303,9 @@ export const PaymentsPage: React.FC = () => {
                     <div>
                       <p className="text-xs text-gray-500">Payment Method</p>
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        payment.paymentMethod === 'paypal' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                        payment.paymentMethod === 'kuickpay' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {payment.paymentMethod === 'paypal' ? 'Card Payment' : 'Manual'}
+                        {payment.paymentMethod === 'kuickpay' ? 'Card Payment' : 'Manual'}
                       </span>
                     </div>
                   </div>

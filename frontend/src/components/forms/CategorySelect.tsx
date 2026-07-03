@@ -41,11 +41,14 @@ export const CategorySelect: React.FC<CategorySelectProps> = ({
       onChange={handleChange}
       className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${className}`}
     >
-      {categories.map((category: Category) => (
-        <option key={category._id} value={category._id}>
-          {category.name}
-        </option>
-      ))}
+      {categories.map((category: Category) => {
+        const id = String(category._id);
+        return (
+          <option key={id} value={id}>
+            {category.name}
+          </option>
+        );
+      })}
     </select>
   );
 };

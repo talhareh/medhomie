@@ -142,9 +142,13 @@ export const ImportQuestionsModal: React.FC<ImportQuestionsModalProps> = ({
                     <li><strong>Question</strong> - The question text (required)</li>
                     <li><strong>Option A</strong> - First multiple choice option (required)</li>
                     <li><strong>Option B</strong> - Second multiple choice option (required)</li>
-                    <li><strong>Option C</strong> - Third multiple choice option (required)</li>
-                    <li><strong>Option D</strong> - Fourth multiple choice option (required)</li>
-                    <li><strong>Correct Answer</strong> - The correct option (A, B, C, or D) (required)</li>
+                    <li><strong>Correct Answer</strong> - The correct option letter (A, B, C, etc.) (required)</li>
+                  </ul>
+                  <p className="mt-2"><strong>Additional Option Columns:</strong></p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>Add <strong>Option C</strong>, <strong>Option D</strong>, <strong>Option E</strong>, and so on as needed (up to Option Z)</li>
+                    <li>Option columns must be contiguous with no gaps (e.g. do not skip from Option B to Option D)</li>
+                    <li>Each question can use as many options as it needs; leave unused trailing option cells empty</li>
                   </ul>
                   <p className="mt-2"><strong>Optional Columns:</strong></p>
                   <ul className="list-disc list-inside ml-4 space-y-1">
@@ -176,6 +180,7 @@ export const ImportQuestionsModal: React.FC<ImportQuestionsModalProps> = ({
                         <th className="border border-gray-300 px-3 py-2 text-left">Option B</th>
                         <th className="border border-gray-300 px-3 py-2 text-left">Option C</th>
                         <th className="border border-gray-300 px-3 py-2 text-left">Option D</th>
+                        <th className="border border-gray-300 px-3 py-2 text-left">Option E</th>
                         <th className="border border-gray-300 px-3 py-2 text-left">Correct Answer</th>
                         <th className="border border-gray-300 px-3 py-2 text-left">Points</th>
                       </tr>
@@ -187,7 +192,18 @@ export const ImportQuestionsModal: React.FC<ImportQuestionsModalProps> = ({
                         <td className="border border-gray-300 px-3 py-2">4</td>
                         <td className="border border-gray-300 px-3 py-2">5</td>
                         <td className="border border-gray-300 px-3 py-2">6</td>
+                        <td className="border border-gray-300 px-3 py-2"></td>
                         <td className="border border-gray-300 px-3 py-2">B</td>
+                        <td className="border border-gray-300 px-3 py-2">1</td>
+                      </tr>
+                      <tr>
+                        <td className="border border-gray-300 px-3 py-2">Name a primary color</td>
+                        <td className="border border-gray-300 px-3 py-2">Red</td>
+                        <td className="border border-gray-300 px-3 py-2">Green</td>
+                        <td className="border border-gray-300 px-3 py-2">Blue</td>
+                        <td className="border border-gray-300 px-3 py-2">Yellow</td>
+                        <td className="border border-gray-300 px-3 py-2">Orange</td>
+                        <td className="border border-gray-300 px-3 py-2">A</td>
                         <td className="border border-gray-300 px-3 py-2">1</td>
                       </tr>
                     </tbody>

@@ -163,6 +163,25 @@ export interface QuizTakingData {
   answers: Record<string, string | string[]>; // questionId -> answer
 }
 
+// Quiz attempt list row (student dashboard)
+export interface AttemptedQuizRow {
+  attemptId: string;
+  quizId: string;
+  quizTitle: string;
+  courseId: string;
+  courseTitle: string;
+  attemptNumber: number;
+  completedAt: string;
+  score: number;
+  percentage: number;
+  passed: boolean;
+}
+
+export interface MyQuizAttemptsResponse {
+  success: boolean;
+  data: AttemptedQuizRow[];
+}
+
 // Quiz results interface
 export interface QuizResults {
   attempt: QuizAttemptWithDetails;
@@ -220,11 +239,23 @@ export interface QuizDetailResponse {
 }
 
 export interface QuizAttemptResponse {
-  success: boolean;
-  data: QuizAttemptWithDetails;
+  success?: boolean;
+  message?: string;
+  resumed?: boolean;
+  attempt?: QuizAttempt | Partial<QuizAttempt>;
+  data?: QuizAttemptWithDetails | QuizAttempt | Partial<QuizAttempt>;
 }
 
 export interface QuizStatisticsResponse {
   success: boolean;
   data: QuizStatistics;
-} 
+}
+
+export interface QuizEligibility {
+  canTake: boolean;
+  reason?: string;
+  attemptsRemaining: number;
+  maxAttempts: number;
+  hasInProgressAttempt?: boolean;
+  inProgressAttemptId?: string;
+}

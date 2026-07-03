@@ -26,6 +26,10 @@ export interface IUser extends Document {
   passwordResetExpires?: Date;
   lastLogin?: Date;
   refreshToken?: string;
+  /** When the student last accepted MedHome policies (refund, terms, copyright, privacy). */
+  policyConsentAt?: Date | null;
+  /** Version string when consent was recorded; bump to re-prompt after policy updates. */
+  policyConsentVersion?: string | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
   createEmailVerificationToken(): string;
   createPasswordResetToken(): string;
@@ -89,7 +93,15 @@ const userSchema = new Schema<IUser>({
   passwordResetToken: String,
   passwordResetExpires: Date,
   lastLogin: Date,
-  refreshToken: String
+  refreshToken: String,
+  policyConsentAt: {
+    type: Date,
+    default: null
+  },
+  policyConsentVersion: {
+    type: String,
+    default: null
+  }
 }, {
   timestamps: true
 });

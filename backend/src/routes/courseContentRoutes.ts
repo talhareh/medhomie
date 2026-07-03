@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, isAdminOrCourseInstructor } from '../middleware/auth';
 import { uploadLessonContent, uploadAttachment } from '../utils/fileUpload';
 
 // Middleware to log request details
@@ -25,6 +25,7 @@ const router = express.Router();
 router.post(
   '/:courseId/modules/:moduleId/lessons',
   authenticateToken,
+  isAdminOrCourseInstructor,
   logRequestDetails,
   (req: Request, res: Response, next: NextFunction) => {
     console.log('Processing lesson upload request');
@@ -37,6 +38,7 @@ router.post(
 router.put(
   '/:courseId/modules/:moduleId/lessons/:lessonId',
   authenticateToken,
+  isAdminOrCourseInstructor,
   logRequestDetails,
   (req: Request, res: Response, next: NextFunction) => {
     console.log('Processing lesson update request');
@@ -49,6 +51,7 @@ router.put(
 router.delete(
   '/:courseId/modules/:moduleId/lessons/:lessonId',
   authenticateToken,
+  isAdminOrCourseInstructor,
   removeLesson
 );
 
@@ -78,12 +81,12 @@ router.get(
 );
 
 // PDF proxy route - serves PDF without exposing the actual URL (for secure viewing)
-router.get('/proxy-pdf', proxyPdf);
+router.get('/proxy-pdf', authenticateToken, proxyPdf);
 
 // Note: Cloudflare R2 upload route removed - using Bunny CDN for all media
 
 // Notice board routes
-router.post('/:courseId/notices', authenticateToken, addNotice);
-router.delete('/:courseId/notices/:noticeId', authenticateToken, removeNotice);
+router.post('/:courseId/notices', authenticateToken, isAdminOrCourseInstructor, addNotice);
+router.delete('/:courseId/notices/:noticeId', authenticateToken, isAdminOrCourseInstructor, removeNotice);
 
 export default router;

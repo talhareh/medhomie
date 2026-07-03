@@ -1,5 +1,6 @@
 import express from 'express';
-import { authenticateToken as auth } from '../middleware/auth';
+import { authenticateToken as auth, authorizeRoles, isAdminOrCourseInstructor } from '../middleware/auth';
+import { UserRole } from '../models/User';
 import { uploadImage } from '../utils/fileUpload';
 import {
   createCourse,
@@ -21,27 +22,28 @@ import {
 
 const router = express.Router();
 
+const courseImageUpload = uploadImage.fields([
+  { name: 'thumbnail', maxCount: 1 },
+  { name: 'banner', maxCount: 1 }
+]);
+
+const manageCourseRoles = authorizeRoles(UserRole.ADMIN, UserRole.INSTRUCTOR);
+
 // Course routes
-router.post('/', auth, uploadImage.fields([
-  { name: 'thumbnail', maxCount: 1 },
-  { name: 'banner', maxCount: 1 }
-]), createCourse);
-router.get('/', getAllCourses);
+router.post('/', auth, manageCourseRoles, courseImageUpload, createCourse);
+router.get('/', auth, manageCourseRoles, getAllCourses);
 router.get('/:courseId', auth, getCourse);
-router.put('/:courseId', auth, uploadImage.fields([
-  { name: 'thumbnail', maxCount: 1 },
-  { name: 'banner', maxCount: 1 }
-]), updateCourse);
-router.delete('/:courseId', auth, deleteCourse);
-router.patch('/:courseId/state', auth, updateCourseState);
-router.post('/:courseId/clone', auth, cloneCourse);
+router.put('/:courseId', auth, isAdminOrCourseInstructor, courseImageUpload, updateCourse);
+router.delete('/:courseId', auth, isAdminOrCourseInstructor, deleteCourse);
+router.patch('/:courseId/state', auth, isAdminOrCourseInstructor, updateCourseState);
+router.post('/:courseId/clone', auth, authorizeRoles(UserRole.ADMIN), cloneCourse);
 router.get('/:courseId/quizzes', auth, getCourseQuizzes);
 
 // Module routes
-router.post('/:courseId/modules', auth, addModule);
+router.post('/:courseId/modules', auth, isAdminOrCourseInstructor, addModule);
 router.get('/:courseId/modules/:moduleId', getModule);
-router.put('/:courseId/modules/:moduleId', auth, updateModule);
-router.delete('/:courseId/modules/:moduleId', auth, deleteModule);
-router.post('/:courseId/modules/reorder', auth, reorderModules);
+router.put('/:courseId/modules/:moduleId', auth, isAdminOrCourseInstructor, updateModule);
+router.delete('/:courseId/modules/:moduleId', auth, isAdminOrCourseInstructor, deleteModule);
+router.post('/:courseId/modules/reorder', auth, isAdminOrCourseInstructor, reorderModules);
 
 export default router;

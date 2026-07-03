@@ -16,5 +16,6 @@ router.get('/order-status/:orderId', authenticateToken, getOrderStatus);
 
 // PayPal webhook route (no authentication required)
 router.post('/webhook', handleWebhook);
+router.post('/kuickpay/webhook', handleWebhook);
 
 export default router;

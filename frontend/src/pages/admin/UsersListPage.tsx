@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Modal from 'react-modal';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { UserRole, User as AuthUser } from '../../types/auth';
@@ -56,9 +56,17 @@ interface UserFormData {
 export const UsersListPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const roleFromQuery = searchParams.get('role');
+  const pageFromQuery = Number(searchParams.get('page'));
+  const initialRoleFilter: UserRole | 'all' =
+    roleFromQuery && Object.values(UserRole).includes(roleFromQuery as UserRole)
+      ? (roleFromQuery as UserRole)
+      : 'all';
+  const initialPage = Number.isInteger(pageFromQuery) && pageFromQuery > 0 ? pageFromQuery : 1;
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>(initialRoleFilter);
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AuthUser | null>(null);
@@ -71,7 +79,7 @@ export const UsersListPage: React.FC = () => {
   });
   const [sortField, setSortField] = useState<keyof AuthUser | 'deviceCount'>('deviceCount');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [itemsPerPage] = useState(25);
   const [mobileActionMenu, setMobileActionMenu] = useState<string | null>(null);
 
@@ -321,10 +329,14 @@ export const UsersListPage: React.FC = () => {
   const indexOfFirstUser = indexOfLastUser - itemsPerPage;
   const currentUsers = sortedUsers.slice(indexOfFirstUser, indexOfLastUser);
 
-  // Reset to page 1 when filters change
+  // Keep list state in URL so back navigation preserves pagination/filtering.
   useEffect(() => {
-    setCurrentPage(1);
-  }, [roleFilter, searchTerm]);
+    const params = new URLSearchParams();
+    if (currentPage > 1) params.set('page', String(currentPage));
+    if (roleFilter !== 'all') params.set('role', roleFilter);
+    if (searchTerm) params.set('search', searchTerm);
+    setSearchParams(params, { replace: true });
+  }, [currentPage, roleFilter, searchTerm, setSearchParams]);
 
   // Close action menu when clicking outside
   useEffect(() => {
@@ -385,7 +397,10 @@ export const UsersListPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
             <select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as UserRole | 'all')}
+              onChange={(e) => {
+                setRoleFilter(e.target.value as UserRole | 'all');
+                setCurrentPage(1);
+              }}
               className="w-full sm:w-auto px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Roles</option>
@@ -397,7 +412,10 @@ export const UsersListPage: React.FC = () => {
               type="text"
               placeholder="Search users..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full sm:w-auto px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
@@ -442,7 +460,7 @@ export const UsersListPage: React.FC = () => {
                 <tr 
                   key={user._id} 
                   className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => navigate(`/admin/users/${user._id}`)}
+                  onClick={() => navigate(`/admin/users/${user._id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)}
                 >
                   <td className="px-4 md:px-6 py-4">
                     <div className="flex items-center">
@@ -544,7 +562,7 @@ export const UsersListPage: React.FC = () => {
                   <tr 
                     key={user._id} 
                     className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => navigate(`/admin/users/${user._id}`)}
+                    onClick={() => navigate(`/admin/users/${user._id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)}
                   >
                     <td className="px-4 py-4">
                       <div className="flex items-center">
@@ -632,7 +650,7 @@ export const UsersListPage: React.FC = () => {
             <div 
               key={user._id} 
               className="bg-white rounded-lg shadow p-4 cursor-pointer hover:bg-gray-50"
-              onClick={() => navigate(`/admin/users/${user._id}`)}
+              onClick={() => navigate(`/admin/users/${user._id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`)}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3 flex-1 min-w-0">

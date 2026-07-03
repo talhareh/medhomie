@@ -16,7 +16,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
-import { useQuiz, useDeleteQuiz } from '../../hooks/useQuizzes';
+import { useQuiz, useDeleteQuiz, useDeleteQuestion } from '../../hooks/useQuizzes';
 import { QuestionType } from '../../types/quiz';
 import { ImportQuestionsModal } from '../../components/quiz/ImportQuestionsModal';
 
@@ -28,6 +28,7 @@ export const QuizDetailPage: React.FC = () => {
 
   const { data: quizData, isLoading, error, refetch } = useQuiz(quizId!);
   const deleteQuizMutation = useDeleteQuiz();
+  const deleteQuestionMutation = useDeleteQuestion();
 
   // Debug logging
   console.log('QuizDetailPage - quizData:', quizData);
@@ -105,6 +106,15 @@ export const QuizDetailPage: React.FC = () => {
         }
       });
     }
+  };
+
+  const handleDeleteQuestion = (questionId: string, questionText: string) => {
+    const preview = questionText.length > 80 ? `${questionText.slice(0, 80)}...` : questionText;
+    if (!window.confirm(`Are you sure you want to delete this question?\n\n"${preview}"\n\nThis action cannot be undone.`)) {
+      return;
+    }
+
+    deleteQuestionMutation.mutate({ questionId, quizId: quizId! });
   };
 
   const getQuestionTypeLabel = (type: QuestionType) => {
@@ -332,8 +342,10 @@ export const QuizDetailPage: React.FC = () => {
                             <FontAwesomeIcon icon={faEdit} className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => {/* Handle delete question */}}
-                            className="text-red-600 hover:text-red-900"
+                            onClick={() => handleDeleteQuestion(question._id, question.question)}
+                            disabled={deleteQuestionMutation.isPending}
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Delete question"
                           >
                             <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />
                           </button>

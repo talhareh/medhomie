@@ -3,6 +3,7 @@ import jwt, { SignOptions, Secret, TokenExpiredError } from 'jsonwebtoken';
 import { User, UserRole } from '../models/User';
 import { LoginHistory } from '../models/LoginHistory';
 import { extractDeviceInfo, generateDeviceFingerprint, getDeviceName } from '../utils/deviceInfo';
+import { lookupLocation } from '../utils/geoLocation';
 import {
   sendVerificationEmail,
   sendPasswordResetEmail,
@@ -13,6 +14,9 @@ import {
 import { UserDevice } from '../models/UserDevice';
 import { AuthRequest } from '../middleware/auth';
 import crypto from 'crypto';
+
+/** Bump when policies change to require re-acceptance (must match frontend `POLICY_CONSENT_VERSION`). */
+export const POLICY_CONSENT_VERSION = '2026-04-18-v1';
 
 // Helper function to create tokens
 const createTokens = (userId: string, role: UserRole): { token: string; refreshToken: string; expiresIn: number } => {
@@ -47,12 +51,14 @@ const createTokens = (userId: string, role: UserRole): { token: string; refreshT
 // Helper function to log user login
 const logUserLogin = async (userId: string, req: Request): Promise<void> => {
   const { deviceInfo, userAgent, ipAddress } = extractDeviceInfo(req);
+  const location = lookupLocation(ipAddress);
 
   await LoginHistory.create({
     userId,
     deviceInfo,
     userAgent,
     ipAddress,
+    location,
     timestamp: new Date()
   });
 };
@@ -227,13 +233,17 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       refreshToken,
       expiresIn,
       user: {
-        id: user._id,
+        _id: user._id,
         email: user.email,
         fullName: user.fullName,
+        whatsappNumber: user.whatsappNumber,
         role: user.role,
         isApproved: user.isApproved,
         isBlocked: user.isBlocked,
-        emailVerified: user.emailVerified
+        emailVerified: user.emailVerified,
+        profilePicture: user.profilePicture,
+        policyConsentAt: user.policyConsentAt ?? null,
+        policyConsentVersion: user.policyConsentVersion ?? null
       }
     });
   } catch (error) {
@@ -329,6 +339,31 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
     } else {
       res.status(401).json({ message: 'Invalid refresh token' });
     }
+  }
+};
+
+// Record student acceptance of refund / terms / copyright / privacy policies
+export const acceptPolicyConsent = async (req: Request, res: Response): Promise<void> => {
+  const authReq = req as AuthRequest;
+  try {
+    const user = await User.findById(authReq.user?._id);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+    if (user.role !== UserRole.STUDENT) {
+      res.status(403).json({ message: 'This step applies to student accounts only' });
+      return;
+    }
+    user.policyConsentAt = new Date();
+    user.policyConsentVersion = POLICY_CONSENT_VERSION;
+    await user.save();
+
+    const updated = await User.findById(user._id).select('-password -refreshToken').lean();
+    res.status(200).json(updated);
+  } catch (error) {
+    console.error('acceptPolicyConsent:', error);
+    res.status(500).json({ message: 'Error saving policy consent' });
   }
 };
 

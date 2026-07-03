@@ -77,6 +77,7 @@ export const CourseDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+  const [courseAssessmentsOpen, setCourseAssessmentsOpen] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { data: course, isLoading, error } = useQuery<Course>({
@@ -136,7 +137,7 @@ export const CourseDetailPage: React.FC = () => {
       ?.lessons.find(l => l._id === lessonId);
 
     if (lesson?.isAccessible) {
-      navigate(`/courses/${courseId}/learn`, {
+      navigate(`/courses/${courseId}/learn/${moduleId}/${lessonId}`, {
         state: {
           moduleId,
           lessonId
@@ -151,13 +152,30 @@ export const CourseDetailPage: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  const handleQuizClick = (quizId: string) => {
+  const handleLessonQuizClick = (moduleId: string, lessonId: string) => {
     if (!hasAccess) {
       setIsModalOpen(true);
       return;
     }
-    // Navigate to quiz taking page
-    navigate(`/student/quiz/${quizId}`);
+    navigate(`/courses/${courseId}/learn/${moduleId}/${lessonId}`, {
+      state: {
+        moduleId,
+        lessonId,
+        contentType: 'quiz' as const
+      }
+    });
+  };
+
+  const handleCourseLevelQuizClick = (quizId: string) => {
+    if (!hasAccess) {
+      setIsModalOpen(true);
+      return;
+    }
+    navigate({
+      pathname: `/courses/${courseId}/learn`,
+      search: `?courseQuiz=${encodeURIComponent(quizId)}`,
+      state: { courseQuizId: quizId }
+    });
   };
 
   // Function to open PDF in new tab with security protections
@@ -346,9 +364,16 @@ export const CourseDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Course Content */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold text-neutral-800 mb-8">Course Content</h2>
+      {/* Course Content — touch-friendly chips & buttons for mobile (iOS ~44pt targets) */}
+      <div
+        className="max-w-7xl mx-auto px-4 py-8 sm:py-12"
+        style={{
+          paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+          paddingRight: 'max(1rem, env(safe-area-inset-right))',
+          paddingBottom: 'max(2rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        <h2 className="text-2xl font-bold text-neutral-800 mb-6 sm:mb-8">Course Content</h2>
 
         {/* Modules and Lessons */}
         <div className="space-y-6">
@@ -362,8 +387,9 @@ export const CourseDetailPage: React.FC = () => {
               .map((module) => (
                 <div key={module._id} className="bg-white rounded-lg shadow-lg overflow-hidden">
                   <button
+                    type="button"
                     onClick={() => toggleModule(module._id)}
-                    className="w-full p-6 border-b border-neutral-200 flex justify-between items-center hover:bg-neutral-50 transition-colors"
+                    className="flex min-h-[52px] w-full touch-manipulation items-center justify-between border-b border-neutral-200 p-4 text-left transition-colors hover:bg-neutral-50 sm:min-h-0 sm:p-6"
                   >
                     <div className="text-left">
                       <h3 className="text-xl font-semibold text-neutral-800">{module.title}</h3>
@@ -382,82 +408,112 @@ export const CourseDetailPage: React.FC = () => {
                         .map((lesson) => (
                           <div
                             key={lesson._id}
-                            className="flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors"
+                            className="flex items-start justify-between gap-2 p-3 transition-colors hover:bg-neutral-50 sm:items-center sm:p-4"
                           >
-                            <div className="flex items-center space-x-3 flex-1">
+                            <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
                               {lesson.isAccessible ? (
-                                <div className="flex items-center space-x-2">
+                                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                                   {lesson.video && (
-                                    <div
-                                      className="cursor-pointer hover:bg-neutral-100 p-1 rounded"
+                                    <button
+                                      type="button"
+                                      className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-lg hover:bg-neutral-100 active:bg-neutral-200"
                                       onClick={() => handleLessonClick(module._id, lesson._id)}
-                                      title="Click to view video lesson"
+                                      title="Open video lesson"
+                                      aria-label="Open video lesson"
                                     >
                                       <FontAwesomeIcon
                                         icon={faPlay}
-                                        className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'}
+                                        className={`text-lg ${lesson.isPreview ? 'text-primary' : 'text-neutral-400'}`}
                                       />
-                                    </div>
+                                    </button>
                                   )}
                                   {lesson.attachments && lesson.attachments.length > 0 && (
-                                    <div
-                                      className="cursor-pointer hover:bg-neutral-100 p-1 rounded"
+                                    <button
+                                      type="button"
+                                      className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-lg hover:bg-neutral-100 active:bg-neutral-200"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        // Open the first PDF attachment in new tab
                                         const firstAttachment = lesson.attachments![0];
                                         const filename = `Lesson ${lesson.title}.pdf`;
                                         openPDFInNewTab(firstAttachment, filename);
                                       }}
-                                      title="Click to open PDF in new tab"
+                                      title="Open PDF"
+                                      aria-label="Open lesson PDF"
                                     >
                                       <FontAwesomeIcon
                                         icon={faFile}
-                                        className={lesson.isPreview ? 'text-primary' : 'text-neutral-400'}
+                                        className={`text-lg ${lesson.isPreview ? 'text-primary' : 'text-neutral-400'}`}
                                       />
-                                    </div>
+                                    </button>
                                   )}
                                 </div>
                               ) : (
-                                <FontAwesomeIcon icon={faLock} className="text-neutral-400" />
+                                <FontAwesomeIcon icon={faLock} className="mt-2 shrink-0 text-neutral-400" />
                               )}
-                              <div className="flex-1">
-                                <h4 className={`font-medium ${lesson.isAccessible ? 'text-neutral-800' : 'text-neutral-400'}`}>
+                              <div className="min-w-0 flex-1">
+                                <button
+                                  type="button"
+                                  disabled={!lesson.isAccessible}
+                                  className={`w-full rounded-lg py-2 text-left text-base font-medium touch-manipulation sm:py-0 sm:text-[inherit] ${
+                                    lesson.isAccessible
+                                      ? 'text-neutral-800 hover:text-primary active:bg-neutral-100/80'
+                                      : 'cursor-not-allowed text-neutral-400'
+                                  }`}
+                                  onClick={() => lesson.isAccessible && handleLessonClick(module._id, lesson._id)}
+                                >
                                   {lesson.title}
-                                </h4>
+                                </button>
                                 {lesson.isPreview && (
-                                  <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded-full">
+                                  <span className="mt-1 inline-block text-xs text-primary bg-primary/10 px-2 py-1 rounded-full">
                                     Preview
                                   </span>
                                 )}
-                                {/* Show lesson type indicators */}
                                 {lesson.isAccessible && (
-                                  <div className="flex flex-wrap gap-2 mt-1">
+                                  <div className="mt-2 flex flex-wrap gap-2">
                                     {lesson.video && (
-                                      <span
-                                        className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded cursor-pointer hover:bg-blue-100"
+                                      <button
+                                        type="button"
+                                        className="touch-chip border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100"
                                         onClick={() => handleLessonClick(module._id, lesson._id)}
-                                        title="Click to view video lesson"
                                       >
                                         Video
-                                      </span>
+                                      </button>
                                     )}
                                     {(lesson.pdfUrl || (lesson.attachments && lesson.attachments.length > 0)) && (
-                                      <span
-                                        className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded cursor-pointer hover:bg-green-100"
+                                      <button
+                                        type="button"
+                                        className="touch-chip border-green-200 bg-green-50 text-green-800 hover:bg-green-100"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          // Open PDF in new tab
-                                          const pdfUrl = lesson.pdfUrl || (lesson.attachments && typeof lesson.attachments[0] === 'string' ? lesson.attachments[0] : lesson.attachments?.[0]?.path);
+                                          const pdfUrl =
+                                            lesson.pdfUrl ||
+                                            (lesson.attachments && typeof lesson.attachments[0] === 'string'
+                                              ? lesson.attachments[0]
+                                              : lesson.attachments?.[0]?.path);
                                           const filename = lesson.ebookName || `Lesson ${lesson.title}.pdf`;
                                           if (pdfUrl) {
                                             openPDFInNewTab(pdfUrl, filename);
                                           }
                                         }}
-                                        title="Click to open PDF in new tab"
                                       >
                                         PDF
-                                      </span>
+                                      </button>
+                                    )}
+                                    {getQuizzesForLesson(lesson._id).map(
+                                      (quiz: { _id?: string; id?: string; title?: string }) => (
+                                        <button
+                                          type="button"
+                                          key={quiz._id || quiz.id}
+                                          className="touch-chip max-w-full border-purple-200 bg-purple-50 text-left text-purple-900 hover:bg-purple-100"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleLessonQuizClick(module._id, lesson._id);
+                                          }}
+                                        >
+                                          <FontAwesomeIcon icon={faQuestionCircle} className="shrink-0" />
+                                          <span className="min-w-0 truncate">{quiz.title || 'Quiz'}</span>
+                                        </button>
+                                      )
                                     )}
                                   </div>
                                 )}
@@ -465,84 +521,55 @@ export const CourseDetailPage: React.FC = () => {
                             </div>
                           </div>
                         ))}
-                      
-                      {/* Quizzes Section for this Module */}
-                      {(() => {
-                        // Get quizzes for lessons in this module
-                        const moduleLessonQuizzes = module.lessons.flatMap(lesson => 
-                          getQuizzesForLesson(lesson._id).map((quiz: any) => ({
-                            ...quiz,
-                            lessonId: lesson._id,
-                            lessonTitle: lesson.title
-                          }))
-                        );
-                        
-                        // Show quizzes section if there are any lesson-specific quizzes or course-level quizzes
-                        const hasQuizzes = moduleLessonQuizzes.length > 0 || courseLevelQuizzes.length > 0;
-                        
-                        return hasQuizzes ? (
-                          <div className="border-t-2 border-purple-200 bg-purple-50">
-                            <div className="p-4">
-                              <div className="flex items-center mb-3">
-                                <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-600 mr-2" />
-                                <h4 className="font-semibold text-purple-800">Quizzes</h4>
-                              </div>
-                              
-                              {/* Lesson-specific quizzes */}
-                              {moduleLessonQuizzes.length > 0 && (
-                                <div className="space-y-2 mb-3">
-                                  {moduleLessonQuizzes.map((quiz: any) => (
-                                    <div
-                                      key={quiz._id || quiz.id}
-                                      onClick={() => handleQuizClick(quiz._id || quiz.id)}
-                                      className="bg-white rounded-lg p-3 cursor-pointer hover:bg-purple-100 transition-colors border border-purple-200"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex-1">
-                                          <p className="font-medium text-sm text-purple-900">{quiz.title}</p>
-                                          {quiz.description && (
-                                            <p className="text-xs text-purple-600 mt-1">{quiz.description}</p>
-                                          )}
-                                          <p className="text-xs text-purple-500 mt-1">Lesson: {quiz.lessonTitle}</p>
-                                        </div>
-                                        <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-500 ml-2" />
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Course-level quizzes (only show in the last module) */}
-                              {courseLevelQuizzes.length > 0 && module._id === course.modules[course.modules.length - 1]._id && (
-                                <div className="space-y-2">
-                                  {courseLevelQuizzes.map((quiz: any) => (
-                                    <div
-                                      key={quiz._id || quiz.id}
-                                      onClick={() => handleQuizClick(quiz._id || quiz.id)}
-                                      className="bg-white rounded-lg p-3 cursor-pointer hover:bg-purple-100 transition-colors border border-purple-200"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex-1">
-                                          <p className="font-medium text-sm text-purple-900">{quiz.title}</p>
-                                          {quiz.description && (
-                                            <p className="text-xs text-purple-600 mt-1">{quiz.description}</p>
-                                          )}
-                                          <p className="text-xs text-purple-500 mt-1">Course Quiz</p>
-                                        </div>
-                                        <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-500 ml-2" />
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ) : null;
-                      })()}
                     </div>
                   )}
                 </div>
               ))
+          )}
+
+          {courseLevelQuizzes.length > 0 && (
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden border-2 border-purple-100">
+              <button
+                type="button"
+                onClick={() => setCourseAssessmentsOpen((o) => !o)}
+                className="flex min-h-[56px] w-full touch-manipulation items-center justify-between border-b border-neutral-200 p-4 text-left transition-colors hover:bg-purple-50/80 sm:min-h-0 sm:p-6"
+              >
+                <div>
+                  <h3 className="flex items-center gap-2 text-lg font-semibold text-purple-900 sm:text-xl">
+                    <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-600" />
+                    Course assessments
+                  </h3>
+                  <p className="mt-1 text-sm text-neutral-600">
+                    Final or course-level quizzes (not tied to a single lesson)
+                  </p>
+                </div>
+                <FontAwesomeIcon
+                  icon={courseAssessmentsOpen ? faChevronDown : faChevronRight}
+                  className="text-neutral-500 text-lg flex-shrink-0"
+                />
+              </button>
+
+              {courseAssessmentsOpen && (
+                <div className="divide-y divide-neutral-200 bg-purple-50/50">
+                  {courseLevelQuizzes.map((quiz: { _id?: string; id?: string; title?: string; description?: string }) => (
+                    <button
+                      type="button"
+                      key={quiz._id || quiz.id}
+                      onClick={() => handleCourseLevelQuizClick((quiz._id || quiz.id) as string)}
+                      className="flex min-h-[52px] w-full touch-manipulation items-start justify-between gap-3 p-4 text-left transition-colors hover:bg-purple-100/60 active:bg-purple-100 sm:min-h-0"
+                    >
+                      <div>
+                        <p className="font-medium text-purple-900">{quiz.title}</p>
+                        {quiz.description && (
+                          <p className="text-sm text-purple-700/90 mt-1">{quiz.description}</p>
+                        )}
+                      </div>
+                      <FontAwesomeIcon icon={faChevronRight} className="text-purple-400 mt-1 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

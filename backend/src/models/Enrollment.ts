@@ -3,7 +3,9 @@ import mongoose, { Document, Schema } from 'mongoose';
 export enum EnrollmentStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
-  REJECTED = 'rejected'
+  REJECTED = 'rejected',
+  /** Access revoked by admin; row kept for re-enrollment on same course */
+  WITHDRAWN = 'withdrawn'
 }
 
 export interface IEnrollment extends Document {

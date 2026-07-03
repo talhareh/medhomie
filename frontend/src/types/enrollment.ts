@@ -1,7 +1,8 @@
 export enum EnrollmentStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
-  REJECTED = 'rejected'
+  REJECTED = 'rejected',
+  WITHDRAWN = 'withdrawn'
 }
 
 export interface Enrollment {

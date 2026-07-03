@@ -13,6 +13,7 @@ export enum PaymentMethod {
   BANK_TRANSFER = 'bank_transfer',
   CASH = 'cash',
   PAYPAL = 'paypal',
+  KUICKPAY = 'kuickpay',
   OTHER = 'other'
 }
 
@@ -30,6 +31,10 @@ export interface IPayment extends Document {
   amount: number;
   originalAmount?: number; // Original price before voucher discount
   discountAmount?: number; // Discount amount from voucher
+  exchangeRate?: number;
+  exchangeRateDate?: Date;
+  pkrAmount?: number;
+  pkrCurrency?: string;
   voucher?: Types.ObjectId; // Reference to voucher if used
   paymentDate: Date;
   paymentMethod: PaymentMethod;
@@ -91,6 +96,21 @@ const paymentSchema = new Schema<IPayment>({
     min: 0,
     default: 0
   },
+  exchangeRate: {
+    type: Number,
+    min: 0
+  },
+  exchangeRateDate: {
+    type: Date
+  },
+  pkrAmount: {
+    type: Number,
+    min: 0
+  },
+  pkrCurrency: {
+    type: String,
+    default: 'PKR'
+  },
   voucher: {
     type: Schema.Types.ObjectId,
     ref: 'Voucher'
@@ -110,7 +130,7 @@ const paymentSchema = new Schema<IPayment>({
   receiptPath: {
     type: String,
     required: function() {
-      return this.paymentMethod !== PaymentMethod.PAYPAL;
+      return ![PaymentMethod.PAYPAL, PaymentMethod.KUICKPAY].includes(this.paymentMethod);
     }
   },
   status: {

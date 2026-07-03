@@ -142,7 +142,9 @@ export const QuizResultsPage: React.FC = () => {
   // Navigation handlers for course sidebar
   const navigateToLesson = (sectionId: string, lessonId: string) => {
     if (courseId) {
-      navigate(`/courses/${courseId}/learn`, {
+      navigate({
+        pathname: `/courses/${courseId}/learn/${sectionId}/${lessonId}`,
+        search: '',
         state: {
           moduleId: sectionId,
           lessonId
@@ -152,13 +154,25 @@ export const QuizResultsPage: React.FC = () => {
   };
 
   const navigateToQuiz = (sectionId: string, lessonId: string) => {
-    // This is for lesson-specific quizzes - navigate to lesson with quiz content type
-    navigateToLesson(sectionId, lessonId);
+    if (!courseId) return;
+    navigate({
+      pathname: `/courses/${courseId}/learn/${sectionId}/${lessonId}`,
+      search: '',
+      state: {
+        moduleId: sectionId,
+        lessonId,
+        contentType: 'quiz' as const
+      }
+    });
   };
 
   const navigateToCourseQuiz = (quizId: string) => {
-    // Navigate to quiz taking page
-    navigate(`/student/quiz/${quizId}`);
+    if (!courseId) return;
+    navigate({
+      pathname: `/courses/${courseId}/learn`,
+      search: `?courseQuiz=${encodeURIComponent(quizId)}`,
+      state: { courseQuizId: quizId }
+    });
   };
 
   const toggleSection = (sectionId: string) => {

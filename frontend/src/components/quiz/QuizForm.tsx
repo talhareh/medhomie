@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faSave, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSave, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useCreateQuiz, useUpdateQuiz } from '../../hooks/useQuizzes';
 import { CreateQuizData, UpdateQuizData, Quiz } from '../../types/quiz';
 import { Course } from '../../types/course';
 import { courseService } from '../../services/courseService';
+import { resolveEntityId } from '../../utils/resolveEntityId';
 
 interface Lesson {
   _id: string;
@@ -23,56 +23,12 @@ interface QuizFormProps {
   onCancel?: () => void;
 }
 
-export const QuizForm: React.FC<QuizFormProps> = ({
-  initialData,
-  courseId: propCourseId,
-  onSuccess,
-  onCancel
-}) => {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams();
-  const isEditing = !!initialData;
-  
-  // Get courseId from props or URL parameters
-  const courseId = propCourseId || searchParams.get('courseId') || '';
-  
-  console.log('CourseId from props/URL:', { propCourseId, urlCourseId: searchParams.get('courseId'), finalCourseId: courseId });
-
-  const createQuizMutation = useCreateQuiz();
-  const updateQuizMutation = useUpdateQuiz();
-
-  // Get courses for course selection (if not provided)
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loadingCourses, setLoadingCourses] = useState(false);
-  
-  // Get lessons for the selected course
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [loadingLessons, setLoadingLessons] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    watch,
-    formState: { errors, isSubmitting }
-  } = useForm<CreateQuizData>({
-    defaultValues: initialData ? {
-      title: initialData.title,
-      description: initialData.description || '',
-      courseId: initialData.course,
-      lessonId: initialData.lesson || undefined,
-      timeLimit: initialData.timeLimit || undefined,
-      passingScore: initialData.passingScore,
-      maxAttempts: initialData.maxAttempts,
-      isActive: initialData.isActive,
-      shuffleQuestions: initialData.shuffleQuestions,
-      showCorrectAnswers: initialData.showCorrectAnswers,
-      allowReview: initialData.allowReview
-    } : {
+const buildFormValues = (data: Quiz | undefined, fallbackCourseId = ''): CreateQuizData => {
+  if (!data) {
+    return {
       title: '',
       description: '',
-      courseId: courseId || '',
+      courseId: fallbackCourseId,
       lessonId: undefined,
       timeLimit: undefined,
       passingScore: 70,
@@ -81,10 +37,73 @@ export const QuizForm: React.FC<QuizFormProps> = ({
       shuffleQuestions: false,
       showCorrectAnswers: true,
       allowReview: true
-    }
+    };
+  }
+
+  return {
+    title: data.title,
+    description: data.description || '',
+    courseId: resolveEntityId(data.course),
+    lessonId: resolveEntityId(data.lesson) || undefined,
+    timeLimit: data.timeLimit || undefined,
+    passingScore: data.passingScore,
+    maxAttempts: data.maxAttempts,
+    isActive: data.isActive,
+    shuffleQuestions: data.shuffleQuestions,
+    showCorrectAnswers: data.showCorrectAnswers,
+    allowReview: data.allowReview
+  };
+};
+
+export const QuizForm: React.FC<QuizFormProps> = ({
+  initialData,
+  courseId: lockedCourseId,
+  onSuccess,
+  onCancel
+}) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isEditing = !!initialData;
+
+  const presetCourseId = lockedCourseId || searchParams.get('courseId') || '';
+
+  const createQuizMutation = useCreateQuiz();
+  const updateQuizMutation = useUpdateQuiz();
+
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [loadingLessons, setLoadingLessons] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors, isSubmitting }
+  } = useForm<CreateQuizData>({
+    defaultValues: buildFormValues(initialData, presetCourseId)
   });
 
   const watchedCourseId = watch('courseId');
+  const resolvedCourseId = resolveEntityId(watchedCourseId);
+
+  const hydrateEditForm = useCallback(() => {
+    if (!initialData) return;
+
+    const values = buildFormValues(initialData);
+    reset(values);
+
+    console.log('[QuizForm] Edit form hydrated', {
+      quizId: initialData._id,
+      rawCourse: initialData.course,
+      resolvedCourseId: values.courseId,
+      rawLesson: initialData.lesson,
+      resolvedLessonId: values.lessonId,
+      coursesLoaded: courses.length,
+      courseInList: courses.some((c) => c._id === values.courseId)
+    });
+  }, [initialData, courses, reset]);
 
   React.useEffect(() => {
     setLoadingCourses(true);
@@ -101,25 +120,27 @@ export const QuizForm: React.FC<QuizFormProps> = ({
       });
   }, []);
 
-  // Fetch lessons when course changes
+  React.useEffect(() => {
+    if (initialData) {
+      hydrateEditForm();
+    }
+  }, [initialData, hydrateEditForm]);
+
   React.useEffect(() => {
     const fetchLessons = async () => {
-      if (!watchedCourseId) {
+      if (!resolvedCourseId) {
         setLessons([]);
         return;
       }
-      
+
       setLoadingLessons(true);
       try {
-        const response = await courseService.getCourse(watchedCourseId);
-        const courseData = response;
-        
-        // Extract all lessons from all modules
+        const courseData = await courseService.getCourse(resolvedCourseId);
         const allLessons: Lesson[] = [];
         if (courseData.modules) {
-          courseData.modules.forEach((module: any) => {
+          courseData.modules.forEach((module: { _id?: string; title: string; lessons?: Array<{ _id: string; title: string }> }) => {
             if (module.lessons) {
-              module.lessons.forEach((lesson: any) => {
+              module.lessons.forEach((lesson) => {
                 allLessons.push({
                   _id: lesson._id,
                   title: lesson.title,
@@ -130,6 +151,16 @@ export const QuizForm: React.FC<QuizFormProps> = ({
           });
         }
         setLessons(allLessons);
+
+        if (initialData?.lesson) {
+          const lessonId = resolveEntityId(initialData.lesson);
+          console.log('[QuizForm] Lessons loaded for course', {
+            courseId: resolvedCourseId,
+            lessonCount: allLessons.length,
+            resolvedLessonId: lessonId,
+            lessonInList: allLessons.some((l) => l._id === lessonId)
+          });
+        }
       } catch (error) {
         console.error('Error fetching lessons:', error);
         toast.error('Failed to load lessons');
@@ -140,10 +171,9 @@ export const QuizForm: React.FC<QuizFormProps> = ({
     };
 
     fetchLessons();
-  }, [watchedCourseId]);
+  }, [resolvedCourseId, initialData?.lesson]);
 
   const onSubmit = async (data: CreateQuizData) => {
-    console.log('Submitting quiz data:', data);
     try {
       if (isEditing && initialData) {
         await updateQuizMutation.mutateAsync({
@@ -153,17 +183,13 @@ export const QuizForm: React.FC<QuizFormProps> = ({
       } else {
         await createQuizMutation.mutateAsync(data);
       }
-      
-      // Only call onSuccess if provided, otherwise use default navigation
+
       if (onSuccess) {
         onSuccess();
+      } else if (isEditing) {
+        navigate(`/admin/quizzes/${initialData._id}`);
       } else {
-        // Default navigation
-        if (isEditing) {
-          navigate(`/admin/quizzes/${initialData._id}`);
-        } else {
-          navigate('/admin/quizzes');
-        }
+        navigate('/admin/quizzes');
       }
     } catch (error) {
       console.error('Error saving quiz:', error);
@@ -192,10 +218,9 @@ export const QuizForm: React.FC<QuizFormProps> = ({
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Basic Information */}
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -216,10 +241,13 @@ export const QuizForm: React.FC<QuizFormProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Course *
               </label>
-              {courseId ? (
-                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                  {courses.find(c => c._id === courseId)?.title || 'Loading...'}
-                </div>
+              {presetCourseId && !isEditing ? (
+                <>
+                  <input type="hidden" {...register('courseId', { required: 'Course is required' })} />
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                    {courses.find((c) => c._id === presetCourseId)?.title || 'Loading...'}
+                  </div>
+                </>
               ) : (
                 <select
                   {...register('courseId', { required: 'Course is required' })}
@@ -240,7 +268,6 @@ export const QuizForm: React.FC<QuizFormProps> = ({
             </div>
           </div>
 
-          {/* Lesson Selection */}
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Attach to Lesson (Optional)
@@ -248,13 +275,13 @@ export const QuizForm: React.FC<QuizFormProps> = ({
             <select
               {...register('lessonId')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loadingLessons || !watchedCourseId}
+              disabled={loadingLessons || !resolvedCourseId}
             >
               <option value="">
-                {!watchedCourseId 
-                  ? 'Select a course first' 
-                  : loadingLessons 
-                    ? 'Loading lessons...' 
+                {!resolvedCourseId
+                  ? 'Select a course first'
+                  : loadingLessons
+                    ? 'Loading lessons...'
                     : 'No lesson (course-level quiz)'
                 }
               </option>
@@ -282,10 +309,9 @@ export const QuizForm: React.FC<QuizFormProps> = ({
           </div>
         </div>
 
-        {/* Quiz Settings */}
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-4">Quiz Settings</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -307,7 +333,7 @@ export const QuizForm: React.FC<QuizFormProps> = ({
               </label>
               <input
                 type="number"
-                {...register('passingScore', { 
+                {...register('passingScore', {
                   required: 'Passing score is required',
                   min: { value: 0, message: 'Passing score must be at least 0' },
                   max: { value: 100, message: 'Passing score cannot exceed 100' }
@@ -328,7 +354,7 @@ export const QuizForm: React.FC<QuizFormProps> = ({
               </label>
               <input
                 type="number"
-                {...register('maxAttempts', { 
+                {...register('maxAttempts', {
                   required: 'Max attempts is required',
                   min: { value: 1, message: 'Max attempts must be at least 1' }
                 })}
@@ -389,7 +415,6 @@ export const QuizForm: React.FC<QuizFormProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex justify-end space-x-4 pt-6 border-t">
           <button
             type="button"
@@ -415,4 +440,4 @@ export const QuizForm: React.FC<QuizFormProps> = ({
       </form>
     </div>
   );
-}; 
+};

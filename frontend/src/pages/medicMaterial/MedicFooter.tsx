@@ -67,6 +67,12 @@ const MedicFooter: React.FC = () => {
         
         <div className="border-t border-neutral-700 mt-8 pt-8 text-center text-neutral-400">
           <p>&copy; {new Date().getFullYear()} MedHome. All rights reserved.</p>
+          <div className="flex flex-wrap justify-center gap-4 mt-2 text-sm">
+            <a href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</a>
+            <a href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</a>
+            <a href="/refund-policy" className="hover:text-white transition-colors">Refund Policy</a>
+            <a href="/cookie-policy" className="hover:text-white transition-colors">Cookie Policy</a>
+          </div>
         </div>
       </div>
     </footer>

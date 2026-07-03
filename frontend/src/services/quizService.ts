@@ -6,6 +6,7 @@ import {
   QuizAttempt,
   QuizWithQuestions,
   QuizAttemptWithDetails,
+  QuizEligibility,
   QuizStatistics,
   CreateQuizData,
   UpdateQuizData,
@@ -16,7 +17,9 @@ import {
   QuizAttemptResponse,
   QuizStatisticsResponse,
   QuizFilters,
-  QuizListItem
+  QuizListItem,
+  MyQuizAttemptsResponse,
+  AttemptedQuizRow
 } from '../types/quiz';
 
 // ===== QUIZ MANAGEMENT (Admin/Instructor) =====
@@ -201,6 +204,14 @@ export const getQuizAttempt = async (attemptId: string): Promise<QuizAttemptResp
   return response.data;
 };
 
+// Get all completed attempts for the logged-in student (one row per attempt)
+export const getMyQuizAttempts = async (): Promise<MyQuizAttemptsResponse> => {
+  const response = await api.get('/quizzes/my-attempts', {
+    headers: getAuthHeaders()
+  });
+  return response.data;
+};
+
 // Import questions from Excel
 export interface ImportQuestionsResponse {
   success: boolean;
@@ -257,12 +268,7 @@ export const getCourseQuizzes = async (courseId: string): Promise<{ success: boo
 // Check if user can take a quiz (has attempts remaining, is enrolled, etc.)
 export const checkQuizEligibility = async (quizId: string): Promise<{ 
   success: boolean; 
-  data: { 
-    canTake: boolean; 
-    reason?: string; 
-    attemptsRemaining: number;
-    maxAttempts: number;
-  } 
+  data: QuizEligibility
 }> => {
   const response = await api.get(`/quizzes/${quizId}/eligibility`, {
     headers: getAuthHeaders()

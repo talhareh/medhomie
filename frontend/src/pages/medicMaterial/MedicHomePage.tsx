@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { motion, useInView, useAnimation } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { 
   faChevronRight, 
   faChevronLeft, 
@@ -24,6 +25,18 @@ import testimonial3 from '../../assets/testimonial/3.jpeg';
 import testimonial4 from '../../assets/testimonial/4.jpeg';
 import testimonial5 from '../../assets/testimonial/5.jpeg';
 
+interface HeroSliderItem {
+  _id: string;
+  title: string;
+  altText: string;
+  image: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+const toUploadsUrl = (value: string): string =>
+  value.startsWith('http') ? value : value.replace('uploads/', '/api/uploads/');
+
 // Helper function to get testimonial video URL from server
 const getTestimonialVideoUrl = (filename: string): string => {
   // Determine server URL based on environment
@@ -44,6 +57,35 @@ const getTestimonialVideoUrl = (filename: string): string => {
 const MedicHomePage: React.FC = () => {
   // State for testimonial carousel
   const [activeTestimonialIndex, setActiveTestimonialIndex] = useState(0);
+  const [activeHeroSlideIndex, setActiveHeroSlideIndex] = useState(0);
+
+  const { data: heroSlides = [] } = useQuery({
+    queryKey: ['public-hero-sliders'],
+    queryFn: async (): Promise<HeroSliderItem[]> => {
+      const response = await fetch('/api/hero-sliders/public');
+      if (!response.ok) {
+        throw new Error('Failed to fetch hero slides');
+      }
+      return response.json();
+    },
+    retry: 1,
+  });
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) {
+      setActiveHeroSlideIndex(0);
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveHeroSlideIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 4000);
+
+    return () => window.clearInterval(intervalId);
+  }, [heroSlides]);
+
+  const primaryHeroSlide = heroSlides[0];
+  const activeHeroSlide = heroSlides[activeHeroSlideIndex] ?? primaryHeroSlide;
   
   // Animation variants
   const fadeInUp = {
@@ -221,9 +263,9 @@ const MedicHomePage: React.FC = () => {
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-primary to-primary/80 text-white py-16">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center">
+          <div className="flex flex-col lg:flex-row items-center">
             <motion.div 
-              className="md:w-1/2 mb-8 md:mb-0"
+              className="w-full lg:w-1/2 mb-8 lg:mb-0"
               initial="hidden"
               animate="visible"
               variants={staggerContainer}
@@ -257,19 +299,64 @@ const MedicHomePage: React.FC = () => {
               </motion.div>
             </motion.div>
             <motion.div 
-              className="md:w-1/2"
+              className="w-full lg:w-1/2"
               initial={{ opacity: 0, y: -60, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.3 }}
             >
-              <div 
-                className="shadow-lg w-full h-64 md:h-80 flex items-center justify-center overflow-hidden p-[1px]"
-              >
-                <img 
-                  src={heroImage} 
-                  alt="Medical Education Excellence" 
-                  className="w-full h-full rounded-[15px]" 
-                />
+              <div className="lg:hidden shadow-lg w-full h-64 overflow-hidden rounded-[15px] bg-white p-3">
+                <div className="w-full h-full flex items-center justify-center rounded-[12px] overflow-hidden">
+                  <img
+                    src={primaryHeroSlide ? toUploadsUrl(primaryHeroSlide.image) : heroImage}
+                    alt={primaryHeroSlide?.altText || 'Medical Education Excellence'}
+                    className="w-full h-full object-contain rounded-[12px]"
+                  />
+                </div>
+              </div>
+
+              <div className="hidden lg:block relative shadow-lg w-full h-80 overflow-hidden rounded-[15px] bg-white p-4">
+                {activeHeroSlide ? (
+                  <>
+                    {heroSlides.map((slide, index) => (
+                      <div
+                        key={slide._id}
+                        className={`absolute inset-4 flex items-center justify-center transition-opacity duration-500 ${
+                          index === activeHeroSlideIndex ? 'opacity-100' : 'opacity-0'
+                        }`}
+                      >
+                        <img
+                          src={toUploadsUrl(slide.image)}
+                          alt={slide.altText}
+                          className="w-full h-full object-contain rounded-[12px]"
+                        />
+                      </div>
+                    ))}
+
+                    {heroSlides.length > 1 && (
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/25 px-3 py-2 rounded-full">
+                        {heroSlides.map((slide, index) => (
+                          <button
+                            key={slide._id}
+                            type="button"
+                            onClick={() => setActiveHeroSlideIndex(index)}
+                            className={`h-2.5 w-2.5 rounded-full transition-all ${
+                              index === activeHeroSlideIndex ? 'bg-white scale-110' : 'bg-white/55 hover:bg-white/80'
+                            }`}
+                            aria-label={`Show hero slide ${index + 1}: ${slide.title}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center rounded-[12px] overflow-hidden">
+                    <img
+                      src={heroImage}
+                      alt="Medical Education Excellence"
+                      className="w-full h-full object-contain rounded-[12px]"
+                    />
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>

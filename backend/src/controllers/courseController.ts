@@ -1,13 +1,51 @@
 import { Request, Response } from 'express';
 import mongoose, { Types } from 'mongoose';
 import { Course, CourseState, ICourseData, IModuleData, IModuleDocument, ICourseDocument } from '../models/Course';
+import { Enrollment, EnrollmentStatus } from '../models/Enrollment';
 import { AuthRequest } from '../middleware/auth';
+import { UserRole } from '../models/User';
 import { validateCourse, validateModule, validateCourseStateUpdate, validateCourseActivation } from '../validators/courseValidator';
 import fs from 'fs';
 import path from 'path';
 
 interface MulterFiles {
   [fieldname: string]: Express.Multer.File[];
+}
+
+/** Normalize category/tag id arrays from JSON or multipart (string, JSON string, or array). */
+function parseIdArrayFromRequest(raw: unknown): string[] {
+  if (raw === undefined || raw === null || raw === '') {
+    return [];
+  }
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x)).filter(Boolean);
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed: unknown = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((x) => String(x)).filter(Boolean);
+        }
+      } catch {
+        return [];
+      }
+    }
+    return [trimmed];
+  }
+  return [];
+}
+
+/** Single ObjectId from Express query (category / tag filters). */
+function parseQueryObjectId(raw: unknown): Types.ObjectId | null {
+  if (raw === undefined || raw === null) return null;
+  const first = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof first !== 'string' || !first.trim()) return null;
+  const id = first.trim();
+  if (!Types.ObjectId.isValid(id)) return null;
+  return new Types.ObjectId(id);
 }
 
 interface PopulatedCreatedBy {
@@ -20,17 +58,29 @@ interface CourseWithPopulatedFields extends Omit<ICourseDocument, 'createdBy'> {
   createdBy: PopulatedCreatedBy;
 }
 
-// Get all courses (admin only)
+// Get all courses (admin: all; instructor: own courses only)
 export const getAllCourses = async (req: Request, res: Response): Promise<void> => {
   try {
-    const filter: any = {};
-    
-    if (req.query.category) {
-      filter.categories = req.query.category;
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
+      res.status(401).json({ message: 'User not authenticated' });
+      return;
     }
-    
-    if (req.query.tag) {
-      filter.tags = req.query.tag;
+
+    const filter: Record<string, unknown> = {};
+
+    if (authReq.user.role === UserRole.INSTRUCTOR) {
+      filter.createdBy = authReq.user._id;
+    }
+
+    const categoryId = parseQueryObjectId(req.query.category);
+    if (categoryId) {
+      filter.categories = { $in: [categoryId] };
+    }
+
+    const tagId = parseQueryObjectId(req.query.tag);
+    if (tagId) {
+      filter.tags = { $in: [tagId] };
     }
     
     const courses = await Course.find(filter)
@@ -41,7 +91,11 @@ export const getAllCourses = async (req: Request, res: Response): Promise<void> 
 
     // Get enrollment counts for each course
     const coursesWithEnrollment = await Promise.all(courses.map(async (course) => {
-      const enrollmentCount = await mongoose.model('Enrollment').countDocuments({ course: course._id });
+      const enrollmentCount = await mongoose.model('Enrollment').countDocuments({
+        course: course._id,
+        status: EnrollmentStatus.APPROVED,
+        isExpired: { $ne: true }
+      });
       
       return {
         _id: course._id,
@@ -55,7 +109,9 @@ export const getAllCourses = async (req: Request, res: Response): Promise<void> 
           _id: course.createdBy._id,
           fullName: (course.createdBy as any).fullName // Use type assertion since we've populated the field
         } : null,
-        enrolledCount: enrollmentCount
+        enrolledCount: enrollmentCount,
+        categories: (course as any).categories ?? [],
+        tags: (course as any).tags ?? []
       };
     }));
 
@@ -107,11 +163,17 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Check if user is admin (through auth middleware)
-    const isAdmin = (req as AuthRequest).user?.role === 'admin';
+    // Allow admin or course owner to view non-active courses
+    const authReq = req as AuthRequest;
+    const isAdmin = authReq.user?.role === UserRole.ADMIN;
+    const createdByRaw = course.createdBy as Types.ObjectId | { _id: Types.ObjectId };
+    const createdById =
+      typeof createdByRaw === 'object' && createdByRaw !== null && '_id' in createdByRaw
+        ? createdByRaw._id.toString()
+        : String(createdByRaw);
+    const isOwner = authReq.user?._id && createdById === authReq.user._id;
 
-    // If course is not active and user is not admin, don't show details
-    if (course.state !== CourseState.ACTIVE && !isAdmin) {
+    if (course.state !== CourseState.ACTIVE && !isAdmin && !isOwner) {
       res.status(403).json({ message: 'Course is not available' });
       return;
     }
@@ -123,12 +185,17 @@ export const getCourseDetails = async (req: Request, res: Response): Promise<voi
   }
 };
 
-// Create a new course (admin or instructor)
+// Create a new course (admin or instructor — owner is the logged-in user)
 export const createCourse = async (req: Request, res: Response): Promise<void> => {
   const authReq = req as AuthRequest;
   try {
     if (!authReq.user?._id) {
       res.status(401).json({ message: 'User not authenticated' });
+      return;
+    }
+
+    if (authReq.user.role !== UserRole.ADMIN && authReq.user.role !== UserRole.INSTRUCTOR) {
+      res.status(403).json({ message: 'Only admins and instructors can create courses' });
       return;
     }
 
@@ -141,8 +208,8 @@ export const createCourse = async (req: Request, res: Response): Promise<void> =
       modules: [],
       noticeBoard: [],
       enrollmentCount: 0,
-      categories: req.body.categories || [],
-      tags: req.body.tags || []
+      categories: parseIdArrayFromRequest(req.body.categories),
+      tags: parseIdArrayFromRequest(req.body.tags)
     };
 
     const { error } = validateCourse(courseData);
@@ -172,7 +239,7 @@ export const createCourse = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// Update course state (admin only)
+// Update course state (admin or course owner — instructors may self-publish)
 export const updateCourseState = async (req: Request, res: Response): Promise<void> => {
   const authReq = req as AuthRequest;
   try {
@@ -198,6 +265,13 @@ export const updateCourseState = async (req: Request, res: Response): Promise<vo
       }
     }
 
+    if (state === CourseState.INACTIVE) {
+      await Enrollment.updateMany(
+        { course: course._id },
+        { $set: { status: EnrollmentStatus.WITHDRAWN } }
+      );
+    }
+
     course.state = state;
     await course.save();
     res.json(course);
@@ -217,13 +291,13 @@ export const updateCourse = async (req: Request, res: Response): Promise<void> =
       state: req.body.state,
     };
 
-    // Update categories and tags if provided
-    if (req.body.categories) {
-      updateData.categories = req.body.categories;
+    // Update categories and tags when present (multipart or JSON)
+    if (Object.prototype.hasOwnProperty.call(req.body, 'categories')) {
+      updateData.categories = parseIdArrayFromRequest(req.body.categories);
     }
-    
-    if (req.body.tags) {
-      updateData.tags = req.body.tags;
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'tags')) {
+      updateData.tags = parseIdArrayFromRequest(req.body.tags);
     }
 
     // Handle file uploads if present
@@ -258,7 +332,7 @@ export const updateCourse = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// Delete a course (admin only)
+// Delete a course (admin or course owner)
 export const deleteCourse = async (req: Request, res: Response): Promise<void> => {
   try {
     const course = await Course.findByIdAndDelete(req.params.courseId);
@@ -427,7 +501,18 @@ export const reorderModules = async (req: Request, res: Response): Promise<void>
 // Clone a course (admin only)
 export const cloneCourse = async (req: Request, res: Response): Promise<void> => {
   const authReq = req as AuthRequest;
+  let createdCourseId: string | null = null;
   try {
+    if (!authReq.user?._id) {
+      res.status(401).json({ message: 'User not authenticated' });
+      return;
+    }
+
+    if (authReq.user.role !== 'admin') {
+      res.status(403).json({ message: 'Access denied. Admin role required.' });
+      return;
+    }
+
     const originalCourse = await Course.findById(req.params.courseId)
       .populate('categories')
       .populate('tags')
@@ -437,6 +522,14 @@ export const cloneCourse = async (req: Request, res: Response): Promise<void> =>
       res.status(404).json({ message: 'Course not found' });
       return;
     }
+
+    const categoryIds = (originalCourse.categories || [])
+      .map((category: any) => category?._id?.toString?.() || category?.toString?.())
+      .filter((id: string | undefined): id is string => Boolean(id));
+
+    const tagIds = (originalCourse.tags || [])
+      .map((tag: any) => tag?._id?.toString?.() || tag?.toString?.())
+      .filter((id: string | undefined): id is string => Boolean(id));
 
     // Create a deep copy of the course data
     const clonedCourseData = {
@@ -456,14 +549,17 @@ export const cloneCourse = async (req: Request, res: Response): Promise<void> =>
           order: lesson.order,
           duration: lesson.duration,
           video: lesson.video,
+          videoSource: lesson.videoSource,
           attachments: lesson.attachments || [],
+          pdfUrl: lesson.pdfUrl,
+          ebookName: lesson.ebookName,
           isPreview: lesson.isPreview
         }))
       })),
       noticeBoard: originalCourse.noticeBoard || [],
-      categories: originalCourse.categories,
-      tags: originalCourse.tags,
-      createdBy: authReq.user!._id,
+      categories: categoryIds,
+      tags: tagIds,
+      createdBy: authReq.user._id,
       enrollmentCount: 0 // Reset enrollment count for cloned course
     };
 
@@ -478,6 +574,7 @@ export const cloneCourse = async (req: Request, res: Response): Promise<void> =>
     // Create the new course
     const clonedCourse = new Course(clonedCourseData);
     await clonedCourse.save();
+    createdCourseId = clonedCourse._id.toString();
 
     // Populate the response with categories and tags
     await clonedCourse.populate('categories');
@@ -494,6 +591,23 @@ export const cloneCourse = async (req: Request, res: Response): Promise<void> =>
     });
   } catch (error) {
     console.error('Error cloning course:', error);
+    if (createdCourseId) {
+      try {
+        const { Quiz } = await import('../models/Quiz');
+        const { Question } = await import('../models/Question');
+
+        const clonedQuizzes = await Quiz.find({ course: createdCourseId }).select('_id').lean();
+        const quizIds = clonedQuizzes.map((quiz) => quiz._id);
+
+        if (quizIds.length > 0) {
+          await Question.deleteMany({ quiz: { $in: quizIds } });
+        }
+        await Quiz.deleteMany({ course: createdCourseId });
+        await Course.findByIdAndDelete(createdCourseId);
+      } catch (rollbackError) {
+        console.error('Error rolling back failed course clone:', rollbackError);
+      }
+    }
     res.status(500).json({ message: 'Error cloning course' });
   }
 };
@@ -503,7 +617,6 @@ const cloneQuizzesForCourse = async (originalCourseId: string, clonedCourseId: s
   try {
     // Import Quiz and Question models
     const { Quiz } = await import('../models/Quiz');
-    const { Question } = await import('../models/Question');
 
     // Get the original and cloned courses to map lesson IDs
     const originalCourse = await Course.findById(originalCourseId).lean();
@@ -539,11 +652,13 @@ const cloneQuizzesForCourse = async (originalCourseId: string, clonedCourseId: s
 
     for (const originalQuiz of originalQuizzes) {
       // Map the lesson ID if it exists
-      let mappedLessonId = originalQuiz.lesson;
-      if (originalQuiz.lesson && lessonIdMapping.has(originalQuiz.lesson.toString())) {
+      let mappedLessonId: string | undefined;
+      if (originalQuiz.lesson) {
         const mappedId = lessonIdMapping.get(originalQuiz.lesson.toString());
         if (mappedId) {
-          mappedLessonId = mappedId as any;
+          mappedLessonId = mappedId;
+        } else {
+          console.warn(`Skipping stale lesson reference while cloning quiz "${originalQuiz.title}"`);
         }
       }
 
@@ -584,9 +699,11 @@ const cloneQuestionsForQuiz = async (originalQuizId: string, clonedQuizId: strin
   try {
     // Import Question model
     const { Question } = await import('../models/Question');
+    const { Quiz } = await import('../models/Quiz');
 
     // Find all questions for the original quiz
     const originalQuestions = await Question.find({ quiz: originalQuizId }).lean();
+    const clonedQuestionIds: Types.ObjectId[] = [];
 
     for (const originalQuestion of originalQuestions) {
       // Create cloned question data
@@ -604,9 +721,21 @@ const cloneQuestionsForQuiz = async (originalQuizId: string, clonedQuizId: strin
 
       // Create the cloned question
       const clonedQuestion = new Question(clonedQuestionData);
-      await clonedQuestion.save();
+      const savedQuestion = await clonedQuestion.save();
+      clonedQuestionIds.push(savedQuestion._id as Types.ObjectId);
 
       console.log(`Question "${originalQuestion.question.substring(0, 50)}..." cloned successfully`);
+    }
+
+    // Keep quiz.questions in sync so populate('questions') works for cloned quizzes.
+    if (clonedQuestionIds.length > 0) {
+      await Quiz.findByIdAndUpdate(clonedQuizId, {
+        $set: { questions: clonedQuestionIds }
+      });
+    } else {
+      await Quiz.findByIdAndUpdate(clonedQuizId, {
+        $set: { questions: [] }
+      });
     }
 
     console.log(`All questions cloned for quiz ${originalQuizId} -> ${clonedQuizId}`);

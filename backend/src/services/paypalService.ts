@@ -1,236 +1,132 @@
-import { ICourseDocument } from '../models/Course';
-import { IUser } from '../models/User';
+import crypto from 'crypto';
 
-// PayPal API configuration
-const PAYPAL_BASE_URL = process.env.PAYPAL_MODE === 'live' 
-  ? 'https://api-m.paypal.com' 
-  : 'https://api-m.sandbox.paypal.com';
+const getKuickpayTokenUrl = (): string =>
+  process.env.KUICKPAY_TOKEN_URL || 'https://testcheckout.kuickpay.com/api/KPToken';
 
-const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID!;
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET!;
+const getKuickpayRedirectionUrl = (): string =>
+  process.env.KUICKPAY_REDIRECTION_URL || 'https://testcheckout.kuickpay.com/api/Redirection';
 
-export interface PayPalOrderData {
-  courseId: string;
-  courseTitle: string;
-  coursePrice: number;
-  userId: string;
-  userEmail: string;
-  userName: string;
-}
+const getKuickpayInstitutionId = (): string =>
+  (process.env.KUICKPAY_INSTITUTION_ID || '').trim();
 
-export interface PayPalOrderResponse {
+const getKuickpaySecuredKey = (): string =>
+  (process.env.KUICKPAY_SECURED_KEY || '').trim();
+
+export interface KuickpayOrderData {
   orderId: string;
-  approvalUrl: string;
-  status: string;
+  amount: number;
+  merchantName: string;
+  transactionDescription: string;
+  customerMobileNumber: string;
+  customerEmail: string;
+  successUrl: string;
+  failureUrl: string;
+  checkoutUrl?: string;
 }
 
-export interface PayPalPaymentVerification {
+export interface KuickpayOrderResponse {
   orderId: string;
-  payerId: string;
-  paymentId: string;
+  checkoutUrl: string;
+  formFields: Record<string, string>;
 }
 
-/**
- * Get PayPal access token
- */
-const getPayPalAccessToken = async (): Promise<string> => {
-  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
-  
-  const response = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
+export interface KuickpayVerificationPayload {
+  orderId: string;
+  transactionId: string;
+  responseCode: string;
+  signature: string;
+}
+
+const buildMd5Signature = (value: string): string => crypto.createHash('md5').update(value).digest('hex');
+
+const getOrderDate = (): string => new Date().toISOString().split('T')[0];
+
+const getKuickpayAuthToken = async (): Promise<string> => {
+  const institutionId = getKuickpayInstitutionId();
+  const securedKey = getKuickpaySecuredKey();
+
+  if (!institutionId || !securedKey) {
+    throw new Error('Kuickpay credentials are not configured');
+  }
+
+  const response = await fetch(getKuickpayTokenUrl(), {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': 'application/json',
+      'User-Agent': 'MedHome-Backend/1.0'
     },
-    body: 'grant_type=client_credentials'
+    body: JSON.stringify({
+      institutionID: institutionId,
+      kuickpaySecuredKey: securedKey
+    })
   });
 
   if (!response.ok) {
-    throw new Error('Failed to get PayPal access token');
+    const errorText = await response.text();
+    throw new Error(`Failed to get Kuickpay auth token: ${errorText}`);
   }
 
   const data = await response.json();
-  return data.access_token;
-};
-
-/**
- * Create a PayPal order for course payment
- */
-export const createPayPalOrder = async (orderData: PayPalOrderData): Promise<PayPalOrderResponse> => {
-  try {
-    console.log('🔄 Creating PayPal order for course:', orderData.courseTitle);
-    
-    const accessToken = await getPayPalAccessToken();
-    
-    const orderRequest = {
-      intent: 'CAPTURE',
-      purchase_units: [
-        {
-          amount: {
-            currency_code: 'USD',
-            value: orderData.coursePrice.toFixed(2)
-          },
-          description: `Course: ${orderData.courseTitle}`,
-          custom_id: orderData.courseId,
-          invoice_id: `course-${orderData.courseId}-${Date.now()}`
-        }
-      ],
-      application_context: {
-        brand_name: 'MedHome',
-        landing_page: 'NO_PREFERENCE',
-        user_action: 'PAY_NOW',
-        return_url: `${process.env.FRONTEND_URL}/payment/success`,
-        cancel_url: `${process.env.FRONTEND_URL}/payment/cancel`
-      },
-      payer: {
-        email_address: orderData.userEmail,
-        name: {
-          given_name: orderData.userName.split(' ')[0] || orderData.userName,
-          surname: orderData.userName.split(' ').slice(1).join(' ') || ''
-        }
-      }
-    };
-
-    const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(orderRequest)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`PayPal API error: ${JSON.stringify(errorData)}`);
-    }
-
-    const order = await response.json();
-    console.log('✅ PayPal order created:', order.id);
-    
-    // Find approval URL
-    const approvalUrl = order.links?.find((link: any) => link.rel === 'approve')?.href;
-    
-    if (!approvalUrl) {
-      throw new Error('No approval URL found in PayPal response');
-    }
-    
-    return {
-      orderId: order.id,
-      approvalUrl,
-      status: order.status || 'CREATED'
-    };
-    
-  } catch (error) {
-    console.error('❌ Error creating PayPal order:', error);
-    throw new Error(`Failed to create PayPal order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  const token = data?.auth_token;
+  if (!token) {
+    throw new Error('Kuickpay auth token missing in response');
   }
+
+  return token;
 };
 
-/**
- * Capture/Verify a PayPal payment
- */
-export const capturePayPalPayment = async (orderId: string): Promise<PayPalPaymentVerification> => {
-  try {
-    console.log('🔄 Capturing PayPal payment for order:', orderId);
-    
-    const accessToken = await getPayPalAccessToken();
-    
-    const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}/capture`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      }
-    });
+export const createKuickpayOrder = async (orderData: KuickpayOrderData): Promise<KuickpayOrderResponse> => {
+  const authToken = await getKuickpayAuthToken();
+  const institutionId = getKuickpayInstitutionId();
+  const securedKey = getKuickpaySecuredKey();
+  const amount = orderData.amount.toFixed(2);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`PayPal capture error: ${JSON.stringify(errorData)}`);
-    }
+  // Kuickpay signature for initiating checkout.
+  const signature = buildMd5Signature(
+    `${institutionId}${orderData.orderId}${amount}${securedKey}`
+  );
 
-    const order = await response.json();
-    console.log('✅ PayPal payment captured:', order.id);
-    
-    // Extract payment details
-    const purchaseUnit = order.purchase_units?.[0];
-    const payment = purchaseUnit?.payments?.captures?.[0];
-    const payer = order.payer;
-    
-    if (!payment || !payer) {
-      throw new Error('Invalid payment data in PayPal response');
-    }
-    
-    return {
-      orderId: order.id,
-      payerId: payer.payer_id || '',
-      paymentId: payment.id || ''
-    };
-    
-  } catch (error) {
-    console.error('❌ Error capturing PayPal payment:', error);
-    throw new Error(`Failed to capture PayPal payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
+  const formFields: Record<string, string> = {
+    InstitutionID: institutionId,
+    OrderID: orderData.orderId,
+    MerchantName: orderData.merchantName,
+    Amount: amount,
+    TransactionDescription: orderData.transactionDescription,
+    CustomerMobileNumber: orderData.customerMobileNumber,
+    CustomerEmail: orderData.customerEmail,
+    SuccessUrl: orderData.successUrl,
+    FailureUrl: orderData.failureUrl,
+    OrderDate: getOrderDate(),
+    CheckoutUrl: orderData.checkoutUrl || '',
+    Token: authToken,
+    GrossAmount: amount,
+    TaxAmount: '0',
+    Discount: '0',
+    Signature: signature
+  };
+
+  return {
+    orderId: orderData.orderId,
+    checkoutUrl: getKuickpayRedirectionUrl(),
+    formFields
+  };
 };
 
-/**
- * Get PayPal order details
- */
-export const getPayPalOrder = async (orderId: string) => {
-  try {
-    console.log('🔄 Getting PayPal order details:', orderId);
-    
-    const accessToken = await getPayPalAccessToken();
-    
-    const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      }
-    });
+const buildKuickpayReturnSignatureString = (payload: KuickpayVerificationPayload, securedKey: string): string =>
+  `OrderId=${payload.orderId}` +
+  `&TransactionId=${payload.transactionId}` +
+  `&KuickpaySecuredKey=${securedKey}` +
+  `&ResponseCode=${payload.responseCode}`;
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`PayPal API error: ${JSON.stringify(errorData)}`);
-    }
-
-    const order = await response.json();
-    console.log('✅ PayPal order retrieved:', order.id);
-    return order;
-    
-  } catch (error) {
-    console.error('❌ Error getting PayPal order:', error);
-    throw new Error(`Failed to get PayPal order: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-};
-
-/**
- * Verify PayPal webhook signature
- */
-export const verifyPayPalWebhook = async (headers: any, body: string, webhookId: string): Promise<boolean> => {
-  try {
-    // Note: PayPal webhook verification requires additional setup
-    // For now, we'll implement basic verification
-    // In production, you should implement proper signature verification
-    
-    const authAlgo = headers['paypal-auth-algo'];
-    const transmissionId = headers['paypal-transmission-id'];
-    const certId = headers['paypal-cert-id'];
-    const transmissionSig = headers['paypal-transmission-sig'];
-    const transmissionTime = headers['paypal-transmission-time'];
-    
-    if (!authAlgo || !transmissionId || !certId || !transmissionSig || !transmissionTime) {
-      console.log('❌ Missing PayPal webhook headers');
-      return false;
-    }
-    
-    // Basic validation - in production, implement proper signature verification
-    console.log('✅ PayPal webhook headers validated');
-    return true;
-    
-  } catch (error) {
-    console.error('❌ Error verifying PayPal webhook:', error);
+export const verifyKuickpaySignature = (payload: KuickpayVerificationPayload): boolean => {
+  const securedKey = getKuickpaySecuredKey();
+  if (!securedKey) {
     return false;
   }
+
+  const expectedSignature = buildMd5Signature(
+    buildKuickpayReturnSignatureString(payload, securedKey)
+  );
+
+  return expectedSignature.toLowerCase() === payload.signature.toLowerCase();
 };

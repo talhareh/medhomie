@@ -10,7 +10,6 @@ import { HomePage } from './pages/HomePage';
 import { AuthPage } from './pages/AuthPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { PublicCoursesPage } from './pages/PublicCoursesPage';
-import { LandingFirst } from './pages/LandingFirst';
 import { EmailVerificationPage } from './pages/EmailVerificationPage';
 import { RequestPasswordResetPage } from './pages/RequestPasswordResetPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -27,8 +26,12 @@ import { MyCoursesPage } from './pages/student/MyCoursesPage';
 import { StudentCoursesPage } from './pages/student/StudentCoursesPage';
 import { PaymentsPage } from './pages/student/PaymentsPage';
 import { CardPaymentPage } from './pages/student/CardPaymentPage';
-import { QuizTakingPage } from './pages/student/QuizTakingPage';
+import { PaymentSuccessPage } from './pages/student/PaymentSuccessPage';
+import { PaymentCancelPage } from './pages/student/PaymentCancelPage';
+import { ProfileSettingsPage } from './pages/student/ProfileSettingsPage';
+import { QuizToLearnRedirect } from './pages/student/QuizToLearnRedirect';
 import { QuizResultsPage } from './pages/student/QuizResultsPage';
+import { AttemptedQuizzesPage } from './pages/student/AttemptedQuizzesPage';
 import { UsersListPage } from './pages/admin/UsersListPage';
 import { AdminUserDetailsPage } from './pages/admin/AdminUserDetailsPage';
 import { PaymentManagementPage } from './pages/admin/PaymentManagementPage';
@@ -43,6 +46,7 @@ import { QuizDetailPage } from './pages/admin/QuizDetailPage';
 import { CreateQuizPage } from './pages/admin/CreateQuizPage';
 import { CreateQuestionPage } from './pages/admin/CreateQuestionPage';
 import { EditQuestionPage } from './pages/admin/EditQuestionPage';
+import HeroSlidersPage from './pages/admin/HeroSlidersPage';
 import MedicHomePage from './pages/medicMaterial/MedicHomePage';
 import MedicAboutPage from './pages/medicMaterial/MedicAboutPage';
 import MedicScholarshipPage from './pages/medicMaterial/MedicScholarshipPage';
@@ -62,9 +66,15 @@ import BlogListingPage from './pages/blog/BlogListingPage';
 import BlogDetailPage from './pages/blog/BlogDetailPage';
 import NewBlogPage from './pages/blog/NewBlogPage';
 import RefundPolicyPage from './pages/RefundPolicyPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsPage from './pages/TermsPage';
+import CookiePolicyPage from './pages/CookiePolicyPage';
+import NotFoundPage from './pages/NotFoundPage';
 import WhatsappConversationsPage from './pages/admin/WhatsappConversationsPage';
-import MedicalAIBot from './components/common/MedicalAIBot';
 import PublicAIChatConversationsPage from './pages/admin/PublicAIChatConversationsPage';
+import { StudentPolicyConsentGate } from './components/policy/StudentPolicyConsentGate';
+import { UserRole } from './types/auth';
+import { COURSE_MANAGER_ROLES } from './utils/roles';
 
 // Initialize React Query client
 const queryClient = new QueryClient({
@@ -77,7 +87,15 @@ const queryClient = new QueryClient({
 });
 
 // Protected Route Component
-const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) => {
+const ProtectedRoute = ({
+  children,
+  adminOnly = false,
+  allowedRoles,
+}: {
+  children: React.ReactNode;
+  adminOnly?: boolean;
+  allowedRoles?: UserRole[];
+}) => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -88,28 +106,27 @@ const ProtectedRoute = ({ children, adminOnly = false }: { children: React.React
     return <Navigate to="/auth" replace />;
   }
 
-  if (adminOnly && user.role !== 'admin') {
+  if (adminOnly && user.role !== UserRole.ADMIN) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
     return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
 };
 
-function PublicMedicalAIBot() {
-  const { user, isLoading } = useAuth();
-  if (isLoading || user) return null;
-  return <MedicalAIBot />;
-}
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <StudentPolicyConsentGate>
           <PageTransition autoDetect={true}>
             <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<MedicHomePage />} />
+              <Route path="/" element={<AuthPage />} />
               <Route path="/landing" element={<Navigate to="/" replace />} />
               <Route path="/home" element={<PublicHomePage />} />
               <Route path="/auth" element={<AuthPage />} />
@@ -130,6 +147,9 @@ function App() {
               <Route path="/medicBlogs" element={<MedicBlogsPage />} />
               <Route path="/medicContact" element={<MedicContactPage />} />
               <Route path="/refund-policy" element={<RefundPolicyPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/cookie-policy" element={<CookiePolicyPage />} />
 
               {/* Public Blog Routes */}
               <Route path="/blogs" element={<BlogListingPage />} />
@@ -181,7 +201,7 @@ function App() {
               {/* Student Quiz Routes */}
               <Route path="/student/quiz/:quizId" element={
                 <ProtectedRoute>
-                  <QuizTakingPage />
+                  <QuizToLearnRedirect />
                 </ProtectedRoute>
               } />
 
@@ -191,15 +211,39 @@ function App() {
                 </ProtectedRoute>
               } />
 
+              <Route path="/student/quiz-attempts" element={
+                <ProtectedRoute>
+                  <AttemptedQuizzesPage />
+                </ProtectedRoute>
+              } />
+
               <Route path="/payments" element={
                 <ProtectedRoute>
                   <PaymentsPage />
                 </ProtectedRoute>
               } />
 
+              <Route path="/student/profile" element={
+                <ProtectedRoute>
+                  <ProfileSettingsPage />
+                </ProtectedRoute>
+              } />
+
               <Route path="/cardPayment" element={
                 <ProtectedRoute>
                   <CardPaymentPage />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/payment/success" element={
+                <ProtectedRoute>
+                  <PaymentSuccessPage />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/payment/cancel" element={
+                <ProtectedRoute>
+                  <PaymentCancelPage />
                 </ProtectedRoute>
               } />
 
@@ -228,6 +272,12 @@ function App() {
                 </ProtectedRoute>
               } />
 
+              <Route path="/students" element={
+                <ProtectedRoute allowedRoles={COURSE_MANAGER_ROLES}>
+                  <EnrollmentManagement />
+                </ProtectedRoute>
+              } />
+
               {/* Keep the original dashboard accessible at /admin/old-dashboard if needed */}
               <Route path="/admin/old-dashboard" element={
                 <ProtectedRoute adminOnly>
@@ -236,43 +286,43 @@ function App() {
               } />
 
               <Route path="/admin/courses" element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute allowedRoles={COURSE_MANAGER_ROLES}>
                   <CoursesListPage />
                 </ProtectedRoute>
               } />
 
               <Route path="/admin/courses/new" element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute allowedRoles={COURSE_MANAGER_ROLES}>
                   <AddCoursePage />
                 </ProtectedRoute>
               } />
 
               <Route path="/admin/courses/:courseId" element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute allowedRoles={COURSE_MANAGER_ROLES}>
                   <AdminCourseDetailPage />
                 </ProtectedRoute>
               } />
 
               <Route path="/admin/courses/:courseId/edit" element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute allowedRoles={COURSE_MANAGER_ROLES}>
                   <EditCoursePage />
                 </ProtectedRoute>
               } />
 
               <Route path="/admin/courses/:courseId/content" element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute allowedRoles={COURSE_MANAGER_ROLES}>
                   <CourseContentManager />
                 </ProtectedRoute>
               } />
 
               <Route path="/admin/courses/:courseId/modules/:moduleId/lessons" element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute allowedRoles={COURSE_MANAGER_ROLES}>
                   <ModuleLessonsManager />
                 </ProtectedRoute>
               } />
 
               <Route path="/admin/courses/:courseId/content/:moduleId" element={
-                <ProtectedRoute adminOnly>
+                <ProtectedRoute allowedRoles={COURSE_MANAGER_ROLES}>
                   <ModuleLessonsManager />
                 </ProtectedRoute>
               } />
@@ -298,6 +348,12 @@ function App() {
               <Route path="/admin/payments" element={
                 <ProtectedRoute adminOnly>
                   <PaymentManagementPage />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/admin/hero-sliders" element={
+                <ProtectedRoute adminOnly>
+                  <HeroSlidersPage />
                 </ProtectedRoute>
               } />
 
@@ -374,11 +430,12 @@ function App() {
               } />
 
               {/* Fallback route */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </PageTransition>
           <ToastContainer position="bottom-right" />
           {/* <PublicMedicalAIBot /> */}
+          </StudentPolicyConsentGate>
         </BrowserRouter>
       </AuthProvider>
       <ReactQueryDevtools initialIsOpen={false} />

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCreditCard, faSpinner, faCheckCircle, faTimesCircle, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faCreditCard, faSpinner, faTimesCircle, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/axios';
@@ -17,12 +17,25 @@ interface PaymentState {
   discountAmount?: number;
 }
 
-interface CardDetails {
-  cardNumber: string;
-  expiryDate: string;
-  cvc: string;
-  name: string;
+interface PricingSummary {
+  usdAmount: number;
+  exchangeRate?: number;
+  pkrAmount?: number;
+  baseCurrency: 'USD';
+  targetCurrency: 'PKR';
+  rateDate?: string;
+  feeDisclaimer: string;
 }
+
+interface PreparedCheckout {
+  orderId: string;
+  checkoutUrl: string;
+  formFields: Record<string, string>;
+  pricing: PricingSummary;
+}
+
+const formatUsd = (amount: number): string => `$${amount.toFixed(2)}`;
+const formatPkr = (amount: number): string => new Intl.NumberFormat('en-PK').format(amount);
 
 export const CardPaymentPage: React.FC = () => {
   const navigate = useNavigate();
@@ -31,164 +44,109 @@ export const CardPaymentPage: React.FC = () => {
   const queryClient = useQueryClient();
   
   const [paymentState, setPaymentState] = useState<PaymentState | null>(null);
-  const [cardDetails, setCardDetails] = useState<CardDetails>({
-    cardNumber: '',
-    expiryDate: '',
-    cvc: '',
-    name: '',
-  });
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
+  const [preparedCheckout, setPreparedCheckout] = useState<PreparedCheckout | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'preparing' | 'ready' | 'redirecting' | 'failed'>('preparing');
   const [errorMessage, setErrorMessage] = useState('');
-  
-  // Load payment state from location state
+
   useEffect(() => {
     if (location.state && location.state.courseId) {
       setPaymentState(location.state as PaymentState);
     } else {
-      // Redirect if no course data is provided
       toast.error('No course selected for payment');
       navigate('/courses');
     }
   }, [location.state, navigate]);
 
-  // Payment processing mutation
-  const processPaymentMutation = useMutation({
-    mutationFn: async ({ orderId, voucherCode }: { orderId: string; voucherCode?: string }) => {
-      const response = await api.post('/paypal/verify-payment', { 
-        orderId,
-        voucherCode: voucherCode || undefined
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      // Update queries to reflect the new enrollment
-      queryClient.invalidateQueries({ queryKey: ['public-courses'] });
-      queryClient.invalidateQueries({ queryKey: ['student-payments'] });
-      queryClient.invalidateQueries({ queryKey: ['my-courses'] });
-      
-      setPaymentStatus('success');
-      setIsProcessing(false);
-    },
-    onError: (error: any) => {
-      setPaymentStatus('failed');
-      setIsProcessing(false);
-      setErrorMessage(error.response?.data?.message || 'Error processing payment');
-    },
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    
-    // Format card number with spaces
-    if (name === 'cardNumber') {
-      const formattedValue = value
-        .replace(/\s/g, '') // Remove existing spaces
-        .replace(/\D/g, '') // Remove non-digits
-        .replace(/(.{4})/g, '$1 ') // Add space after every 4 digits
-        .trim(); // Remove trailing space
-      
-      setCardDetails(prev => ({
-        ...prev,
-        [name]: formattedValue,
-      }));
-      return;
-    }
-    
-    // Format expiry date
-    if (name === 'expiryDate') {
-      const formattedValue = value
-        .replace(/\D/g, '') // Remove non-digits
-        .replace(/^(\d{2})(?=\d)/, '$1/'); // Add slash after first 2 digits
-      
-      setCardDetails(prev => ({
-        ...prev,
-        [name]: formattedValue,
-      }));
-      return;
-    }
-    
-    // For other fields
-    setCardDetails(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const validateCardDetails = (): boolean => {
-    // Basic validation
-    if (cardDetails.cardNumber.replace(/\s/g, '').length < 16) {
-      toast.error('Please enter a valid card number');
-      return false;
-    }
-    
-    if (cardDetails.expiryDate.length < 5) {
-      toast.error('Please enter a valid expiry date (MM/YY)');
-      return false;
-    }
-    
-    if (cardDetails.cvc.length < 3) {
-      toast.error('Please enter a valid CVC code');
-      return false;
-    }
-    
-    if (cardDetails.name.length < 3) {
-      toast.error('Please enter the cardholder name');
-      return false;
-    }
-    
-    return true;
-  };
-
-  const processPayment = async () => {
+  useEffect(() => {
     if (!paymentState) {
-      toast.error('No course selected for payment');
       return;
     }
-    
-    if (!validateCardDetails()) {
-      return;
-    }
-    
-    setIsProcessing(true);
-    setPaymentStatus('processing');
-    
-    try {
-      console.log('Creating PayPal order...');
-      
-      // Step 1: Create PayPal order
-      const orderResponse = await api.post(`/paypal/create-order/${paymentState.courseId}`);
-      const { orderId } = orderResponse.data;
-      
-      console.log('PayPal order created:', orderId);
-      
-      // Step 2: Simulate card payment processing
-      // In a real implementation, you would send card details to PayPal's card processing API
-      // For now, we'll simulate this with a delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Step 3: Verify and capture payment
-      console.log('Verifying payment...');
-      await processPaymentMutation.mutateAsync({ 
-        orderId,
-        voucherCode: paymentState.voucherCode
-      });
-      
-    } catch (error: any) {
-      console.error('Payment processing error:', error);
-      setPaymentStatus('failed');
-      setIsProcessing(false);
-      setErrorMessage(error.response?.data?.message || 'Payment failed. Please try again.');
-    }
-  };
 
-  const handleRetry = () => {
-    setPaymentStatus('idle');
-    setErrorMessage('');
-  };
+    let cancelled = false;
+
+    const prepareCheckout = async () => {
+      setPaymentStatus('preparing');
+      setErrorMessage('');
+
+      try {
+        const data = await createOrderMutation.mutateAsync();
+
+        if (!cancelled) {
+          setPreparedCheckout(data);
+          setPaymentStatus('ready');
+        }
+      } catch {
+        if (!cancelled) {
+          setPreparedCheckout(null);
+        }
+      }
+    };
+
+    void prepareCheckout();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentState]);
 
   const handleBackToCourses = () => {
     navigate('/courses');
+  };
+
+  const createOrderMutation = useMutation({
+    mutationFn: async () => {
+      if (!paymentState) throw new Error('No payment details found');
+      const response = await api.post(`/paypal/create-order/${paymentState.courseId}`, {
+        voucherCode: paymentState.voucherCode || undefined
+      });
+      return response.data as {
+        orderId: string;
+        checkoutUrl: string;
+        formFields: Record<string, string>;
+        pricing: PricingSummary;
+      };
+    },
+    onSuccess: (data) => {
+      if (!paymentState) return;
+      sessionStorage.setItem('kuickpay_orderId', data.orderId);
+      if (paymentState.voucherCode) {
+        sessionStorage.setItem('kuickpay_voucherCode', paymentState.voucherCode);
+      } else {
+        sessionStorage.removeItem('kuickpay_voucherCode');
+      }
+    },
+    onError: (error: any) => {
+      setPaymentStatus('failed');
+      const message = error.response?.data?.message || 'Failed to initialize payment checkout';
+      setErrorMessage(message);
+      toast.error(message);
+    }
+  });
+
+  const submitHostedForm = (checkoutData: PreparedCheckout) => {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = checkoutData.checkoutUrl;
+    Object.entries(checkoutData.formFields || {}).forEach(([key, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  const handleProceedToKuickpay = async () => {
+    if (!preparedCheckout) {
+      toast.error('Checkout is still being prepared. Please wait a moment.');
+      return;
+    }
+
+    setPaymentStatus('redirecting');
+    queryClient.invalidateQueries({ queryKey: ['student-payments'] });
+    submitHostedForm(preparedCheckout);
   };
 
   if (!user) {
@@ -199,7 +157,7 @@ export const CardPaymentPage: React.FC = () => {
     <MainLayout>
       <div className="p-6 max-w-4xl mx-auto">
         <div className="mb-6 flex items-center">
-          <button 
+          <button
             onClick={handleBackToCourses}
             className="text-primary hover:text-primary-dark flex items-center"
           >
@@ -207,179 +165,120 @@ export const CardPaymentPage: React.FC = () => {
             Back to Courses
           </button>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow-md p-6">
           <h1 className="text-2xl font-bold mb-6 text-center">
             <FontAwesomeIcon icon={faCreditCard} className="mr-2 text-primary" />
-            Card Payment
+            Kuickpay Checkout
           </h1>
-          
+
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            You are about to be redirected to Kuickpay, a secure third-party payment processor.
+            After successful payment, you will be redirected back to MedHOME to complete your enrollment.
+          </div>
+
           {paymentState && (
             <div className="mb-8 p-4 bg-gray-50 rounded-lg">
               <h2 className="text-lg font-semibold mb-2">Order Summary</h2>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-gray-700">Course: {paymentState.courseTitle}</p>
-                    <p className="text-sm text-gray-500">You will be enrolled immediately after successful payment</p>
+                    <p className="text-sm text-gray-500">Your card will be charged in PKR through Kuickpay.</p>
                   </div>
                 </div>
                 {paymentState.voucherCode && paymentState.originalPrice && (
                   <div className="border-t pt-2 mt-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Original Price:</span>
-                      <span className="line-through text-gray-400">${paymentState.originalPrice.toFixed(2)}</span>
+                      <span className="line-through text-gray-400">{formatUsd(paymentState.originalPrice)}</span>
                     </div>
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Voucher Discount ({paymentState.voucherCode}):</span>
-                      <span>-${paymentState.discountAmount?.toFixed(2) || '0.00'}</span>
+                      <span>-{formatUsd(paymentState.discountAmount || 0)}</span>
                     </div>
                   </div>
                 )}
                 <div className="flex justify-between items-center border-t pt-2 mt-2">
-                  <span className="font-semibold">Total:</span>
-                  <div className="text-xl font-bold text-primary">
-                    ${paymentState.coursePrice.toFixed(2)}
+                  <span className="font-semibold">Total in USD:</span>
+                  <div className="text-xl font-bold text-primary">{formatUsd(paymentState.coursePrice)}</div>
+                </div>
+
+                {preparedCheckout?.pricing && (
+                  <div className="border-t pt-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Exchange Rate:</span>
+                      <span>1 USD = {preparedCheckout.pricing.exchangeRate?.toFixed(4) || '0.0000'} PKR</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Amount Charged by Kuickpay:</span>
+                      <span className="font-semibold">PKR {formatPkr(preparedCheckout.pricing.pkrAmount || 0)}</span>
+                    </div>
+                    {preparedCheckout.pricing.rateDate && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Rate Date:</span>
+                        <span>{preparedCheckout.pricing.rateDate}</span>
+                      </div>
+                    )}
+                    <div className="rounded-md bg-amber-50 p-3 text-amber-900">
+                      {preparedCheckout.pricing.feeDisclaimer}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
-          
-          {paymentStatus === 'idle' && (
-            <div className="space-y-6">
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="flex-1">
-                  <label className="block text-gray-700 text-sm font-medium mb-2">
-                    Card Number
-                  </label>
-                  <input
-                    type="text"
-                    name="cardNumber"
-                    value={cardDetails.cardNumber}
-                    onChange={handleInputChange}
-                    placeholder="1234 5678 9012 3456"
-                    maxLength={19} // 16 digits + 3 spaces
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="flex-1">
-                  <label className="block text-gray-700 text-sm font-medium mb-2">
-                    Cardholder Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={cardDetails.name}
-                    onChange={handleInputChange}
-                    placeholder="John Smith"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="flex-1">
-                  <label className="block text-gray-700 text-sm font-medium mb-2">
-                    Expiry Date
-                  </label>
-                  <input
-                    type="text"
-                    name="expiryDate"
-                    value={cardDetails.expiryDate}
-                    onChange={handleInputChange}
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-                
-                <div className="flex-1">
-                  <label className="block text-gray-700 text-sm font-medium mb-2">
-                    CVC
-                  </label>
-                  <input
-                    type="text"
-                    name="cvc"
-                    value={cardDetails.cvc}
-                    onChange={handleInputChange}
-                    placeholder="123"
-                    maxLength={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="mt-6">
-                <p className="text-sm text-gray-500 mb-4 text-center">
-                  <strong>Note:</strong> This is a PayPal sandbox environment. Your card will be processed securely through PayPal.
-                </p>
-                <button
-                  onClick={processPayment}
-                  disabled={isProcessing}
-                  className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-md transition duration-300 flex justify-center items-center"
-                >
-                  {isProcessing ? (
-                    <>
-                      <FontAwesomeIcon icon={faSpinner} spin className="mr-2" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>Pay ${paymentState?.coursePrice.toFixed(2)}</>
-                  )}
-                </button>
-                <p className="text-xs text-gray-500 mt-2 text-center">
-                  Secured by PayPal. Your card details are encrypted.
-                </p>
-              </div>
-            </div>
-          )}
-          
-          {paymentStatus === 'processing' && (
+
+          {paymentStatus === 'preparing' && (
             <div className="text-center py-10">
               <FontAwesomeIcon icon={faSpinner} spin className="text-5xl text-primary mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Processing Your Payment</h2>
-              <p className="text-gray-600">Please wait while we process your payment...</p>
+              <h2 className="text-xl font-semibold mb-2">Preparing live exchange rate</h2>
+              <p className="text-gray-600">Please wait while we prepare your Kuickpay checkout in PKR...</p>
             </div>
           )}
-          
-          {paymentStatus === 'success' && (
+
+          {paymentStatus === 'ready' && preparedCheckout && (
+            <div className="text-center">
+              <button
+                onClick={handleProceedToKuickpay}
+                className="bg-primary hover:bg-primary-dark text-white font-bold py-3 px-6 rounded-md transition duration-300"
+              >
+                Proceed to Kuickpay
+              </button>
+              <p className="text-xs text-gray-500 mt-3">
+                You will now be redirected to Kuickpay hosted checkout and returned to MedHOME after payment.
+              </p>
+            </div>
+          )}
+
+          {paymentStatus === 'redirecting' && (
             <div className="text-center py-10">
-              <FontAwesomeIcon icon={faCheckCircle} className="text-5xl text-green-500 mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Payment Successful!</h2>
-              <p className="text-gray-600 mb-6">Your enrollment has been confirmed and invoice has been generated.</p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button
-                  onClick={() => navigate('/my-courses')}
-                  className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-md transition duration-300"
-                >
-                  Go to My Courses
-                </button>
-                <button
-                  onClick={handleBackToCourses}
-                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-md transition duration-300"
-                >
-                  Browse More Courses
-                </button>
-              </div>
+              <FontAwesomeIcon icon={faSpinner} spin className="text-5xl text-primary mb-4" />
+              <h2 className="text-xl font-semibold mb-2">Redirecting to Kuickpay</h2>
+              <p className="text-gray-600">Please wait while we initialize your checkout...</p>
             </div>
           )}
-          
+
           {paymentStatus === 'failed' && (
             <div className="text-center py-10">
               <FontAwesomeIcon icon={faTimesCircle} className="text-5xl text-red-500 mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Payment Failed</h2>
+              <h2 className="text-xl font-semibold mb-2">Payment Initialization Failed</h2>
               <p className="text-gray-600 mb-2">{errorMessage}</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
                 <button
-                  onClick={handleRetry}
+                  onClick={() => {
+                    setPreparedCheckout(null);
+                    setPaymentStatus('preparing');
+                    setErrorMessage('');
+                    if (paymentState) {
+                      void createOrderMutation.mutateAsync().then((data) => {
+                        setPreparedCheckout(data);
+                        setPaymentStatus('ready');
+                      }).catch(() => {
+                        // Error state is already handled by the mutation callback.
+                      });
+                    }
+                  }}
                   className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-6 rounded-md transition duration-300"
                 >
                   Try Again
@@ -394,11 +293,10 @@ export const CardPaymentPage: React.FC = () => {
             </div>
           )}
         </div>
-        
+
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
-            <strong>Note:</strong> This is a PayPal sandbox environment for testing purposes.
-            <br />Payments are processed securely through PayPal's payment gateway.
+            <strong>Note:</strong> Kuickpay may apply a small processing charge in addition to the PKR amount shown above.
           </p>
         </div>
       </div>

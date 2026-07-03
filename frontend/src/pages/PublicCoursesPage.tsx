@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import api from '../utils/axios';
-import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import { Course, Category } from '../types/course';
 import { getAllCategories } from '../services/categoryService';
@@ -21,7 +20,8 @@ const COURSES_PER_PAGE = 8;
 export enum EnrollmentStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
-  REJECTED = 'rejected'
+  REJECTED = 'rejected',
+  WITHDRAWN = 'withdrawn'
 }
 
 // Extend Course interface to include enrollment status
@@ -62,10 +62,13 @@ export const PublicCoursesPage: React.FC = () => {
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<PublicCourse | null>(null);
   
-  // New state for search and filters
+  // Search & filters (search is client-side only — no refetch per keystroke)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [pinnedCourseId, setPinnedCourseId] = useState<string | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch categories from database
   const { data: categories = [], isLoading: isLoadingCategories } = useQuery({
@@ -73,30 +76,80 @@ export const PublicCoursesPage: React.FC = () => {
     queryFn: getAllCategories
   });
 
-  // Fetch courses with category filter
-  const { data: courses = [], isLoading: isLoadingCourses } = useQuery({
+  // Fetch courses for selected category only (server-side category filter)
+  const { data: courses = [], isLoading: isLoadingCourses, isFetching: isFetchingCourses } = useQuery({
     queryKey: ['public-courses', selectedCategory],
     queryFn: async () => {
-      const params = selectedCategory ? { category: selectedCategory } : {};
+      const params: Record<string, string> = {};
+      if (selectedCategory) {
+        params.category = selectedCategory;
+      }
       const response = await api.get<PublicCourse[]>('/public/courses', { params });
       return response.data;
     },
+    placeholderData: keepPreviousData
   });
 
-  // Reset to page 1 when category changes
+  const filteredCourses = useMemo(() => {
+    if (pinnedCourseId) {
+      const one = courses.find((c) => c._id.toString() === pinnedCourseId);
+      return one ? [one] : [];
+    }
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return courses;
+    return courses.filter((c) => {
+      const title = (c.title || '').toLowerCase();
+      const desc = (c.description || '').toLowerCase();
+      const catNames = Array.isArray(c.categories)
+        ? c.categories
+            .map((cat) =>
+              typeof cat === 'object' && cat !== null && 'name' in cat
+                ? String((cat as { name: string }).name).toLowerCase()
+                : ''
+            )
+            .join(' ')
+        : '';
+      return title.includes(q) || desc.includes(q) || catNames.includes(q);
+    });
+  }, [courses, searchQuery, pinnedCourseId]);
+
+  const searchSuggestions = useMemo(() => {
+    if (pinnedCourseId || !searchFocused) return [];
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 1) return [];
+    const seen = new Set<string>();
+    const out: PublicCourse[] = [];
+    for (const c of courses) {
+      const title = (c.title || '').toLowerCase();
+      const desc = (c.description || '').toLowerCase();
+      if (!title.includes(q) && !desc.includes(q)) continue;
+      const id = c._id.toString();
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(c);
+      if (out.length >= 8) break;
+    }
+    return out;
+  }, [courses, searchQuery, searchFocused, pinnedCourseId]);
+
+  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
+  }, [selectedCategory, searchQuery, pinnedCourseId]);
+
+  useEffect(() => {
+    setPinnedCourseId(null);
   }, [selectedCategory]);
 
-  // Calculate pagination values
-  const totalPages = Math.ceil(courses.length / COURSES_PER_PAGE);
+  // Calculate pagination values (client-side list)
+  const totalPages = Math.ceil(filteredCourses.length / COURSES_PER_PAGE);
   const startIndex = (currentPage - 1) * COURSES_PER_PAGE;
   const endIndex = startIndex + COURSES_PER_PAGE;
-  const currentCourses = courses.slice(startIndex, endIndex);
+  const currentCourses = filteredCourses.slice(startIndex, endIndex);
 
   // Calculate display range
-  const startDisplay = courses.length > 0 ? startIndex + 1 : 0;
-  const endDisplay = Math.min(endIndex, courses.length);
+  const startDisplay = filteredCourses.length > 0 ? startIndex + 1 : 0;
+  const endDisplay = Math.min(endIndex, filteredCourses.length);
 
   // Generate page numbers to display
   const getPageNumbers = () => {
@@ -154,7 +207,7 @@ export const PublicCoursesPage: React.FC = () => {
     setIsEnrollModalOpen(true);
   };
 
-  if (isLoadingCourses || isLoadingCategories) {
+  if (isLoadingCategories) {
     return (
       <div className="min-h-screen bg-background">
         <MedicMenu />
@@ -171,25 +224,101 @@ export const PublicCoursesPage: React.FC = () => {
       
       {/* Search and Filter Section */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Search Bar */}
+        {/* Search Bar — client-side filter; suggestions from loaded list */}
         <div className="mb-8">
-          <div className="flex gap-4 max-w-2xl mx-auto">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="Search courses..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-              <FontAwesomeIcon 
-                icon={faSearch} 
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
-              />
+          <div className="flex flex-col gap-2 max-w-2xl mx-auto">
+            <div className="flex gap-3">
+              <div className="flex-1 relative">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search by title, description, or category..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSearchQuery(v);
+                    if (!v.trim()) setPinnedCourseId(null);
+                  }}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => {
+                    window.setTimeout(() => setSearchFocused(false), 200);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setPinnedCourseId(null);
+                      setSearchQuery('');
+                      searchInputRef.current?.blur();
+                    }
+                  }}
+                  className="w-full px-4 py-3 pl-12 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  autoComplete="off"
+                  aria-autocomplete="list"
+                  aria-expanded={searchSuggestions.length > 0}
+                />
+                <FontAwesomeIcon
+                  icon={faSearch}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+                />
+                {(searchQuery.trim() || pinnedCourseId) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setPinnedCourseId(null);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 text-xl leading-none px-1"
+                    aria-label="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+                {searchSuggestions.length > 0 && (
+                  <ul
+                    className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-auto py-1"
+                    role="listbox"
+                  >
+                    {searchSuggestions.map((c) => (
+                      <li key={c._id.toString()} role="option">
+                        <button
+                          type="button"
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-primary/10 focus:bg-primary/15 focus:outline-none"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setPinnedCourseId(c._id.toString());
+                            setSearchQuery(c.title);
+                            setSearchFocused(false);
+                            requestAnimationFrame(() => {
+                              document
+                                .getElementById(`public-course-${c._id.toString()}`)
+                                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            });
+                          }}
+                        >
+                          <span className="font-medium line-clamp-1">{c.title}</span>
+                          <span className="block text-xs text-gray-500 line-clamp-1 mt-0.5">
+                            {c.description ? `${c.description.slice(0, 80)}${c.description.length > 80 ? '…' : ''}` : 'View course'}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-            <button className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
-              Search
-            </button>
+            {pinnedCourseId && (
+              <p className="text-sm text-gray-600 px-1">
+                Showing selected course.{' '}
+                <button
+                  type="button"
+                  className="text-primary font-medium hover:underline"
+                  onClick={() => {
+                    setPinnedCourseId(null);
+                  }}
+                >
+                  Show all in this list
+                </button>
+              </p>
+            )}
           </div>
         </div>
 
@@ -213,11 +342,11 @@ export const PublicCoursesPage: React.FC = () => {
               <button
                 key={category._id}
                 onClick={() => {
-                  setSelectedCategory(category._id);
+                  setSelectedCategory(String(category._id));
                   setCurrentPage(1);
                 }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategory === category._id 
+                  selectedCategory === String(category._id)
                     ? 'bg-primary text-white' 
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
@@ -230,20 +359,39 @@ export const PublicCoursesPage: React.FC = () => {
 
         {/* Available Courses Section */}
         <div className="mb-12">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex justify-between items-center mb-8 flex-wrap gap-2">
             <h2 className="text-3xl font-bold text-gray-900">Available Courses</h2>
-            {courses.length > 0 && (
-              <p className="text-sm text-gray-600">
-                Showing {startDisplay}-{endDisplay} of {courses.length} courses
-              </p>
-            )}
+            <div className="flex items-center gap-3">
+              {isFetchingCourses && (
+                <span className="text-sm text-gray-500 flex items-center gap-2">
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                  Updating…
+                </span>
+              )}
+              {filteredCourses.length > 0 && (
+                <p className="text-sm text-gray-600">
+                  Showing {startDisplay}-{endDisplay} of {filteredCourses.length} courses
+                </p>
+              )}
+            </div>
           </div>
-          
-          {/* Course Cards */}
+
+          {isLoadingCourses && courses.length === 0 ? (
+            <div className="flex justify-center items-center py-24">
+              <div className="flex flex-col items-center gap-3 text-gray-500">
+                <FontAwesomeIcon icon={faSpinner} className="animate-spin text-2xl text-primary" />
+                <span>Loading courses…</span>
+              </div>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {currentCourses.length > 0 ? (
               currentCourses.map((course) => (
-                <div key={course._id.toString()} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div
+                  id={`public-course-${course._id.toString()}`}
+                  key={course._id.toString()}
+                  className="bg-white rounded-lg shadow-md overflow-hidden scroll-mt-24"
+                >
                   {/* Course Thumbnail */}
                   <div className="h-48 bg-gray-200 relative">
                     {course.thumbnail ? (
@@ -314,10 +462,15 @@ export const PublicCoursesPage: React.FC = () => {
               ))
             ) : (
               <div className="col-span-4 flex justify-center items-center py-16">
-                <p className="text-gray-500 text-lg">No courses available at the moment.</p>
+                <p className="text-gray-500 text-lg">
+                  {courses.length === 0
+                    ? 'No courses available at the moment.'
+                    : 'No courses match your search. Try different keywords or clear the search.'}
+                </p>
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* Pagination */}

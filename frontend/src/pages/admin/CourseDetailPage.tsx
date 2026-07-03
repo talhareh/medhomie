@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageCourses, isAdmin } from '../../utils/roles';
 import api from '../../utils/axios';
 import { useCourseQuizzes } from '../../hooks/useQuizzes';
 
@@ -66,7 +67,7 @@ export const CourseDetailPage: React.FC = () => {
 
   const addNoticeMutation = useMutation({
     mutationFn: async (notice: string) => {
-      const response = await api.post(`/courses/${courseId}/notice`, { notice });
+      const response = await api.post(`/notices/${courseId}/notices`, { notice });
       return response.data;
     },
     onSuccess: () => {
@@ -157,10 +158,12 @@ export const CourseDetailPage: React.FC = () => {
     );
   }
 
-  if (!user || user.role !== 'admin') {
-    navigate('/');
+  if (!user || !canManageCourses(user.role)) {
+    navigate('/dashboard');
     return null;
   }
+
+  const showAdminActions = isAdmin(user.role);
 
   return (
     <MainLayout>
@@ -180,13 +183,15 @@ export const CourseDetailPage: React.FC = () => {
             >
               Manage Content
             </button>
-            <button
-              onClick={handleClone}
-              className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
-              disabled={cloneMutation.isPending}
-            >
-              {cloneMutation.isPending ? 'Cloning...' : 'Clone Course'}
-            </button>
+            {showAdminActions && (
+              <button
+                onClick={handleClone}
+                className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+                disabled={cloneMutation.isPending}
+              >
+                {cloneMutation.isPending ? 'Cloning...' : 'Clone Course'}
+              </button>
+            )}
             <button
               onClick={() => navigate('/admin/courses')}
               className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
@@ -251,7 +256,8 @@ export const CourseDetailPage: React.FC = () => {
               )}
             </div>
 
-            {/* Course Quizzes */}
+            {/* Course Quizzes (admin UI) */}
+            {showAdminActions && (
             <div className="bg-white rounded-lg shadow-md p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold">Course Quizzes</h2>
@@ -319,6 +325,7 @@ export const CourseDetailPage: React.FC = () => {
                 </div>
               )}
             </div>
+            )}
 
             {/* Course Content */}
             <div className="bg-white rounded-lg shadow-md p-6">

@@ -15,6 +15,7 @@ const createUploadDirectories = () => {
     'uploads/course-videos',
     'uploads/course-attachments',
     'uploads/course-images',
+    'uploads/heroSliders',
     'uploads/payment-receipts',
     'uploads/payment-invoices'
   ];
@@ -48,6 +49,16 @@ const courseVideoStorage = multer.diskStorage({
 const courseImageStorage = multer.diskStorage({
   destination: (req: Request, file: Express.Multer.File, cb) => {
     cb(null, 'uploads/course-images');
+  },
+  filename: (req: Request, file: Express.Multer.File, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const heroSliderImageStorage = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb) => {
+    cb(null, 'uploads/heroSliders');
   },
   filename: (req: Request, file: Express.Multer.File, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -89,9 +100,9 @@ const videoFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFil
 
 // File filter for images
 const imageFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (!allowedTypes.includes(file.mimetype)) {
-    cb(new Error('Invalid file type. Only JPEG, PNG and GIF images are allowed.'));
+    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'));
     return;
   }
   cb(null, true);
@@ -131,6 +142,14 @@ export const uploadImage = multer({
   fileFilter: imageFilter,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB max file size
+  }
+});
+
+export const uploadHeroSliderImage = multer({
+  storage: heroSliderImageStorage,
+  fileFilter: imageFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024
   }
 });
 

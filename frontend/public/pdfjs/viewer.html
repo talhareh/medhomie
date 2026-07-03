@@ -123,6 +123,44 @@
     .textLayer ::selection {
       background: rgba(0, 0, 255, 0.3);
     }
+
+    /* Watermark styles */
+    .page {
+      position: relative;
+    }
+
+    .page-watermark {
+      position: absolute;
+      font-size: 12px;
+      font-weight: 600;
+      color: #0072BC; /* Primary color from Tailwind config */
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+      z-index: 5; /* Above canvas but below text layer for readability */
+      font-family: Arial, sans-serif;
+      opacity: 0.6; /* Slightly transparent for better readability */
+    }
+
+    .page-watermark.top-left {
+      top: 8px;
+      left: 12px;
+    }
+
+    .page-watermark.top-right {
+      top: 8px;
+      right: 12px;
+    }
+
+    .page-watermark.bottom-left {
+      bottom: 8px;
+      left: 12px;
+    }
+
+    .page-watermark.bottom-right {
+      bottom: 8px;
+      right: 12px;
+    }
   </style>
 </head>
 <body>
@@ -167,9 +205,10 @@
     // Set worker path
     pdfjsLib.GlobalWorkerOptions.workerSrc = './build/pdf.worker.mjs';
 
-    // Get PDF URL from query parameter
+    // Get PDF URL and watermark text from query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const pdfUrl = urlParams.get('file');
+    const watermarkText = urlParams.get('watermark') || 'CONFIDENTIAL'; // Default watermark text
 
     if (!pdfUrl) {
       alert('No PDF file specified');
@@ -207,15 +246,64 @@
       pageNumberInput.max = pdfDocument.numPages;
     });
 
+    // Function to add watermarks to a page (all four corners)
+    function addWatermarkToPage(pageDiv) {
+      // Check if watermarks already exist
+      if (pageDiv.querySelector('.page-watermark')) {
+        return;
+      }
+
+      // Create watermarks for all four corners
+      const corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+      corners.forEach(corner => {
+        const watermark = document.createElement('div');
+        watermark.className = `page-watermark ${corner}`;
+        watermark.textContent = watermarkText;
+        pageDiv.appendChild(watermark);
+      });
+    }
+
+    // Function to add watermarks to all existing pages
+    function addWatermarksToAllPages() {
+      const pageDivs = document.querySelectorAll('.page');
+      pageDivs.forEach(addWatermarkToPage);
+    }
+
     // Event listeners
     eventBus.on('pagesinit', () => {
       pdfViewer.currentScaleValue = 'auto';
       scaleSelect.value = 'auto';
+      // Add watermarks after pages are initialized
+      setTimeout(addWatermarksToAllPages, 100);
     });
 
     eventBus.on('pagechanging', (evt) => {
       pageNumberInput.value = evt.pageNumber;
     });
+
+    // Listen for page rendering events to add watermark
+    eventBus.on('pagerendered', (evt) => {
+      if (evt.source && evt.source.div) {
+        addWatermarkToPage(evt.source.div);
+      }
+    });
+
+    // Also use MutationObserver to catch dynamically added pages
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1 && node.classList && node.classList.contains('page')) {
+            addWatermarkToPage(node);
+          }
+        });
+      });
+    });
+
+    // Start observing the viewer container for new pages
+    const viewerElement = document.getElementById('viewer');
+    if (viewerElement) {
+      observer.observe(viewerElement, { childList: true, subtree: true });
+    }
 
     // Toolbar controls
     document.getElementById('zoomIn').addEventListener('click', () => {

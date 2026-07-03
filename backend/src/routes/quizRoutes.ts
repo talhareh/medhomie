@@ -21,6 +21,7 @@ const importQuestionsHandler = (req: Request, res: Response, next: NextFunction)
 
 const startAttemptHandler = (req: Request, res: Response, next: NextFunction) => quizController.startAttempt(req, res, next);
 const getAttemptHandler = (req: Request, res: Response, next: NextFunction) => quizController.getAttempt(req, res, next);
+const getMyAttemptsHandler = (req: Request, res: Response, next: NextFunction) => quizController.getMyAttempts(req, res, next);
 const submitAttemptHandler = (req: Request, res: Response, next: NextFunction) => quizController.submitAttempt(req, res, next);
 
 const getQuizStatisticsHandler = (req: Request, res: Response, next: NextFunction) => quizController.getQuizStatistics(req, res, next);
@@ -32,6 +33,9 @@ router.get('/courses/:courseId/quizzes', authenticateToken, getQuizzesByCourseHa
 
 // Get all quizzes (with pagination and filters) - must come before /:id routes
 router.get('/', authenticateToken, authorizeRoles(UserRole.ADMIN, UserRole.INSTRUCTOR), getAllQuizzesHandler);
+
+// Student's own completed quiz attempts - must come before /:id routes
+router.get('/my-attempts', authenticateToken, getMyAttemptsHandler);
 
 // Individual Quiz Routes
 router.get('/:id', authenticateToken, getQuizHandler);
