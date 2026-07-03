@@ -147,6 +147,11 @@ export const isAdminOrCourseInstructor = async (
       return;
     }
 
+    if (authReq.user.role !== UserRole.INSTRUCTOR) {
+      res.status(403).json({ message: 'Access denied. Not authorized to modify this course.' });
+      return;
+    }
+
     const course = await Course.findById(req.params.courseId);
     if (!course) {
       res.status(404).json({ message: 'Course not found' });

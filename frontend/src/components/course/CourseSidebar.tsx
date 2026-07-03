@@ -35,6 +35,8 @@ interface CourseSidebarProps {
   courseQuizzes?: any[];
   openPDFInNewTab: (lesson: Lesson, attachmentIndex?: number) => void;
   onMobileClose?: () => void;
+  /** Highlights the active course-level quiz row when opened in the player */
+  selectedCourseQuizId?: string | null;
 }
 
 // Helper function to get a readable name for the attachment
@@ -57,10 +59,11 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
   navigateToCourseQuiz,
   courseQuizzes = [],
   openPDFInNewTab,
-  onMobileClose
+  onMobileClose,
+  selectedCourseQuizId = null
 }) => {
   return (
-    <div className="w-full h-full bg-gray-50 border-r border-gray-200 flex flex-col">
+    <div className="flex h-full w-full flex-col border-r border-gray-200 bg-gray-50 pb-[env(safe-area-inset-bottom)] md:pb-0">
       {/* Header */}
       <div className="p-3 md:p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
@@ -96,8 +99,9 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
           <div key={section.id} className="bg-white">
             {/* Section Header */}
             <button
+              type="button"
               onClick={() => toggleSection(section.id)}
-              className="w-full px-3 md:px-4 py-3 text-left border-b border-gray-100 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 touch-manipulation"
+              className="min-h-[48px] w-full touch-manipulation border-b border-gray-100 px-3 py-3 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none md:min-h-0 md:px-4"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center min-w-0 flex-1">
@@ -118,9 +122,10 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
               <div className="bg-gray-50">
                 {section.lessons.map(lesson => (
                   <button
+                    type="button"
                     key={lesson.id}
                     onClick={() => navigateToLesson(section.id, lesson.id)}
-                    className={`w-full px-4 md:px-6 py-3 text-left border-b border-gray-100 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition-colors touch-manipulation ${
+                    className={`min-h-[52px] w-full touch-manipulation border-b border-gray-100 px-4 py-3 text-left transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:outline-none md:min-h-0 md:px-6 ${
                       currentLessonId === lesson.id ? 'bg-primary/10 border-l-4 border-l-primary' : ''
                     }`}
                   >
@@ -167,16 +172,17 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
 
                           {/* Show Quiz link if quiz is available */}
                           {lesson.quiz && navigateToQuiz && (
-                            <div 
-                              className="text-xs text-purple-500 cursor-pointer hover:text-purple-700 p-1 -m-1 rounded touch-manipulation"
+                            <button
+                              type="button"
+                              className="-m-1 flex min-h-[44px] w-full touch-manipulation items-center rounded-lg px-1 py-2 text-left text-sm text-purple-600 hover:bg-purple-50 active:bg-purple-100 sm:min-h-0 sm:py-1 sm:text-xs"
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevent triggering the parent button's onClick
+                                e.stopPropagation();
                                 navigateToQuiz(section.id, lesson.id);
                               }}
                             >
-                              <FontAwesomeIcon icon={faQuestionCircle} className="mr-1 text-xs" />
+                              <FontAwesomeIcon icon={faQuestionCircle} className="mr-2 shrink-0 text-xs sm:mr-1" />
                               <span>Quiz</span>
-                            </div>
+                            </button>
                           )}
                         </div>
                       </div>
@@ -198,8 +204,14 @@ export const CourseSidebar: React.FC<CourseSidebarProps> = ({
               {courseQuizzes.map((quiz) => (
                 <button
                   key={quiz._id || quiz.id}
+                  type="button"
                   onClick={() => navigateToCourseQuiz && navigateToCourseQuiz(quiz._id || quiz.id)}
-                  className="w-full px-4 md:px-6 py-3 text-left border-b border-gray-100 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition-colors touch-manipulation"
+                  className={`min-h-[48px] w-full touch-manipulation border-b border-gray-100 px-4 py-3 text-left transition-colors hover:bg-gray-100 focus:bg-gray-100 focus:outline-none md:min-h-0 md:px-6 ${
+                    selectedCourseQuizId &&
+                    (quiz._id === selectedCourseQuizId || quiz.id === selectedCourseQuizId)
+                      ? 'bg-primary/10 border-l-4 border-l-primary'
+                      : ''
+                  }`}
                 >
                   <div className="flex items-center">
                     <FontAwesomeIcon icon={faQuestionCircle} className="text-purple-500 mr-2 text-sm flex-shrink-0" />

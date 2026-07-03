@@ -17,6 +17,10 @@ export interface User {
   lastLogin?: Date;
   deviceCount?: number;
   devices?: any[]; // Using any[] for now, can define proper type if needed
+  /** ISO date string when student accepted site policies */
+  policyConsentAt?: string | null;
+  /** Must match `POLICY_CONSENT_VERSION` in config after acceptance */
+  policyConsentVersion?: string | null;
 }
 
 export interface AuthResponse {

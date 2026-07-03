@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { User, UserRole } from '../../types/auth';
@@ -72,6 +72,7 @@ interface UserDetails extends User {
 export const AdminUserDetailsPage: React.FC = () => {
     const { userId } = useParams<{ userId: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
     const [user, setUser] = useState<UserDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -212,7 +213,7 @@ export const AdminUserDetailsPage: React.FC = () => {
             <div className="space-y-6">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => navigate('/admin/users')}
+                        onClick={() => navigate(`/admin/users${location.search}`)}
                         className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                     >
                         <FontAwesomeIcon icon={faArrowLeft} className="text-gray-600" />
@@ -391,6 +392,7 @@ export const AdminUserDetailsPage: React.FC = () => {
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                                 ${enrollment.status === 'approved' ? 'bg-green-100 text-green-800' :
                                                     enrollment.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                    enrollment.status === 'withdrawn' ? 'bg-gray-100 text-gray-800' :
                                                         'bg-yellow-100 text-yellow-800'}`}>
                                                 {enrollment.status}
                                             </span>

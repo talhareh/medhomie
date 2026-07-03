@@ -7,7 +7,7 @@ The MedHome backend is a Node.js/Express API server that provides all the busine
 - **User Management**: Authentication, authorization, and user profile management
 - **Course Management**: CRUD operations for courses, modules, lessons, and content
 - **Enrollment System**: Student enrollment workflows and status management
-- **Payment Processing**: PayPal integration for course purchases
+- **Payment Processing**: Kuickpay integration for course purchases
 - **Content Delivery**: File upload, storage, and streaming services
 - **AI Integration**: AI chat functionality and external API integrations
 - **Analytics**: Data aggregation and reporting for administrators
@@ -50,6 +50,17 @@ SMTP_PASS=your_app_password
 
 # AI Services
 GEMINI_API_KEY=your_gemini_api_key
+
+# Frontend/Backend URLs
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:5000
+
+# Kuickpay
+KUICKPAY_TOKEN_URL=https://testcheckout.kuickpay.com/api/KPToken
+KUICKPAY_REDIRECTION_URL=https://testcheckout.kuickpay.com/api/Redirection
+KUICKPAY_INSTITUTION_ID=your_institution_id
+KUICKPAY_SECURED_KEY=your_secured_key
+KUICKPAY_WEBHOOK_URL=http://localhost:5000/api/paypal/kuickpay/webhook
 
 # WhatsApp Integration
 WHATSAPP_WEBHOOK_SECRET=your_whatsapp_webhook_secret
@@ -177,6 +188,12 @@ src/
 - `GET /my-payments` - Get user payments
 - `GET /admin/payments` - List all payments (admin)
 
+### Kuickpay (`/api/paypal`)
+- `POST /create-order/:courseId` - Create Kuickpay checkout order (authenticated)
+- `POST /verify-payment` - Verify return signature and finalize payment (authenticated)
+- `GET /order-status/:orderId` - Get Kuickpay order status (authenticated)
+- `POST /kuickpay/webhook` - Kuickpay server-to-server webhook (public)
+
 ### Blogs (`/api/blogs`)
 - `GET /` - List all blogs
 - `POST /` - Create blog (admin)
@@ -294,7 +311,7 @@ src/
 - **Response Processing**: Formats AI responses for frontend
 
 ### Payment Processing
-- **PayPal Integration**: Secure payment processing
+- **Kuickpay Integration**: Secure payment processing
 - **Webhook Handling**: Payment confirmation
 - **Receipt Generation**: Automatic receipt creation
 

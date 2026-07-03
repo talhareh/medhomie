@@ -44,10 +44,10 @@ const customModalStyles = {
 };
 
 const paymentInfo = {
-  paypal: {
-    title: 'PayPal',
+  kuickpay: {
+    title: 'Kuickpay',
     instructions: 'Pay with Credit/Debit Card',
-    details: 'Secure online payment',
+    details: 'Secure hosted checkout',
     useCardPayment: true
   },
 

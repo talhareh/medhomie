@@ -1,0 +1,12 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /dashboard
+Disallow: /student/
+Disallow: /payments
+Disallow: /cardPayment
+Disallow: /payment/
+Disallow: /pdf-enhanced
+Disallow: /enrolled
+Allow: /
+
+Sitemap: https://medhome.courses/sitemap.xml

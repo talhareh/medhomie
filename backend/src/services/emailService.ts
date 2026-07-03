@@ -261,6 +261,137 @@ export const sendEnrollmentNotification = async (
   }
 };
 
+interface StudentPaymentConfirmationDetails {
+  to: string;
+  fullName: string;
+  courseTitle: string;
+  amountPaid: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  transactionId?: string;
+  orderId?: string;
+  paymentMethod: string;
+  invoiceUrl?: string;
+  voucherCode?: string;
+}
+
+export const sendStudentPaymentConfirmationEmail = async (
+  details: StudentPaymentConfirmationDetails
+) => {
+  try {
+    console.log('Attempting to send student payment confirmation email to:', details.to);
+
+    const amountPaid = details.amountPaid.toFixed(2);
+    const originalAmount = typeof details.originalAmount === 'number'
+      ? details.originalAmount.toFixed(2)
+      : undefined;
+    const discountAmount = typeof details.discountAmount === 'number'
+      ? details.discountAmount.toFixed(2)
+      : undefined;
+
+    const html = `
+      <div style="${emailStyles.container}">
+        <h1 style="${emailStyles.heading}">Payment Confirmed</h1>
+        <p>Hi ${details.fullName},</p>
+        <p>Your payment for <strong>${details.courseTitle}</strong> has been received and your enrollment is now active.</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Course:</strong> ${details.courseTitle}</p>
+          <p><strong>Payment Method:</strong> ${details.paymentMethod}</p>
+          <p><strong>Amount Paid:</strong> $${amountPaid}</p>
+          ${originalAmount ? `<p><strong>Original Amount:</strong> $${originalAmount}</p>` : ''}
+          ${discountAmount && Number(discountAmount) > 0 ? `<p><strong>Discount:</strong> $${discountAmount}</p>` : ''}
+          ${details.voucherCode ? `<p><strong>Voucher Code:</strong> ${details.voucherCode}</p>` : ''}
+          ${details.orderId ? `<p><strong>Order ID:</strong> ${details.orderId}</p>` : ''}
+          ${details.transactionId ? `<p><strong>Transaction ID:</strong> ${details.transactionId}</p>` : ''}
+        </div>
+        ${details.invoiceUrl
+          ? `<a href="${details.invoiceUrl}" style="${emailStyles.button}">View Invoice</a>`
+          : `<a href="${process.env.FRONTEND_URL}/payments" style="${emailStyles.button}">View Payment History</a>`}
+        <p>If you have any questions, please contact our support team.</p>
+      </div>
+    `;
+
+    const messageData = {
+      from: fromEmail,
+      to: [details.to],
+      subject: 'Payment Confirmed - MedHome',
+      html
+    };
+
+    const result = await mg.messages.create(domain, messageData);
+    console.log('Student payment confirmation email sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending student payment confirmation email:', error);
+    throw error;
+  }
+};
+
+interface AdminPaymentNotificationDetails {
+  studentName: string;
+  studentEmail: string;
+  whatsappNumber?: string;
+  courseTitle: string;
+  amountPaid: number;
+  originalAmount?: number;
+  discountAmount?: number;
+  transactionId?: string;
+  orderId?: string;
+  paymentMethod: string;
+  paymentDate: Date;
+  voucherCode?: string;
+}
+
+export const sendAdminSuccessfulPaymentEmail = async (
+  details: AdminPaymentNotificationDetails
+) => {
+  try {
+    const adminRecipient = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || fromEmail;
+
+    if (!adminRecipient) {
+      console.warn('Admin payment email skipped: no admin recipient configured');
+      return;
+    }
+
+    console.log('Attempting to send admin payment notification email to:', adminRecipient);
+
+    const html = `
+      <div style="${emailStyles.container}">
+        <h1 style="${emailStyles.heading}">New Successful Payment</h1>
+        <p>A student payment has been successfully verified in MedHome.</p>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Student Name:</strong> ${details.studentName}</p>
+          <p><strong>Student Email:</strong> ${details.studentEmail}</p>
+          <p><strong>WhatsApp:</strong> ${details.whatsappNumber || 'N/A'}</p>
+          <p><strong>Course:</strong> ${details.courseTitle}</p>
+          <p><strong>Payment Method:</strong> ${details.paymentMethod}</p>
+          <p><strong>Amount Paid:</strong> $${details.amountPaid.toFixed(2)}</p>
+          ${typeof details.originalAmount === 'number' ? `<p><strong>Original Amount:</strong> $${details.originalAmount.toFixed(2)}</p>` : ''}
+          ${typeof details.discountAmount === 'number' && details.discountAmount > 0 ? `<p><strong>Discount:</strong> $${details.discountAmount.toFixed(2)}</p>` : ''}
+          ${details.voucherCode ? `<p><strong>Voucher Code:</strong> ${details.voucherCode}</p>` : ''}
+          ${details.orderId ? `<p><strong>Order ID:</strong> ${details.orderId}</p>` : ''}
+          ${details.transactionId ? `<p><strong>Transaction ID:</strong> ${details.transactionId}</p>` : ''}
+          <p><strong>Payment Date:</strong> ${details.paymentDate.toLocaleString()}</p>
+        </div>
+      </div>
+    `;
+
+    const messageData = {
+      from: fromEmail,
+      to: [adminRecipient],
+      subject: `Successful Payment - ${details.courseTitle}`,
+      html
+    };
+
+    const result = await mg.messages.create(domain, messageData);
+    console.log('Admin payment notification email sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('Error sending admin payment notification email:', error);
+    throw error;
+  }
+};
+
 export const sendVoucherAppliedEmail = async (
   to: string,
   fullName: string,

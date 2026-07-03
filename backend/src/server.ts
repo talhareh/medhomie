@@ -1,6 +1,6 @@
+import './config/loadEnv';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { config } from 'dotenv';
 import mongoose from 'mongoose';
 import path from 'path';
 import fs from 'fs';
@@ -21,16 +21,20 @@ import blogRoutes from './routes/blogRoutes';
 import whatsappRoutes from './routes/whatsappRoutes';
 import aiChatRoutes from './routes/aiChatRoutes';
 import quizRoutes from './routes/quizRoutes';
+import questionRoutes from './routes/questionRoutes';
+import heroSliderRoutes from './routes/heroSliderRoutes';
 // Cloudflare routes removed - using Bunny CDN for all media
 import paypalRoutes from './routes/paypalRoutes';
 import voucherRoutes from './routes/voucherRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { startEnrollmentExpirationJob } from './jobs/enrollmentExpirationJob';
 
-config();
-
 export const app: Express = express();
 const port = process.env.PORT || 5000;
+
+// Trust the reverse proxy (nginx) so req.ip / X-Forwarded-For resolve to the
+// real client IP instead of the loopback address of the local proxy.
+app.set('trust proxy', true);
 
 // Middleware
 app.use(cors());
@@ -44,6 +48,7 @@ const createUploadDirectories = () => {
     'uploads/course-content',
     'uploads/course-videos',
     'uploads/course-images',
+    'uploads/heroSliders',
     'uploads/course-attachments',
     'uploads/payment-receipts',
     'uploads/blogs',
@@ -81,6 +86,8 @@ app.use('/api/webhook/whatsapp', whatsappRoutes);
 app.use('/api', whatsappRoutes);
 app.use('/api', aiChatRoutes);
 app.use('/api/quizzes', quizRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/hero-sliders', heroSliderRoutes);
 // app.use('/api/cloudflare', cloudflareRoutes); // Removed - using Bunny CDN
 app.use('/api/paypal', paypalRoutes);
 app.use('/api/vouchers', voucherRoutes);

@@ -290,6 +290,34 @@ const deleteQuiz = async (req: Request, res: Response, next: NextFunction): Prom
 };
 
 // Question Management
+const getQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  if (authReq.user.role !== UserRole.ADMIN && authReq.user.role !== UserRole.INSTRUCTOR) {
+    return next(new Error('Unauthorized: Only admins and instructors can view questions'));
+  }
+  try {
+    const question = await Question.findById(req.params.questionId);
+    if (!question) {
+      res.status(404).json({
+        success: false,
+        message: 'Question not found'
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: question
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const addQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authReq = req as AuthRequest;
   if (!authReq.user) {
@@ -389,6 +417,91 @@ const deleteQuestion = async (req: Request, res: Response, next: NextFunction): 
   }
 };
 
+const MAX_QUIZ_IMPORT_OPTIONS = 26; // Option A through Option Z
+const OPTION_COLUMN_PATTERN = /^option\s+([a-z])$/i;
+
+interface DiscoveredOptionColumn {
+  letter: string;
+  key: string;
+}
+
+const discoverOptionColumns = (firstRow: Record<string, unknown>): {
+  optionColumns: DiscoveredOptionColumn[];
+  error?: string;
+} => {
+  const optionColumns: DiscoveredOptionColumn[] = [];
+
+  Object.keys(firstRow).forEach(key => {
+    const match = key.trim().match(OPTION_COLUMN_PATTERN);
+    if (match) {
+      optionColumns.push({ letter: match[1].toUpperCase(), key });
+    }
+  });
+
+  optionColumns.sort((a, b) => a.letter.charCodeAt(0) - b.letter.charCodeAt(0));
+
+  if (optionColumns.length < 2) {
+    return {
+      optionColumns,
+      error: 'At least Option A and Option B columns are required'
+    };
+  }
+
+  if (optionColumns[0].letter !== 'A') {
+    return {
+      optionColumns,
+      error: 'Option columns must start with Option A'
+    };
+  }
+
+  for (let i = 1; i < optionColumns.length; i++) {
+    const expectedLetter = String.fromCharCode(optionColumns[i - 1].letter.charCodeAt(0) + 1);
+    if (optionColumns[i].letter !== expectedLetter) {
+      return {
+        optionColumns,
+        error: 'Option columns must be contiguous (e.g. Option A, Option B, Option C with no gaps)'
+      };
+    }
+  }
+
+  if (optionColumns.length > MAX_QUIZ_IMPORT_OPTIONS) {
+    return {
+      optionColumns,
+      error: `A maximum of ${MAX_QUIZ_IMPORT_OPTIONS} option columns (Option A through Option Z) is supported`
+    };
+  }
+
+  return { optionColumns };
+};
+
+const buildOptionsFromRow = (
+  row: Record<string, unknown>,
+  optionColumns: DiscoveredOptionColumn[]
+): { options: string[]; errors: string[] } => {
+  const options: string[] = [];
+  const errors: string[] = [];
+  let sawEmpty = false;
+
+  for (const { key } of optionColumns) {
+    const value = row[key]?.toString().trim() || '';
+    if (value) {
+      if (sawEmpty) {
+        errors.push('Options must be contiguous (no empty cells between Option A and the last option)');
+        return { options, errors };
+      }
+      options.push(value);
+    } else {
+      sawEmpty = true;
+    }
+  }
+
+  if (options.length < 2) {
+    errors.push('At least Option A and Option B are required');
+  }
+
+  return { options, errors };
+};
+
 // Import questions from Excel file
 const importQuestionsFromExcel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const authReq = req as AuthRequest;
@@ -435,19 +548,15 @@ const importQuestionsFromExcel = async (req: Request, res: Response, next: NextF
       return;
     }
 
-    // Define expected columns (case-insensitive matching)
-    const requiredColumns = ['Question', 'Option A', 'Option B', 'Correct Answer'];
-    const optionalColumns = ['Option C', 'Option D', 'Points', 'Explanation', 'Order'];
-
-    // Normalize column names from first row
-    const firstRow = data[0] as any;
+    // Normalize column names from first row (case-insensitive matching)
+    const firstRow = data[0] as Record<string, unknown>;
     const columnMap: Record<string, string> = {};
     Object.keys(firstRow).forEach(key => {
       const normalizedKey = key.trim();
       columnMap[normalizedKey.toLowerCase()] = key;
     });
 
-    // Validate required columns exist
+    const requiredColumns = ['Question', 'Correct Answer'];
     const missingColumns: string[] = [];
     requiredColumns.forEach(col => {
       if (!columnMap[col.toLowerCase()]) {
@@ -456,10 +565,16 @@ const importQuestionsFromExcel = async (req: Request, res: Response, next: NextF
     });
 
     if (missingColumns.length > 0) {
-      res.status(400).json({ 
+      res.status(400).json({
         message: `Missing required columns: ${missingColumns.join(', ')}`,
-        missingColumns 
+        missingColumns
       });
+      return;
+    }
+
+    const { optionColumns, error: optionColumnError } = discoverOptionColumns(firstRow);
+    if (optionColumnError) {
+      res.status(400).json({ message: optionColumnError });
       return;
     }
 
@@ -486,10 +601,6 @@ const importQuestionsFromExcel = async (req: Request, res: Response, next: NextF
       };
 
       const questionText = getValue('Question');
-      const optionA = getValue('Option A');
-      const optionB = getValue('Option B');
-      const optionC = getValue('Option C');
-      const optionD = getValue('Option D');
       const correctAnswer = getValue('Correct Answer');
       const pointsStr = getValue('Points');
       const explanation = getValue('Explanation');
@@ -500,33 +611,26 @@ const importQuestionsFromExcel = async (req: Request, res: Response, next: NextF
         errors.push('Question text is required');
       }
 
-      // Validate options (at least A and B are required)
-      if (!optionA || optionA.length === 0) {
-        errors.push('Option A is required');
-      }
-      if (!optionB || optionB.length === 0) {
-        errors.push('Option B is required');
-      }
+      const { options, errors: optionErrors } = buildOptionsFromRow(row, optionColumns);
+      errors.push(...optionErrors);
 
-      // Build options array
-      const options: string[] = [];
-      if (optionA) options.push(optionA);
-      if (optionB) options.push(optionB);
-      if (optionC) options.push(optionC);
-      if (optionD) options.push(optionD);
+      const maxAnswerLetter = String.fromCharCode(65 + options.length - 1);
 
       // Validate correct answer
       if (!correctAnswer) {
         errors.push('Correct Answer is required');
       } else {
         const normalizedAnswer = correctAnswer.trim().toUpperCase();
-        if (!['A', 'B', 'C', 'D'].includes(normalizedAnswer)) {
-          errors.push('Correct Answer must be A, B, C, or D');
+        if (!/^[A-Z]$/.test(normalizedAnswer)) {
+          errors.push('Correct Answer must be a single letter (e.g. A, B, C)');
         } else {
-          // Validate that the correct answer option exists
-          const optionIndex = normalizedAnswer.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+          const optionIndex = normalizedAnswer.charCodeAt(0) - 65;
           if (optionIndex >= options.length) {
-            errors.push(`Correct Answer "${normalizedAnswer}" refers to an option that does not exist`);
+            errors.push(
+              options.length > 0
+                ? `Correct Answer "${normalizedAnswer}" refers to an option that does not exist (valid: A through ${maxAnswerLetter})`
+                : `Correct Answer "${normalizedAnswer}" refers to an option that does not exist`
+            );
           }
         }
       }
@@ -625,14 +729,30 @@ const startAttempt = async (req: Request, res: Response, next: NextFunction): Pr
       return;
     }
 
-    // Check if user has reached max attempts
-    const existingAttempts = await QuizAttempt.countDocuments({ 
+    // Only submitted attempts count toward the quiz limit.
+    const completedAttempts = await QuizAttempt.countDocuments({
       student: authReq.user._id, 
-      quiz: quiz._id 
+      quiz: quiz._id,
+      completedAt: { $ne: null }
     });
 
-    if (existingAttempts >= quiz.maxAttempts) {
+    if (completedAttempts >= quiz.maxAttempts) {
       res.status(400).json({ message: 'Maximum attempts reached for this quiz' });
+      return;
+    }
+
+    const inProgressAttempt = await QuizAttempt.findOne({
+      student: authReq.user._id,
+      quiz: quiz._id,
+      completedAt: null
+    }).sort({ startedAt: -1 });
+
+    if (inProgressAttempt) {
+      res.status(200).json({
+        message: 'Resuming quiz attempt',
+        resumed: true,
+        attempt: inProgressAttempt
+      });
       return;
     }
 
@@ -641,7 +761,7 @@ const startAttempt = async (req: Request, res: Response, next: NextFunction): Pr
       quiz: quiz._id,
       course: quiz.course,
       startedAt: new Date(),
-      attemptNumber: existingAttempts + 1,
+      attemptNumber: completedAttempts + 1,
       score: 0,
       percentage: 0,
       passed: false,
@@ -655,6 +775,26 @@ const startAttempt = async (req: Request, res: Response, next: NextFunction): Pr
     });
   } catch (error) {
     const err = error as Error;
+    if ((error as { code?: number }).code === 11000) {
+      try {
+        const resumedAttempt = await QuizAttempt.findOne({
+          student: authReq.user._id,
+          quiz: req.params.quizId,
+          completedAt: null
+        }).sort({ startedAt: -1 });
+
+        if (resumedAttempt) {
+          res.status(200).json({
+            message: 'Resuming quiz attempt',
+            resumed: true,
+            attempt: resumedAttempt
+          });
+          return;
+        }
+      } catch (lookupError) {
+        console.error('Error recovering duplicate in-progress attempt:', lookupError);
+      }
+    }
     console.error('Error starting attempt:', err);
     res.status(500).json({ message: 'Error starting attempt', error: err.message });
   }
@@ -678,6 +818,11 @@ const submitAttempt = async (req: Request, res: Response, next: NextFunction): P
     // Verify the attempt belongs to the user
     if (attempt.student.toString() !== authReq.user._id.toString()) {
       res.status(403).json({ message: 'Unauthorized: This attempt does not belong to you' });
+      return;
+    }
+
+    if (attempt.completedAt) {
+      res.status(400).json({ message: 'This attempt has already been submitted' });
       return;
     }
 
@@ -715,11 +860,23 @@ const submitAttempt = async (req: Request, res: Response, next: NextFunction): P
     const percentage = totalPoints > 0 ? (totalScore / totalPoints) * 100 : 0;
     const passed = percentage >= quiz.passingScore;
 
+    const completedAttempts = await QuizAttempt.countDocuments({
+      student: attempt.student,
+      quiz: attempt.quiz,
+      completedAt: { $ne: null }
+    });
+
+    if (completedAttempts >= quiz.maxAttempts) {
+      res.status(400).json({ message: 'Maximum attempts reached for this quiz' });
+      return;
+    }
+
     // Update attempt
     attempt.answers = scoredAnswers;
     attempt.score = totalScore;
     attempt.percentage = percentage;
     attempt.passed = passed;
+    attempt.attemptNumber = completedAttempts + 1;
     attempt.completedAt = new Date();
     attempt.timeSpent = answers.reduce((total: number, ans: any) => total + (ans.timeSpent || 0), 0);
 
@@ -739,6 +896,68 @@ const submitAttempt = async (req: Request, res: Response, next: NextFunction): P
     const err = error as Error;
     console.error('Error submitting attempt:', err);
     res.status(500).json({ message: 'Error submitting attempt', error: err.message });
+  }
+};
+
+// Get all completed quiz attempts for the logged-in student (one row per attempt)
+const getMyAttempts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const authReq = req as AuthRequest;
+  if (!authReq.user) {
+    res.status(401).json({ message: 'Authentication required' });
+    return;
+  }
+  try {
+    const attempts = await QuizAttempt.find({
+      student: authReq.user._id,
+      completedAt: { $ne: null },
+    })
+      .populate('quiz', 'title')
+      .populate('course', 'title')
+      .sort({ completedAt: -1 })
+      .lean();
+
+    const data = attempts.map((attempt) => {
+      const quiz = attempt.quiz as { _id?: Types.ObjectId; title?: string } | Types.ObjectId | null;
+      const course = attempt.course as { _id?: Types.ObjectId; title?: string } | Types.ObjectId | null;
+
+      const quizId =
+        quiz && typeof quiz === 'object' && '_id' in quiz && quiz._id
+          ? quiz._id.toString()
+          : quiz?.toString() ?? '';
+      const courseId =
+        course && typeof course === 'object' && '_id' in course && course._id
+          ? course._id.toString()
+          : course?.toString() ?? '';
+
+      return {
+        attemptId: attempt._id.toString(),
+        quizId,
+        quizTitle:
+          quiz && typeof quiz === 'object' && 'title' in quiz && quiz.title
+            ? quiz.title
+            : 'Unknown Quiz',
+        courseId,
+        courseTitle:
+          course && typeof course === 'object' && 'title' in course && course.title
+            ? course.title
+            : 'Unknown Course',
+        attemptNumber: attempt.attemptNumber,
+        completedAt: attempt.completedAt,
+        score: attempt.score,
+        percentage: attempt.percentage,
+        passed: attempt.passed,
+      };
+    });
+
+    res.json({ success: true, data });
+  } catch (error) {
+    const err = error as Error;
+    console.error('Error getting student quiz attempts:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting quiz attempts',
+      error: err.message,
+    });
   }
 };
 
@@ -821,7 +1040,7 @@ const getQuizStatistics = async (req: Request, res: Response, next: NextFunction
     }
 
     const stats = await QuizAttempt.aggregate([
-      { $match: { quiz: quiz._id } },
+      { $match: { quiz: quiz._id, completedAt: { $ne: null } } },
       {
         $group: {
           _id: null,
@@ -927,12 +1146,19 @@ const checkQuizEligibility = async (req: Request, res: Response, next: NextFunct
     }
 
     // Check attempts
-    const attemptCount = await QuizAttempt.countDocuments({
+    const completedAttemptCount = await QuizAttempt.countDocuments({
       student: authReq.user._id,
-      quiz: quizId
+      quiz: quizId,
+      completedAt: { $ne: null }
     });
 
-    const attemptsRemaining = quiz.maxAttempts - attemptCount;
+    const inProgressAttempt = await QuizAttempt.findOne({
+      student: authReq.user._id,
+      quiz: quizId,
+      completedAt: null
+    }).sort({ startedAt: -1 });
+
+    const attemptsRemaining = quiz.maxAttempts - completedAttemptCount;
 
     if (attemptsRemaining <= 0) {
       res.json({
@@ -947,13 +1173,35 @@ const checkQuizEligibility = async (req: Request, res: Response, next: NextFunct
       return;
     }
 
+    const passedAttempt = await QuizAttempt.findOne({
+      student: authReq.user._id,
+      quiz: quizId,
+      passed: true,
+      completedAt: { $ne: null }
+    });
+
+    if (passedAttempt) {
+      res.json({
+        success: true,
+        data: {
+          canTake: false,
+          reason: 'You have already passed this quiz',
+          attemptsRemaining: Math.max(0, attemptsRemaining),
+          maxAttempts: quiz.maxAttempts
+        }
+      });
+      return;
+    }
+
     // User can take the quiz
     res.json({
       success: true,
       data: {
         canTake: true,
         attemptsRemaining,
-        maxAttempts: quiz.maxAttempts
+        maxAttempts: quiz.maxAttempts,
+        hasInProgressAttempt: !!inProgressAttempt,
+        inProgressAttemptId: inProgressAttempt?._id?.toString()
       }
     });
 
@@ -978,6 +1226,7 @@ export default {
   getQuizzesByCourse,
   updateQuiz,
   deleteQuiz,
+  getQuestion,
   addQuestion,
   updateQuestion,
   deleteQuestion,
@@ -985,6 +1234,7 @@ export default {
   startAttempt,
   submitAttempt,
   getAttempt,
+  getMyAttempts,
   getQuizStatistics,
   checkQuizEligibility
 };

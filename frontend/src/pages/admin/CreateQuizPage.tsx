@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { QuizForm } from '../../components/quiz/QuizForm';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
 import { useQuiz } from '../../hooks/useQuizzes';
+import { resolveEntityId } from '../../utils/resolveEntityId';
+import { Quiz } from '../../types/quiz';
 
 export const CreateQuizPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +15,17 @@ export const CreateQuizPage: React.FC = () => {
 
   // Fetch quiz data if editing
   const { data: quizData, isLoading, error } = useQuiz(quizId || '');
+
+  const editInitialData = useMemo((): Quiz | undefined => {
+    if (!isEditing || !quizData?.data) return undefined;
+
+    const raw = quizData.data;
+    return {
+      ...raw,
+      course: resolveEntityId(raw.course),
+      lesson: raw.lesson ? resolveEntityId(raw.lesson) : undefined
+    };
+  }, [isEditing, quizData?.data]);
 
   if (!user || user.role !== 'admin') {
     navigate('/');
@@ -86,19 +99,8 @@ export const CreateQuizPage: React.FC = () => {
         </div>
         
         <QuizForm
-          initialData={isEditing && quizData?.data ? {
-            ...quizData.data,
-            // Ensure course is a string ID (backend might populate it as an object)
-            course: typeof quizData.data.course === 'object' && quizData.data.course?._id 
-              ? quizData.data.course._id 
-              : quizData.data.course,
-            // Ensure lesson is a string ID if it exists
-            lesson: quizData.data.lesson 
-              ? (typeof quizData.data.lesson === 'object' && quizData.data.lesson?._id 
-                  ? quizData.data.lesson._id 
-                  : quizData.data.lesson)
-              : undefined
-          } : undefined}
+          key={quizId ?? 'new'}
+          initialData={editInitialData}
           onSuccess={handleSuccess}
           onCancel={handleCancel}
         />

@@ -267,6 +267,7 @@ export const PaymentManagementPage: React.FC = () => {
               <option value={EnrollmentStatus.PENDING}>Pending</option>
               <option value={EnrollmentStatus.APPROVED}>Approved</option>
               <option value={EnrollmentStatus.REJECTED}>Rejected</option>
+              <option value={EnrollmentStatus.WITHDRAWN}>Withdrawn</option>
             </select>
 
             <input
@@ -346,7 +347,7 @@ export const PaymentManagementPage: React.FC = () => {
                     ${enrollment.course?.price ? enrollment.course.price.toFixed(2) : '0.00'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {enrollment.paymentMethod === 'paypal' ? (
+                    {enrollment.paymentMethod === 'kuickpay' ? (
                       <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                         Card Payment
                       </span>
@@ -361,6 +362,7 @@ export const PaymentManagementPage: React.FC = () => {
                       ${enrollment.status === EnrollmentStatus.APPROVED ? 'bg-green-100 text-green-800' : ''}
                       ${enrollment.status === EnrollmentStatus.PENDING ? 'bg-yellow-100 text-yellow-800' : ''}
                       ${enrollment.status === EnrollmentStatus.REJECTED ? 'bg-red-100 text-red-800' : ''}
+                      ${enrollment.status === EnrollmentStatus.WITHDRAWN ? 'bg-gray-100 text-gray-800' : ''}
                     `}>
                       {enrollment.status}
                     </span>

@@ -53,9 +53,18 @@ const loginHistorySchema = new Schema<ILoginHistory>({
   timestamps: true
 });
 
-// Index for querying login history within the last week
+// Retention window for login history (defaults to 365 days). Override with the
+// LOGIN_HISTORY_TTL_DAYS env var; set it to 0 to disable automatic expiry.
+const LOGIN_HISTORY_TTL_DAYS = Number(process.env.LOGIN_HISTORY_TTL_DAYS ?? 365);
+
+// Index for querying recent login history
 loginHistorySchema.index({ timestamp: -1 });
-// Index for cleaning up old records
-loginHistorySchema.index({ timestamp: 1 }, { expireAfterSeconds: 7 * 24 * 60 * 60 });
+// Index for cleaning up old records (skipped when TTL is set to 0)
+if (LOGIN_HISTORY_TTL_DAYS > 0) {
+  loginHistorySchema.index(
+    { timestamp: 1 },
+    { expireAfterSeconds: LOGIN_HISTORY_TTL_DAYS * 24 * 60 * 60 }
+  );
+}
 
 export const LoginHistory = mongoose.model<ILoginHistory>('LoginHistory', loginHistorySchema);

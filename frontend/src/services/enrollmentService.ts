@@ -34,7 +34,8 @@ export const enrollmentService = {
     const response = await api.get(`/enrollments`, {
       params: {
         courseId,
-        search: searchQuery
+        search: searchQuery,
+        excludeWithdrawn: true
       }
     });
 

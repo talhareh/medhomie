@@ -4,12 +4,18 @@ import { Course } from '../models/Course';
 import { Enrollment, EnrollmentStatus } from '../models/Enrollment';
 import { AuthRequest } from '../middleware/auth';
 import { User, UserRole } from '../models/User';
-import { sendEnrollmentNotification } from '../services/emailService';
+import {
+  sendAdminSuccessfulPaymentEmail,
+  sendEnrollmentNotification,
+  sendStudentPaymentConfirmationEmail
+} from '../services/emailService';
 import { generateInvoicePDF } from '../services/invoiceService';
 import { Payment, PaymentStatus, PaymentMethod } from '../models/Payment';
 import { validateVoucherForCourse } from './voucherController';
 import { Voucher } from '../models/Voucher';
 import { VoucherUsage } from '../models/VoucherUsage';
+import { hasActiveEnrollmentAccess } from '../utils/enrollmentAccess';
+import { CheckoutOrder } from '../models/PayPalOrder';
 
 // Interface for User document
 interface UserDocument {
@@ -19,6 +25,15 @@ interface UserDocument {
   whatsappNumber?: string;
   name?: string;
 }
+
+const normalizeBaseUrl = (value: string): string => value.replace(/\/+$/, '');
+
+const resolveBackendBaseUrl = (): string => {
+  const configuredBaseUrl = process.env.BACKEND_URL || process.env.FRONTEND_URL;
+  return configuredBaseUrl
+    ? normalizeBaseUrl(configuredBaseUrl)
+    : 'http://localhost:5000';
+};
 
 // Enroll in a course
 export const enrollInCourse = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -44,13 +59,12 @@ export const enrollInCourse = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Check if student is already enrolled
     const existingEnrollment = await Enrollment.findOne({
       student: req.user._id,
       course: courseId
     });
 
-    if (existingEnrollment) {
+    if (existingEnrollment && hasActiveEnrollmentAccess(existingEnrollment)) {
       res.status(400).json({ message: 'Already enrolled in this course' });
       return;
     }
@@ -79,22 +93,31 @@ export const enrollInCourse = async (req: AuthRequest, res: Response): Promise<v
       };
     }
 
-    // Set expiration date to 10 years from now for student self-enrollments
-    // (Admin bulk enrollments will have their own expiration dates)
     const expirationDate = new Date();
     expirationDate.setFullYear(expirationDate.getFullYear() + 10);
 
-    const enrollment = new Enrollment({
-      student: req.user._id,
-      course: courseId,
-      paymentReceipt: file.path,
-      voucherCode: voucherCode ? voucherCode.trim().toUpperCase() : undefined,
-      status: EnrollmentStatus.PENDING,
-      expirationDate: expirationDate,
-      isExpired: false
-    });
-
-    await enrollment.save();
+    let enrollment;
+    if (existingEnrollment) {
+      existingEnrollment.paymentReceipt = file.path;
+      existingEnrollment.voucherCode = voucherCode ? voucherCode.trim().toUpperCase() : undefined;
+      existingEnrollment.status = EnrollmentStatus.PENDING;
+      existingEnrollment.rejectionReason = undefined;
+      existingEnrollment.expirationDate = expirationDate;
+      existingEnrollment.isExpired = false;
+      await existingEnrollment.save();
+      enrollment = existingEnrollment;
+    } else {
+      enrollment = new Enrollment({
+        student: req.user._id,
+        course: courseId,
+        paymentReceipt: file.path,
+        voucherCode: voucherCode ? voucherCode.trim().toUpperCase() : undefined,
+        status: EnrollmentStatus.PENDING,
+        expirationDate: expirationDate,
+        isExpired: false
+      });
+      await enrollment.save();
+    }
 
     // Create voucher usage record if voucher was applied
     if (voucherData) {
@@ -139,8 +162,13 @@ export const getEnrollments = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    if (req.user.role !== UserRole.ADMIN && req.user.role !== UserRole.INSTRUCTOR) {
+      res.status(403).json({ message: 'Access denied' });
+      return;
+    }
+
     interface QueryType {
-      course?: { $in: Types.ObjectId[] };
+      course?: Types.ObjectId | { $in: Types.ObjectId[] };
       enrollmentDate?: {
         $gte?: Date;
         $lte?: Date;
@@ -156,24 +184,21 @@ export const getEnrollments = async (req: AuthRequest, res: Response): Promise<v
     
     // If instructor, only show enrollments for their courses
     if (req.user.role === UserRole.INSTRUCTOR) {
-      const courses = await Course.find({ instructor: req.user._id });
+      const courses = await Course.find({ createdBy: req.user._id });
       const courseIds = courses.map(course => course._id) as Types.ObjectId[];
-      query.course = { $in: courseIds };
-    }
 
-    // Add courseId filter if provided
-    if (req.query.courseId) {
-      // If there's already a course filter (for instructors), we need to ensure it's also in their courses
-      if (query.course && query.course.$in) {
-        // Keep only this courseId if it's in the instructor's courses
+      if (req.query.courseId) {
         const courseId = new Types.ObjectId(req.query.courseId as string);
-        if (query.course.$in.some(id => id.equals(courseId))) {
-          query.course = { $in: [courseId] };
+        if (!courseIds.some((id) => id.equals(courseId))) {
+          res.status(403).json({ message: 'Access denied' });
+          return;
         }
+        query.course = courseId;
       } else {
-        // For admins or when no previous course filter exists
-        query.course = { $in: [new Types.ObjectId(req.query.courseId as string)] };
+        query.course = { $in: courseIds };
       }
+    } else if (req.query.courseId) {
+      query.course = new Types.ObjectId(req.query.courseId as string);
     }
     
     // Add date range filter
@@ -206,6 +231,10 @@ export const getEnrollments = async (req: AuthRequest, res: Response): Promise<v
         { student: { $in: students.map((s: UserDocument) => s._id) } },
         { 'course.title': searchRegex }
       ];
+    }
+
+    if (req.query.excludeWithdrawn === 'true' && !req.query.status) {
+      (query as Record<string, unknown>).status = { $ne: EnrollmentStatus.WITHDRAWN };
     }
 
     const enrollments = await Enrollment.find(query)
@@ -326,17 +355,20 @@ export const getMyEnrollments = async (req: AuthRequest, res: Response): Promise
     }
 
     // Populate 'state' so we can filter by it
-    const enrollments = await Enrollment.find({ student: req.user._id })
+    const enrollments = await Enrollment.find({
+      student: req.user._id,
+      status: { $ne: EnrollmentStatus.WITHDRAWN }
+    })
       .populate('course', 'title description price image state')
       .populate('student', 'name email')
       .sort({ enrollmentDate: -1 });
 
-    // Only return enrollments where course exists and is ACTIVE
-    const activeEnrollments = enrollments.filter(enrollment => {
-      // If course is not populated (deleted), skip
+    // Active + inactive courses (student may access inactive only when admin re-enrolls them)
+    const activeEnrollments = enrollments.filter((enrollment) => {
       if (!enrollment.course || typeof enrollment.course !== 'object') return false;
-      // @ts-ignore
-      return enrollment.course.state === 'ACTIVE';
+      // @ts-ignore — populated course has state
+      const st = enrollment.course.state as string;
+      return st === 'ACTIVE' || st === 'INACTIVE';
     });
 
     // Fetch associated payments for each enrollment
@@ -427,39 +459,67 @@ export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promi
       return;
     }
 
-    // Check for existing enrollments
     const existingEnrollments = await Enrollment.find({
       course: courseId,
       student: { $in: studentIds }
     });
+    const byStudentId = new Map(
+      existingEnrollments.map((e) => [e.student.toString(), e])
+    );
 
-    if (existingEnrollments.length > 0) {
-      const enrolledStudentIds = existingEnrollments.map(e => e.student.toString());
-      studentIds = studentIds.filter(id => !enrolledStudentIds.includes(id.toString()));
+    const toInsert: string[] = [];
+    const toReactivate: typeof existingEnrollments = [];
+    const skippedAlreadyActive: string[] = [];
 
-      if (studentIds.length === 0) {
-        res.status(400).json({ message: 'All students are already enrolled' });
-        return;
+    for (const id of studentIds) {
+      const sid = id.toString();
+      const existing = byStudentId.get(sid);
+      if (!existing) {
+        toInsert.push(sid);
+      } else if (hasActiveEnrollmentAccess(existing)) {
+        skippedAlreadyActive.push(sid);
+      } else {
+        toReactivate.push(existing);
       }
     }
 
-    // Create enrollments
-    const enrollments = studentIds.map((studentId: Types.ObjectId | string) => ({
-      student: studentId,
-      course: courseId,
-      paymentReceipt: 'admin-enrollment', // Default value for admin enrollments
-      status: EnrollmentStatus.APPROVED,
-      enrollmentDate: new Date(),
-      approvalDate: new Date(),
-      expirationDate: expiration,
-      isExpired: false
-    }));
+    const affectedStudentIds = [
+      ...toInsert,
+      ...toReactivate.map((e) => e.student.toString())
+    ];
 
-    await Enrollment.insertMany(enrollments);
+    if (affectedStudentIds.length === 0) {
+      res.status(400).json({ message: 'All selected students are already actively enrolled' });
+      return;
+    }
+
+    if (toInsert.length > 0) {
+      const newRows = toInsert.map((studentId) => ({
+        student: studentId,
+        course: courseId,
+        paymentReceipt: 'admin-enrollment',
+        status: EnrollmentStatus.APPROVED,
+        enrollmentDate: new Date(),
+        approvalDate: new Date(),
+        expirationDate: expiration,
+        isExpired: false
+      }));
+      await Enrollment.insertMany(newRows);
+    }
+
+    for (const doc of toReactivate) {
+      doc.status = EnrollmentStatus.APPROVED;
+      doc.approvalDate = new Date();
+      doc.expirationDate = expiration;
+      doc.isExpired = false;
+      doc.rejectionReason = undefined;
+      doc.paymentReceipt = 'admin-enrollment';
+      await doc.save();
+    }
 
     // Send enrollment notification emails to all enrolled students
     try {
-      const enrolledStudents = await User.find({ _id: { $in: studentIds } });
+      const enrolledStudents = await User.find({ _id: { $in: affectedStudentIds } });
       
       for (const student of enrolledStudents) {
         try {
@@ -481,7 +541,8 @@ export const bulkEnrollStudents = async (req: AuthRequest, res: Response): Promi
 
     res.status(201).json({
       message: 'Students enrolled successfully',
-      enrolledCount: studentIds.length
+      enrolledCount: affectedStudentIds.length,
+      skippedAlreadyActiveCount: skippedAlreadyActive.length
     });
   } catch (error) {
     console.error('Error in bulkEnrollStudents:', error);
@@ -567,6 +628,10 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
   try {
     const { courseId } = req.params;
     const { paymentMethod, paymentDetails, voucherCode } = req.body;
+    const normalizedMethod = (paymentMethod || '').toLowerCase();
+    const storedPaymentMethod = normalizedMethod === 'kuickpay'
+      ? PaymentMethod.KUICKPAY
+      : PaymentMethod.PAYPAL;
 
     if (!req.user) {
       res.status(401).json({ message: 'Unauthorized' });
@@ -585,6 +650,7 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
     let finalPrice = course.price;
     let discountAmount = 0;
     let originalAmount = course.price;
+    let kuickpayOrder = null;
 
     if (voucherCode) {
       const validationResult = await validateVoucherForCourse(
@@ -612,144 +678,65 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
       originalAmount = voucherData.originalPrice;
     }
 
-    // Check if student is already enrolled
+    if (storedPaymentMethod === PaymentMethod.KUICKPAY) {
+      kuickpayOrder = await CheckoutOrder.findOne({
+        gatewayOrderId: paymentDetails?.orderId,
+        student: req.user._id,
+        course: courseId
+      });
+
+      if (!kuickpayOrder) {
+        res.status(400).json({ message: 'Matching Kuickpay order not found' });
+        return;
+      }
+    }
+
     const existingEnrollment = await Enrollment.findOne({
       student: req.user._id,
       course: courseId
     });
 
-    if (existingEnrollment && existingEnrollment.status === EnrollmentStatus.APPROVED) {
+    if (existingEnrollment && hasActiveEnrollmentAccess(existingEnrollment)) {
       res.status(400).json({ message: 'Already enrolled in this course' });
       return;
     }
 
-    // If there's a rejected enrollment, update it instead of creating a new one
-    if (existingEnrollment && existingEnrollment.status === EnrollmentStatus.REJECTED) {
+    const expirationDate = new Date();
+    expirationDate.setFullYear(expirationDate.getFullYear() + 10);
+
+    let enrollment;
+    if (existingEnrollment) {
       existingEnrollment.status = EnrollmentStatus.APPROVED;
       existingEnrollment.approvalDate = new Date();
       existingEnrollment.paymentMethod = paymentMethod;
       existingEnrollment.paymentDetails = paymentDetails;
       existingEnrollment.voucherCode = voucherCode ? voucherCode.trim().toUpperCase() : undefined;
       existingEnrollment.rejectionReason = undefined;
-      
+      existingEnrollment.expirationDate = expirationDate;
+      existingEnrollment.isExpired = false;
       await existingEnrollment.save();
-      
-      // Add student to course's enrolled students
-      await Course.findByIdAndUpdate(courseId, {
-        $addToSet: { enrolledStudents: req.user._id }
-      });
-
-      // Create Payment record for PayPal payment
-      const payment = new Payment({
-        enrollment: existingEnrollment._id,
+      enrollment = existingEnrollment;
+    } else {
+      enrollment = new Enrollment({
         student: req.user._id,
         course: courseId,
-        amount: finalPrice,
-        originalAmount: originalAmount,
-        discountAmount: discountAmount,
-        voucher: voucherData ? voucherData.voucher._id : undefined,
-        paymentDate: new Date(),
-        paymentMethod: PaymentMethod.PAYPAL,
-        transactionId: paymentDetails.transactionId,
-        receiptPath: '', // Will be updated after PDF generation
-        status: PaymentStatus.VERIFIED,
-        statusHistory: [{
-          status: PaymentStatus.VERIFIED,
-          updatedBy: req.user._id,
-          updatedAt: new Date()
-        }]
+        paymentMethod: paymentMethod,
+        paymentDetails: paymentDetails,
+        voucherCode: voucherCode ? voucherCode.trim().toUpperCase() : undefined,
+        status: EnrollmentStatus.APPROVED,
+        approvalDate: new Date(),
+        expirationDate: expirationDate,
+        isExpired: false
       });
-
-      await payment.save();
-      console.log('✅ Payment record created for existing enrollment:', payment._id);
-
-      // Create voucher usage record if voucher was applied
-      if (voucherData) {
-        const voucherUsage = new VoucherUsage({
-          voucher: voucherData.voucher._id,
-          student: req.user._id,
-          course: courseId,
-          enrollment: existingEnrollment._id,
-          payment: payment._id,
-          discountAmount: discountAmount,
-          originalPrice: originalAmount,
-          finalPrice: finalPrice,
-          appliedBy: req.user._id
-        });
-
-        await voucherUsage.save();
-
-        // Update voucher used count
-        voucherData.voucher.usedCount += 1;
-        await voucherData.voucher.save();
-      }
-
-      // Generate invoice PDF
-      try {
-        const user = await User.findById(req.user._id);
-        if (user) {
-          const invoicePath = await generateInvoicePDF(payment, user, course);
-          payment.receiptPath = invoicePath;
-          await payment.save();
-          console.log('✅ Invoice generated and saved:', invoicePath);
-        }
-      } catch (invoiceError) {
-        console.error('❌ Error generating invoice:', invoiceError);
-        // Don't fail the enrollment if invoice generation fails
-      }
-
-      // Send enrollment notification email
-      try {
-        const user = await User.findById(req.user._id);
-        if (user) {
-          await sendEnrollmentNotification(
-            user.email,
-            user.fullName || 'Student',
-            course.title,
-            'enrolled'
-          );
-        }
-      } catch (emailError) {
-        console.error('Error sending enrollment email:', emailError);
-        // Don't fail the enrollment if email fails
-      }
-      
-      res.status(200).json({
-        message: 'Payment processed and enrollment approved',
-        enrollment: existingEnrollment,
-        payment: {
-          id: payment._id,
-          invoiceGenerated: !!payment.receiptPath
-        }
-      });
-      return;
+      await enrollment.save();
     }
-
-    // Create a new enrollment with approved status
-    // Set expiration date to 10 years from now for student self-enrollments
-    const expirationDate = new Date();
-    expirationDate.setFullYear(expirationDate.getFullYear() + 10);
-
-    const enrollment = new Enrollment({
-      student: req.user._id,
-      course: courseId,
-      paymentMethod: paymentMethod,
-      paymentDetails: paymentDetails,
-      voucherCode: voucherCode ? voucherCode.trim().toUpperCase() : undefined,
-      status: EnrollmentStatus.APPROVED,
-      approvalDate: new Date(),
-      expirationDate: expirationDate,
-      isExpired: false
-    });
-
-    await enrollment.save();
     
     // Add student to course's enrolled students
     await Course.findByIdAndUpdate(courseId, {
       $addToSet: { enrolledStudents: req.user._id }
     });
 
-    // Create Payment record for PayPal payment
+    // Create Payment record for gateway payment
     const payment = new Payment({
       enrollment: enrollment._id,
       student: req.user._id,
@@ -757,9 +744,13 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
       amount: finalPrice,
       originalAmount: originalAmount,
       discountAmount: discountAmount,
+      exchangeRate: kuickpayOrder?.exchangeRate,
+      exchangeRateDate: kuickpayOrder?.exchangeRateDate,
+      pkrAmount: kuickpayOrder?.pkrAmount,
+      pkrCurrency: kuickpayOrder?.pkrCurrency || 'PKR',
       voucher: voucherData ? voucherData.voucher._id : undefined,
       paymentDate: new Date(),
-      paymentMethod: PaymentMethod.PAYPAL,
+      paymentMethod: storedPaymentMethod,
       transactionId: paymentDetails.transactionId,
       receiptPath: '', // Will be updated after PDF generation
       status: PaymentStatus.VERIFIED,
@@ -794,6 +785,8 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
       await voucherData.voucher.save();
     }
 
+    let invoiceUrl: string | undefined;
+
     // Generate invoice PDF
     try {
       const user = await User.findById(req.user._id);
@@ -801,6 +794,7 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
         const invoicePath = await generateInvoicePDF(payment, user, course);
         payment.receiptPath = invoicePath;
         await payment.save();
+        invoiceUrl = `${resolveBackendBaseUrl()}/api/payments/${payment._id}/invoice`;
         console.log('✅ Invoice generated and saved:', invoicePath);
       }
     } catch (invoiceError) {
@@ -808,19 +802,48 @@ export const processCardPayment = async (req: AuthRequest, res: Response): Promi
       // Don't fail the enrollment if invoice generation fails
     }
 
-    // Send enrollment notification email
+    // Send student payment confirmation and admin notification emails
     try {
       const user = await User.findById(req.user._id);
       if (user) {
+        await sendStudentPaymentConfirmationEmail({
+          to: user.email,
+          fullName: user.fullName || 'Student',
+          courseTitle: course.title,
+          amountPaid: finalPrice,
+          originalAmount,
+          discountAmount,
+          transactionId: paymentDetails.transactionId,
+          orderId: paymentDetails.orderId,
+          paymentMethod: storedPaymentMethod,
+          invoiceUrl,
+          voucherCode: voucherCode ? voucherCode.trim().toUpperCase() : undefined
+        });
+
         await sendEnrollmentNotification(
           user.email,
           user.fullName || 'Student',
           course.title,
           'enrolled'
         );
+
+        await sendAdminSuccessfulPaymentEmail({
+          studentName: user.fullName || 'Student',
+          studentEmail: user.email,
+          whatsappNumber: user.whatsappNumber,
+          courseTitle: course.title,
+          amountPaid: finalPrice,
+          originalAmount,
+          discountAmount,
+          transactionId: paymentDetails.transactionId,
+          orderId: paymentDetails.orderId,
+          paymentMethod: storedPaymentMethod,
+          paymentDate: payment.paymentDate,
+          voucherCode: voucherCode ? voucherCode.trim().toUpperCase() : undefined
+        });
       }
     } catch (emailError) {
-      console.error('Error sending enrollment email:', emailError);
+      console.error('Error sending payment notification emails:', emailError);
       // Don't fail the enrollment if email fails
     }
 
@@ -866,10 +889,10 @@ export const bulkRemoveStudents = async (req: AuthRequest, res: Response): Promi
       return;
     }
 
-    // Check if enrollments exist
     const existingEnrollments = await Enrollment.find({
       course: courseId,
-      student: { $in: studentIds }
+      student: { $in: studentIds },
+      status: { $ne: EnrollmentStatus.WITHDRAWN }
     });
 
     if (existingEnrollments.length === 0) {
@@ -877,21 +900,20 @@ export const bulkRemoveStudents = async (req: AuthRequest, res: Response): Promi
       return;
     }
 
-    // Get student information before removing enrollments
     const studentsToRemove = await User.find({ _id: { $in: studentIds } });
 
-    // Remove enrollments
-    const result = await Enrollment.deleteMany({
-      course: courseId,
-      student: { $in: studentIds }
-    });
-
-    // Update course enrollment count if needed
-    if (result.deletedCount > 0) {
-      await Course.findByIdAndUpdate(courseId, {
-        $inc: { enrollmentCount: -result.deletedCount }
-      });
+    let withdrawnCount = 0;
+    for (const enrollment of existingEnrollments) {
+      enrollment.status = EnrollmentStatus.WITHDRAWN;
+      enrollment.rejectionReason = 'Removed by administrator';
+      enrollment.isExpired = false;
+      await enrollment.save();
+      withdrawnCount += 1;
     }
+
+    await Course.findByIdAndUpdate(courseId, {
+      $pull: { enrolledStudents: { $in: studentIds } }
+    });
 
     // Send removal notification emails to all removed students
     try {
@@ -915,7 +937,7 @@ export const bulkRemoveStudents = async (req: AuthRequest, res: Response): Promi
 
     res.status(200).json({
       message: 'Students removed successfully',
-      removedCount: result.deletedCount
+      removedCount: withdrawnCount
     });
   } catch (error) {
     console.error('Error in bulkRemoveStudents:', error);

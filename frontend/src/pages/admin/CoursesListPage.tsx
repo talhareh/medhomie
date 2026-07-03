@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { MainLayout } from '../../components/layout/MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageCourses, isAdmin } from '../../utils/roles';
 import api from '../../utils/axios';
 import { Course, CourseState } from '../../types/course';
 
@@ -11,6 +12,7 @@ export const CoursesListPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ['courses'],
@@ -26,6 +28,7 @@ export const CoursesListPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['public-courses'] });
       toast.success('Course deleted successfully');
     },
     onError: (error: any) => {
@@ -40,6 +43,7 @@ export const CoursesListPage: React.FC = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['public-courses'] });
       toast.success('Course cloned successfully');
       // Navigate to the cloned course edit page
       navigate(`/admin/courses/${data.course._id}/edit`);
@@ -61,10 +65,30 @@ export const CoursesListPage: React.FC = () => {
     }
   };
 
-  if (!user || user.role !== 'admin') {
-    navigate('/');
+  if (!user || !canManageCourses(user.role)) {
+    navigate('/dashboard');
     return null;
   }
+
+  const showAdminActions = isAdmin(user.role);
+
+  const filteredCourses = courses.filter((course) => {
+    const q = searchTerm.toLowerCase().trim();
+    if (!q) return true;
+
+    const categoryNames = (course.categories ?? []).map((cat) =>
+      typeof cat === 'object' && cat !== null && 'name' in cat
+        ? (cat as { name: string }).name
+        : String(cat)
+    );
+
+    return (
+      course.title.toLowerCase().includes(q) ||
+      course.description?.toLowerCase().includes(q) ||
+      course.state.toLowerCase().includes(q) ||
+      categoryNames.some((name) => name.toLowerCase().includes(q))
+    );
+  });
 
   const getStateColor = (state: CourseState) => {
     switch (state) {
@@ -83,13 +107,23 @@ export const CoursesListPage: React.FC = () => {
     <MainLayout>
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Courses</h1>
+          <h1 className="text-2xl font-bold">{showAdminActions ? 'Courses' : 'My Courses'}</h1>
           <button
             onClick={() => navigate('/admin/courses/new')}
             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
           >
             Add New Course
           </button>
+        </div>
+
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search courses..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full max-w-md px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
         {isLoading ? (
@@ -100,9 +134,13 @@ export const CoursesListPage: React.FC = () => {
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">No courses found.</p>
           </div>
+        ) : filteredCourses.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No courses match your search.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
+            {filteredCourses.map((course) => (
               <div key={course._id} className="bg-white rounded-lg shadow-md overflow-hidden">
                 {course.thumbnail && (
                   <img
@@ -118,12 +156,43 @@ export const CoursesListPage: React.FC = () => {
                 )}
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
-                    <h2 className="text-xl font-semibold">{course.title}</h2>
+                    <h2 className="text-xl font-semibold">
+                      <a
+                        href={`/admin/courses/${course._id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-inherit hover:text-blue-600 hover:underline"
+                      >
+                        {course.title}
+                      </a>
+                    </h2>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStateColor(course.state)}`}>
                       {course.state}
                     </span>
                   </div>
                   <p className="text-gray-600 mb-4 line-clamp-2">{course.description}</p>
+                  {Array.isArray(course.categories) && course.categories.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {course.categories.map((cat) => {
+                        const label =
+                          typeof cat === 'object' && cat !== null && 'name' in cat
+                            ? (cat as { name: string }).name
+                            : String(cat);
+                        const key =
+                          typeof cat === 'object' && cat !== null && '_id' in cat
+                            ? String((cat as { _id: string })._id)
+                            : String(cat);
+                        return (
+                          <span
+                            key={key}
+                            className="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-800"
+                          >
+                            {label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-lg font-bold">${course.price}</span>
                     <span className="text-sm text-gray-500">
@@ -143,13 +212,15 @@ export const CoursesListPage: React.FC = () => {
                     >
                       Content
                     </button>
-                    <button
-                      onClick={() => handleClone(course._id)}
-                      className="flex-1 bg-purple-500 text-white px-3 py-2 rounded hover:bg-purple-600"
-                      disabled={cloneMutation.isPending}
-                    >
-                      {cloneMutation.isPending ? 'Cloning...' : 'Clone'}
-                    </button>
+                    {showAdminActions && (
+                      <button
+                        onClick={() => handleClone(course._id)}
+                        className="flex-1 bg-purple-500 text-white px-3 py-2 rounded hover:bg-purple-600"
+                        disabled={cloneMutation.isPending}
+                      >
+                        {cloneMutation.isPending ? 'Cloning...' : 'Clone'}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDelete(course._id)}
                       className="flex-1 bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"

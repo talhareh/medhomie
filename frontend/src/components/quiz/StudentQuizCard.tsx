@@ -16,6 +16,8 @@ interface StudentQuizCardProps {
   quiz: QuizWithQuestions;
   attempts?: QuizAttempt[];
   courseId: string;
+  /** Section / module id — needed to open a lesson-attached quiz in the course player */
+  moduleId?: string;
   lessonId?: string;
 }
 
@@ -23,12 +25,15 @@ export const StudentQuizCard: React.FC<StudentQuizCardProps> = ({
   quiz,
   attempts = [],
   courseId,
+  moduleId,
   lessonId
 }) => {
   const navigate = useNavigate();
 
-  const latestAttempt = attempts.length > 0 ? attempts[0] : null;
-  const attemptsRemaining = quiz.maxAttempts - attempts.length;
+  const completedAttempts = attempts.filter(attempt => !!attempt.completedAt);
+  const inProgressAttempt = attempts.find(attempt => !attempt.completedAt) || null;
+  const latestAttempt = completedAttempts.length > 0 ? completedAttempts[0] : null;
+  const attemptsRemaining = quiz.maxAttempts - completedAttempts.length;
   const canTakeQuiz = attemptsRemaining > 0 && quiz.isActive;
 
   const formatTime = (minutes?: number) => {
@@ -51,7 +56,16 @@ export const StudentQuizCard: React.FC<StudentQuizCardProps> = ({
       };
     }
 
-    if (attempts.length === 0) {
+    if (inProgressAttempt) {
+      return {
+        status: 'in-progress',
+        label: 'In Progress',
+        color: 'bg-blue-100 text-blue-600',
+        icon: faClock
+      };
+    }
+
+    if (completedAttempts.length === 0) {
       return {
         status: 'not-started',
         label: 'Not Started',
@@ -89,9 +103,24 @@ export const StudentQuizCard: React.FC<StudentQuizCardProps> = ({
   const quizStatus = getQuizStatus();
 
   const handleStartQuiz = () => {
-    if (canTakeQuiz) {
-      navigate(`/student/quiz/${quiz._id}`);
+    if (!canTakeQuiz) return;
+    if (lessonId && moduleId) {
+      navigate({
+        pathname: `/courses/${courseId}/learn/${moduleId}/${lessonId}`,
+        search: '',
+        state: {
+          moduleId,
+          lessonId,
+          contentType: 'quiz' as const
+        }
+      });
+      return;
     }
+    navigate({
+      pathname: `/courses/${courseId}/learn`,
+      search: `?courseQuiz=${encodeURIComponent(quiz._id)}`,
+      state: { courseQuizId: quiz._id }
+    });
   };
 
   const handleViewResults = () => {
@@ -140,18 +169,26 @@ export const StudentQuizCard: React.FC<StudentQuizCardProps> = ({
         </div>
 
         {/* Attempt Info */}
-        {attempts.length > 0 && (
+        {(latestAttempt || inProgressAttempt) && (
           <div className="bg-gray-50 rounded-lg p-3 mb-4">
             <div className="flex justify-between items-center">
               <div className="text-sm">
-                <span className="text-gray-500">Latest Attempt:</span>
+                <span className="text-gray-500">
+                  {inProgressAttempt ? 'Current Attempt:' : 'Latest Attempt:'}
+                </span>
                 <span className="ml-1 font-medium">
-                  {latestAttempt?.percentage.toFixed(1)}% 
-                  {latestAttempt?.passed ? ' (Passed)' : ' (Failed)'}
+                  {inProgressAttempt
+                    ? 'In progress'
+                    : `${latestAttempt?.percentage.toFixed(1)}% ${latestAttempt?.passed ? '(Passed)' : '(Failed)'}`}
                 </span>
               </div>
               <div className="text-sm text-gray-500">
-                {new Date(latestAttempt?.completedAt || latestAttempt?.updatedAt || '').toLocaleDateString()}
+                {new Date(
+                  inProgressAttempt?.updatedAt ||
+                  latestAttempt?.completedAt ||
+                  latestAttempt?.updatedAt ||
+                  ''
+                ).toLocaleDateString()}
               </div>
             </div>
             {attemptsRemaining > 0 && (
@@ -170,7 +207,7 @@ export const StudentQuizCard: React.FC<StudentQuizCardProps> = ({
               className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center"
             >
               <FontAwesomeIcon icon={faPlay} className="w-4 h-4 mr-2" />
-              {attempts.length === 0 ? 'Start Quiz' : 'Try Again'}
+              {inProgressAttempt ? 'Resume Quiz' : completedAttempts.length === 0 ? 'Start Quiz' : 'Try Again'}
             </button>
           ) : (
             <button

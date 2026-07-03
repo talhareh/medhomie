@@ -47,5 +47,12 @@ quizAttemptSchema.index({ student: 1 });
 quizAttemptSchema.index({ quiz: 1 });
 quizAttemptSchema.index({ course: 1 });
 quizAttemptSchema.index({ student: 1, quiz: 1, attemptNumber: 1 });
+quizAttemptSchema.index(
+  { student: 1, quiz: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { completedAt: null }
+  }
+);
 
 export const QuizAttempt = model<IQuizAttempt>('QuizAttempt', quizAttemptSchema);

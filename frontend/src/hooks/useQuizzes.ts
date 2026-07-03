@@ -50,8 +50,14 @@ export const useCreateQuiz = () => {
       toast.success('Quiz created successfully!');
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['quizzes'] });
-      // Handle both response formats
-      const courseId = data.data?.course || data.quiz?.course;
+
+      // Normalize course to an ID and invalidate course-specific quizzes
+      const rawCourse = data.data?.course || data.quiz?.course;
+      const courseId =
+        typeof rawCourse === 'string'
+          ? rawCourse
+          : rawCourse?._id ?? rawCourse?.id;
+
       if (courseId) {
         queryClient.invalidateQueries({ queryKey: ['quizzes', 'course', courseId] });
       }
@@ -74,8 +80,14 @@ export const useUpdateQuiz = () => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['quiz', variables.quizId] });
       queryClient.invalidateQueries({ queryKey: ['quizzes'] });
-      // Handle both response formats
-      const courseId = data.data?.course || data.quiz?.course;
+
+      // Normalize course to an ID and invalidate course-specific quizzes
+      const rawCourse = data.data?.course || data.quiz?.course;
+      const courseId =
+        typeof rawCourse === 'string'
+          ? rawCourse
+          : rawCourse?._id ?? rawCourse?.id;
+
       if (courseId) {
         queryClient.invalidateQueries({ queryKey: ['quizzes', 'course', courseId] });
       }
@@ -159,11 +171,12 @@ export const useDeleteQuestion = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (questionId: string) => quizService.deleteQuestion(questionId),
-    onSuccess: (data, questionId) => {
+    mutationFn: ({ questionId }: { questionId: string; quizId: string }) =>
+      quizService.deleteQuestion(questionId),
+    onSuccess: (_data, { questionId, quizId }) => {
       toast.success('Question deleted successfully!');
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      queryClient.invalidateQueries({ queryKey: ['quiz', quizId] });
+      queryClient.invalidateQueries({ queryKey: ['question', questionId] });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to delete question');
@@ -189,10 +202,10 @@ export const useStartQuizAttempt = () => {
   
   return useMutation({
     mutationFn: (quizId: string) => quizService.startQuizAttempt(quizId),
-    onSuccess: (data, quizId) => {
-      toast.success('Quiz started!');
-      // Invalidate relevant queries
+    onSuccess: (_data, quizId) => {
+      // Toast is shown by QuizViewer / UI layer to avoid duplicate notifications
       queryClient.invalidateQueries({ queryKey: ['quiz', quizId, 'attempts'] });
+      queryClient.invalidateQueries({ queryKey: ['quiz', quizId, 'eligibility'] });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to start quiz');
@@ -207,11 +220,12 @@ export const useSubmitQuizAttempt = () => {
   return useMutation({
     mutationFn: ({ attemptId, answers }: { attemptId: string; answers: Record<string, string | string[]> | Array<{ question: string; answer: string | string[]; timeSpent?: number }> }) =>
       quizService.submitQuizAttempt(attemptId, answers),
-    onSuccess: (data, variables) => {
-      toast.success('Quiz submitted successfully!');
-      // Invalidate relevant queries
+    onSuccess: (_data, variables) => {
+      // Toast is shown by QuizViewer / UI layer to avoid duplicate notifications
       queryClient.invalidateQueries({ queryKey: ['quiz', 'attempts'] });
+      queryClient.invalidateQueries({ queryKey: ['quiz', 'my-attempts'] });
       queryClient.invalidateQueries({ queryKey: ['quiz', 'attempt', variables.attemptId] });
+      queryClient.invalidateQueries({ queryKey: ['quiz'] });
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to submit quiz');
@@ -226,6 +240,15 @@ export const useQuizAttempt = (attemptId: string) => {
     queryFn: () => quizService.getQuizAttempt(attemptId),
     enabled: !!attemptId,
     staleTime: 1 * 60 * 1000, // 1 minute
+  });
+};
+
+// Get logged-in student's completed quiz attempts
+export const useMyQuizAttempts = () => {
+  return useQuery({
+    queryKey: ['quiz', 'my-attempts'],
+    queryFn: () => quizService.getMyQuizAttempts(),
+    staleTime: 2 * 60 * 1000,
   });
 };
 

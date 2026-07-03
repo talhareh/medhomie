@@ -32,8 +32,8 @@ const customModalStyles = {
 };
 
 const paymentInfo = {
-  paypal: {
-    title: 'PayPal',
+  kuickpay: {
+    title: 'Kuickpay',
     instructions: 'Pay with Credit/Debit Card',
     details: 'Secure online payment',
     useCardPayment: true
@@ -109,7 +109,7 @@ const RefundPolicyPage: React.FC = () => {
     setSelectedPayment(key);
     setReceipt(null);
     setError(null);
-    if (key === 'paypal' && course) {
+    if (key === 'kuickpay' && course) {
       setLoadingCard(true);
       setTimeout(() => {
         setIsModalOpen(false);
@@ -176,7 +176,7 @@ const RefundPolicyPage: React.FC = () => {
           <hr className="my-4" />
           <h2 className="font-semibold text-lg">4. Refund Processing</h2>
           <ul>
-            <li>Approved refunds will be issued to the original payment method (Bank transfer, Easypaisa, JazzCash, PayPal, Stripe).</li>
+            <li>Approved refunds will be issued to the original payment method (Bank transfer, Easypaisa, JazzCash, Kuickpay, Stripe).</li>
             <li>Please allow 5–10 business days after approval for the transaction to be completed.</li>
           </ul>
           <hr className="my-4" />
@@ -231,18 +231,18 @@ const RefundPolicyPage: React.FC = () => {
             {Object.entries(paymentInfo).map(([key, info]) => (
               <div
                 key={key}
-                className={`border rounded-lg p-4 cursor-pointer ${selectedPayment === key ? 'ring-2 ring-primary' : ''} ${loadingCard && key === 'paypal' ? 'opacity-50 pointer-events-none' : ''}`}
+                className={`border rounded-lg p-4 cursor-pointer ${selectedPayment === key ? 'ring-2 ring-primary' : ''} ${loadingCard && key === 'kuickpay' ? 'opacity-50 pointer-events-none' : ''}`}
                 onClick={() => !loadingCard && handleSelectPayment(key)}
               >
                 <h5 className="font-medium text-gray-800 mb-2 flex items-center">
                   {info.title}
-                  {loadingCard && key === 'paypal' && (
+                  {loadingCard && key === 'kuickpay' && (
                     <FontAwesomeIcon icon={faSpinner} spin className="ml-2 text-primary" />
                   )}
                 </h5>
                 <p className="text-gray-600 mb-2">{info.instructions}</p>
                 <pre className="bg-gray-100 p-3 rounded text-sm text-gray-700 whitespace-pre-wrap">{info.details}</pre>
-                {selectedPayment === key && key !== 'paypal' && (
+                {selectedPayment === key && key !== 'kuickpay' && (
                   <div className="mt-4">
                     <h4 className="text-lg font-medium text-gray-800 mb-4">Upload Payment Receipt</h4>
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
@@ -288,7 +288,7 @@ const RefundPolicyPage: React.FC = () => {
             >
               Cancel
             </button>
-            {selectedPayment && selectedPayment !== 'paypal' && (
+            {selectedPayment && selectedPayment !== 'kuickpay' && (
               <button
                 onClick={handleProceedWithReceipt}
                 className={`px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-dark flex items-center ${!receipt ? 'opacity-50 cursor-not-allowed' : ''}`}

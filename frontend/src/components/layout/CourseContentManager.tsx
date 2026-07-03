@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import { MainLayout } from './MainLayout';
 import { useAuth } from '../../contexts/AuthContext';
+import { canManageCourses } from '../../utils/roles';
 import { ModuleForm } from '../ModuleForm';
 import { Module } from '../../types/course';
 import api from '../../utils/axios';
@@ -64,7 +65,7 @@ export const CourseContentManager: React.FC = () => {
 
   const addNoticeMutation = useMutation({
     mutationFn: async (notice: string) => {
-      const response = await api.post(`/courses/${courseId}/notices`, { notice });
+      const response = await api.post(`/notices/${courseId}/notices`, { notice });
       return response.data;
     },
     onSuccess: () => {
@@ -79,7 +80,7 @@ export const CourseContentManager: React.FC = () => {
 
   const removeNoticeMutation = useMutation({
     mutationFn: async (noticeId: string) => {
-      const response = await api.delete(`/courses/${courseId}/notices/${noticeId}`);
+      const response = await api.delete(`/notices/${courseId}/notices/${noticeId}`);
       return response.data;
     },
     onSuccess: () => {
@@ -133,8 +134,8 @@ export const CourseContentManager: React.FC = () => {
     setEditingModule(null);
   };
 
-  if (!user || user.role !== 'admin') {
-    navigate('/');
+  if (!user || !canManageCourses(user.role)) {
+    navigate('/dashboard');
     return null;
   }
 

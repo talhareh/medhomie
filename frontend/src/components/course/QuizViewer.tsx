@@ -21,7 +21,7 @@ import {
   useSubmitQuizAttempt,
   useQuizEligibility 
 } from '../../hooks/useQuizzes';
-import { QuestionType } from '../../types/quiz';
+import { QuestionType, QuizAttempt } from '../../types/quiz';
 
 interface QuizViewerProps {
   quizId: string;
@@ -58,11 +58,50 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
   const { data: eligibilityData } = useQuizEligibility(quizId);
   const startAttemptMutation = useStartQuizAttempt();
   const submitAttemptMutation = useSubmitQuizAttempt();
-  const [localAttempt, setLocalAttempt] = useState<any>(null);
+  const [localAttempt, setLocalAttempt] = useState<Partial<QuizAttempt> | null>(null);
   const activeAttempt = localAttempt || startAttemptMutation.data?.attempt;
 
   const quiz = quizData?.data;
   const eligibility = eligibilityData?.data;
+
+  const getProgressKey = (attemptId?: string | null) => {
+    if (!user?._id || !attemptId) return null;
+    return `quiz_progress_${quizId}_${user._id}_${attemptId}`;
+  };
+
+  const clearLegacyProgress = () => {
+    if (!user?._id) return;
+    localStorage.removeItem(`quiz_progress_${quizId}_${user._id}`);
+  };
+
+  const clearAttemptProgress = (attemptId?: string | null) => {
+    const progressKey = getProgressKey(attemptId);
+    if (progressKey) {
+      localStorage.removeItem(progressKey);
+    }
+  };
+
+  const loadSavedProgress = (attemptId?: string | null) => {
+    const progressKey = getProgressKey(attemptId);
+    if (!progressKey) return false;
+
+    const savedProgress = localStorage.getItem(progressKey);
+    if (!savedProgress) return false;
+
+    try {
+      const progress = JSON.parse(savedProgress);
+      setAnswers(progress.answers || {});
+      setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
+      setFlaggedQuestions(new Set(progress.flaggedQuestions || []));
+      if (typeof progress.timeRemaining === 'number') {
+        setTimeRemaining(progress.timeRemaining);
+      }
+      return true;
+    } catch (error) {
+      console.error('Error loading quiz progress:', error);
+      return false;
+    }
+  };
 
   // Timer effect
   useEffect(() => {
@@ -83,11 +122,30 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
 
   // Set timer when attempt starts
   useEffect(() => {
-    if (activeAttempt && quiz?.timeLimit && quizStarted) {
-      const timeLimitSeconds = quiz.timeLimit * 60;
-      setTimeRemaining(timeLimitSeconds);
-    }
-  }, [activeAttempt, quiz?.timeLimit, quizStarted]);
+    if (!activeAttempt || !quiz?.timeLimit || !quizStarted || timeRemaining !== null) return;
+
+    const timeLimitSeconds = quiz.timeLimit * 60;
+    const startedAtTime = activeAttempt.startedAt ? new Date(activeAttempt.startedAt).getTime() : Date.now();
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAtTime) / 1000));
+    setTimeRemaining(Math.max(0, timeLimitSeconds - elapsedSeconds));
+  }, [activeAttempt, quiz?.timeLimit, quizStarted, timeRemaining]);
+
+  useEffect(() => {
+    if (!quizStarted || !activeAttempt?._id) return;
+
+    const progressKey = getProgressKey(activeAttempt._id);
+    if (!progressKey) return;
+
+    const progress = {
+      attemptId: activeAttempt._id,
+      answers,
+      currentQuestionIndex,
+      timeRemaining,
+      flaggedQuestions: Array.from(flaggedQuestions)
+    };
+
+    localStorage.setItem(progressKey, JSON.stringify(progress));
+  }, [activeAttempt?._id, answers, currentQuestionIndex, flaggedQuestions, quizStarted, timeRemaining]);
 
   const handleStartQuiz = async () => {
     if (!quiz || startAttemptMutation.isPending) return;
@@ -103,14 +161,26 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
         toast.error('Unable to start quiz attempt. Please try again.');
         return;
       }
+
+      const isResuming = Boolean((response as any)?.resumed);
+
       setLocalAttempt(attemptPayload);
       setSubmissionResult(null);
       setSubmittedAttemptId(null);
-      setAnswers({});
-      setCurrentQuestionIndex(0);
-      setFlaggedQuestions(new Set());
+      setShowConfirmSubmit(false);
+
+      const restoredProgress = isResuming ? loadSavedProgress(attemptPayload._id) : false;
+
+      if (!restoredProgress) {
+        setAnswers({});
+        setCurrentQuestionIndex(0);
+        setFlaggedQuestions(new Set());
+        setTimeRemaining(null);
+      }
+
       setQuizStarted(true);
-      toast.success('Quiz started! Good luck!');
+      clearLegacyProgress();
+      toast.success(isResuming ? 'Resuming your quiz.' : 'Quiz started! Good luck!');
     } catch (error) {
       console.error('[QuizViewer] Failed to start attempt', error);
     }
@@ -121,17 +191,6 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
       ...prev,
       [questionId]: answer
     }));
-    
-    // Auto-save progress (in real implementation, this would call an API)
-    // For now, we'll save to localStorage
-    const progressKey = `quiz_progress_${quizId}_${user?._id}`;
-    const progress = {
-      answers: { ...answers, [questionId]: answer },
-      currentQuestionIndex,
-      timeRemaining,
-      flaggedQuestions: Array.from(flaggedQuestions)
-    };
-    localStorage.setItem(progressKey, JSON.stringify(progress));
   };
 
   const toggleFlagQuestion = (index: number) => {
@@ -169,8 +228,8 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
       console.log('[QuizViewer] Submission response', response);
 
       // Clear saved progress
-      const progressKey = `quiz_progress_${quizId}_${user?._id}`;
-      localStorage.removeItem(progressKey);
+      clearAttemptProgress(activeAttempt._id);
+      clearLegacyProgress();
 
       const attemptSummary = (response as any)?.attempt || (response as any)?.attemptSummary || (response as any)?.data;
       if (attemptSummary) {
@@ -211,28 +270,6 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
-
-  // Load saved progress on component mount
-  useEffect(() => {
-    const progressKey = `quiz_progress_${quizId}_${user?._id}`;
-    const savedProgress = localStorage.getItem(progressKey);
-    
-    if (savedProgress) {
-      try {
-        const progress = JSON.parse(savedProgress);
-        setAnswers(progress.answers || {});
-        setCurrentQuestionIndex(progress.currentQuestionIndex || 0);
-        setTimeRemaining(progress.timeRemaining);
-        setFlaggedQuestions(new Set(progress.flaggedQuestions || []));
-        
-        if (Object.keys(progress.answers || {}).length > 0) {
-          setQuizStarted(true);
-        }
-      } catch (error) {
-        console.error('Error loading quiz progress:', error);
-      }
-    }
-  }, [quizId, user?._id]);
 
   // Loading state
   if (quizLoading || !quiz) {
@@ -384,6 +421,12 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
             </div>
           </div>
 
+          {eligibility?.hasInProgressAttempt && (
+            <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-center text-blue-800">
+              You have an unfinished quiz attempt. Press resume to continue where you left off.
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex justify-center space-x-4">
             {onExit && (
@@ -401,7 +444,9 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
               className="px-8 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
               <FontAwesomeIcon icon={faPlay} className="mr-2" />
-              {startAttemptMutation.isPending ? 'Starting...' : 'Start Quiz'}
+              {startAttemptMutation.isPending
+                ? (eligibility?.hasInProgressAttempt ? 'Resuming...' : 'Starting...')
+                : (eligibility?.hasInProgressAttempt ? 'Resume Quiz' : 'Start Quiz')}
             </button>
           </div>
         </div>
