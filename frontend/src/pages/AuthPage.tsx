@@ -12,7 +12,7 @@ export const AuthPage = () => {
   const mode = searchParams.get('mode') || 'login';
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/my-courses" replace />;
   }
 
   return (

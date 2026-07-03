@@ -39,18 +39,27 @@ export const enrollmentService = {
       }
     });
 
-    const enrollments = Array.isArray(response.data) ? response.data : [];
+    const raw = response.data;
 
-    // Skip rows where student ref is missing (e.g. deleted user). Reading
-    // enrollment.student._id on null throws and the modal shows no rows.
-    return enrollments
-      .filter((enrollment: { student?: unknown }) => enrollment.student != null)
-      .map((enrollment: any) => ({
-        _id: enrollment.student._id,
-        fullName: enrollment.student.fullName,
-        email: enrollment.student.email,
-        whatsappNumber: enrollment.student.whatsappNumber
-      }));
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+
+    // Normalize possible nested arrays: [[...]] -> [...]
+    const enrollmentsOrStudents = Array.isArray(raw[0]) ? raw[0] : raw;
+
+    // If data already looks like student objects (no .student field), return as-is
+    if (enrollmentsOrStudents.length > 0 && !enrollmentsOrStudents[0].student) {
+      return enrollmentsOrStudents;
+    }
+
+    // Extract student data from enrollments
+    return enrollmentsOrStudents.map((enrollment: any) => ({
+      _id: enrollment.student?._id,
+      fullName: enrollment.student?.fullName,
+      email: enrollment.student?.email,
+      whatsappNumber: enrollment.student?.whatsappNumber
+    })).filter((student: any) => !!student._id);
   },
 
   // Update enrollment expiration date
